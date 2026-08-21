@@ -132,7 +132,8 @@ final class X_Companion_Manifest {
 		$inputs = self::fingerprint_inputs(
 			self::snapshot_registry(),
 			self::active_theme(),
-			self::active_plugins()
+			self::active_plugins(),
+			self::global_styles_stamp()
 		);
 
 		self::$fingerprint = self::compute_fingerprint( $inputs );
@@ -279,7 +280,7 @@ final class X_Companion_Manifest {
 	 * @param array $plugins  List of { slug, version }.
 	 * @return array
 	 */
-	public static function fingerprint_inputs( array $snapshot, array $theme, array $plugins ): array {
+	public static function fingerprint_inputs( array $snapshot, array $theme, array $plugins, string $global_styles = '' ): array {
 		$names = array_keys( $snapshot );
 		usort( $names, 'strcmp' );
 
@@ -318,6 +319,7 @@ final class X_Companion_Manifest {
 				'version' => (string) ( $theme['version'] ?? '' ),
 			),
 			'plugins'            => $plugin_list,
+			'global_styles'      => $global_styles,
 		);
 	}
 
@@ -553,6 +555,39 @@ final class X_Companion_Manifest {
 		}
 
 		return $suites;
+	}
+
+	/**
+	 * A stamp for the user-origin global styles, so design-token writes move
+	 * the fingerprint.
+	 *
+	 * Without this, POST /theme/tokens changed what the manifest reports
+	 * (theme_tokens) while the fingerprint — and therefore the manifest
+	 * transient key — stayed put, so clients kept reading stale tokens until
+	 * a forced refresh. The stamp is the sha256 of the user global-styles
+	 * post content ('' when none exists), which is exactly the surface the
+	 * tokens route writes.
+	 *
+	 * @return string 64 hex characters, or ''.
+	 */
+	public static function global_styles_stamp(): string {
+		if ( ! class_exists( 'WP_Theme_JSON_Resolver' ) || ! method_exists( 'WP_Theme_JSON_Resolver', 'get_user_global_styles_post_id' ) ) {
+			return '';
+		}
+
+		$post_id = (int) WP_Theme_JSON_Resolver::get_user_global_styles_post_id();
+
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+
+		$post = get_post( $post_id );
+
+		if ( ! $post || '' === (string) $post->post_content ) {
+			return '';
+		}
+
+		return hash( 'sha256', (string) $post->post_content );
 	}
 
 	/*

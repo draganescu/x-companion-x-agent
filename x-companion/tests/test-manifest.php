@@ -144,10 +144,11 @@ x_test(
 		$inputs = X_Companion_Manifest::fingerprint_inputs( $snapshot, $theme, $plugins );
 
 		x_assert_same(
-			array( 'interfaces_version', 'blocks', 'theme', 'plugins' ),
+			array( 'interfaces_version', 'blocks', 'theme', 'plugins', 'global_styles' ),
 			array_keys( $inputs ),
 			'top-level keys, in contract order'
 		);
+		x_assert_same( '', $inputs['global_styles'], 'global_styles defaults to the empty stamp' );
 		x_assert_same( '1', $inputs['interfaces_version'], 'interfaces_version' );
 		x_assert_same( $theme, $inputs['theme'], 'theme' );
 		x_assert_same( $plugins, $inputs['plugins'], 'plugins' );
@@ -235,6 +236,19 @@ x_test(
 	function () use ( $snapshot, $theme, $plugins ) {
 		$fp = x_fp( $snapshot, $theme, $plugins );
 		x_assert( 1 === preg_match( '/^[0-9a-f]{64}$/', $fp ), 'shape: ' . $fp );
+	}
+);
+
+x_test(
+	'a different global-styles stamp moves the fingerprint (token writes move the epoch)',
+	function () use ( $snapshot, $theme, $plugins ) {
+		$a = X_Companion_Manifest::compute_fingerprint(
+			X_Companion_Manifest::fingerprint_inputs( $snapshot, $theme, $plugins, '' )
+		);
+		$b = X_Companion_Manifest::compute_fingerprint(
+			X_Companion_Manifest::fingerprint_inputs( $snapshot, $theme, $plugins, str_repeat( 'a', 64 ) )
+		);
+		x_assert( $a !== $b, 'global_styles participates in the fingerprint' );
 	}
 );
 

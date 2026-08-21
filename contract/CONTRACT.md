@@ -83,7 +83,8 @@ fingerprint = sha256( canonical_json( fingerprint_inputs ) )
       "parent": null, "ancestor": null }
   ],
   "theme": { "slug": "twentytwentyfive", "version": "1.3" },
-  "plugins": [ { "slug": "x-companion", "version": "1.0.0" } ]
+  "plugins": [ { "slug": "x-companion", "version": "1.0.0" } ],
+  "global_styles": "<sha256 of the user-origin global styles post content, or ''>"
 }
 ```
 
@@ -91,6 +92,10 @@ fingerprint = sha256( canonical_json( fingerprint_inputs ) )
 - `plugins` = **active** plugins only, sorted ascending by `slug`, where `slug` is the plugin
   file's dirname (or basename without `.php` for single-file plugins).
 - `parent` / `ancestor` are `null` when unset, otherwise the registry array sorted ascending.
+- `global_styles` is the sha256 of the user-origin global styles post's content, `''` when the
+  post does not exist or is empty. It is an input **so that design-token writes move the epoch**:
+  the manifest is cached by fingerprint, and without this component `POST /theme/tokens` changed
+  `theme_tokens` while the cache key stayed put, serving stale tokens until a forced refresh.
 
 `canonical_json` = UTF-8 JSON with **object keys sorted ascending byte order at every depth**,
 no insignificant whitespace, `/` not escaped, unicode not escaped.
