@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/group",
+      "attributes": { "tagName": "div", "layout": { "type": "constrained" } },
+      "innerBlocks": [
+        { "name": "core/heading", "attributes": { "level": 2, "content": "Selected work" } },
+        {
+          "name": "core/columns",
+          "attributes": { "isStackedOnMobile": true },
+          "innerBlocks": [
+            {
+              "name": "core/column",
+              "attributes": { "width": "50%" },
+              "innerBlocks": [
+                { "name": "core/paragraph", "attributes": { "content": "Three projects, one year." } }
+              ]
+            },
+            {
+              "name": "core/column",
+              "attributes": { "width": "50%" },
+              "innerBlocks": [
+                { "name": "core/image", "attributes": { "url": "https://example.com/work.jpg", "alt": "Studio wall", "sizeSlug": "large" } }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "core/buttons",
+          "innerBlocks": [
+            { "name": "core/button", "attributes": { "text": "See the archive", "url": "https://example.com/archive", "tagName": "a" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

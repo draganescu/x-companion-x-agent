@@ -1,0 +1,67 @@
+{
+  "milestones": {
+    "M6_spec_and_tokens": {
+      "status": "done",
+      "updated_at": "2026-08-21T14:40:00Z",
+      "evidence": "npx vitest run -> 260 passed / 25 skipped / 0 failed (includes 38 wp_spec_validate cases).\nLive, via bash proof/run-all.sh on Playground WP 7.1:\nP15 \u2014 'every wp_spec_validate code is reachable from a fixture' -> [E_BOX_OVERLAP, E_ORPHAN_CONTENT, E_SPEC_SCHEMA, W_NO_RESPONSIVE, W_UNQUANTIZED]; hero-sample.json validates clean (diagnostics []).\nP10 \u2014 wp_tokens_apply(sample tokens) then: 8/8 token slugs in manifest theme_tokens; WordPress serves --wp--preset--color--canvas -> #fdfaf4; compiled block carries has-canvas-background-color; a measured element computes to rgb(253, 250, 244).\nP12 \u2014 wp_snapshot zip contains theme/, agent-blocks/, patterns.json, content.xml, manifest.json and manifest.json fingerprint === live GET /fingerprint."
+    },
+    "M7_skill_and_e2e": {
+      "status": "done",
+      "updated_at": "2026-08-21T14:40:00Z",
+      "evidence": "SKILL.md (all ten rules R1-R10 verbatim, 3 worked examples) + references/tree-ir.md + references/design-spec.md written; all 22 example tool calls machine-checked against the real TOOLS table in registry.ts (0 problems). Packaging verified against code.claude.com/docs (.claude-plugin/plugin.json, skills/<name>/SKILL.md at plugin root, .mcp.json).\ne2e, via bash x-agent/tests/e2e/from-prompt.sh (proof scenario P14) \u2014 PASS, 15 observations:\n  three-section page; validate zero errors; compile all_valid true; registry gaps [core/legacy-widget, core/post-comments, core/widget-group] none used by the tree; verify pass true; measured nodes/with block_name 9/9; headings at y=[0,105,210]; PNG 40.2 KB; 'exactly one screenshot in the whole run' -> 1.\ne2e, via bash x-agent/tests/e2e/from-design.sh (proof scenario P15) \u2014 PASS, 14 observations:\n  lifted spec validates clean; 13 snap-to-token entries logged; 2 synthesized responsive assumptions; implementing tree compiles all_valid; 30 regions diffed; none outside tolerance.\nFull suite: bash proof/run-all.sh -> 15 passed, 0 failed, 0 skipped (run twice, reproducible)."
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-21",
+      "what": "The interop proof suite (proof/) drives the REAL MCP tool entrypoint callTool() against a REAL Playground WordPress, never the mock companion.",
+      "why": "The mock proves the client's own logic; it cannot prove the two plugins interoperate. Every P-scenario therefore boots a live instance with x-companion actually activated."
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Scenarios record OBSERVATIONS (a real value per assertion), and the report prints them.",
+      "why": "'The test passed' is not evidence. proof/REPORT.md carries 157 observed values so a reader can check the claim without re-running anything."
+    },
+    {
+      "when": "2026-08-21",
+      "what": "boot.mjs gained an optional `slot` option; the proof suite boots into slot proof-<posture>.",
+      "why": "The runtime descriptor path was keyed only by profile+posture, so the proof suite could not run while an agent held the same profile+posture slot. Default behaviour is unchanged for every CLI caller."
+    },
+    {
+      "when": "2026-08-21",
+      "what": "P4 asserts the diagnostic code each fixture exists to trigger, and records divergence from the offline expected/ fixtures instead of asserting them verbatim.",
+      "why": "expected/ is ground truth for the WP 6.5-era registry snapshot the PHP unit tests use. This instance is WP 7.1, where many core blocks are now dynamic, so W_STATIC_NEEDS_HARNESS fires less often. Asserting the snapshot against a live instance would contradict the instance-as-ground-truth thesis both specs are built on."
+    },
+    {
+      "when": "2026-08-21T14:40:00Z",
+      "what": "The two e2e demos the agent spec names (tests/e2e/from-prompt.sh, from-design.sh) are implemented as proof scenarios P14/P15, with the shell scripts as thin entry points.",
+      "why": "Their evidence then lands in proof/REPORT.md next to everything else instead of in a second, separate place, and they reuse the suite's instance management rather than duplicating it."
+    }
+  ],
+  "deviations": [
+    {
+      "when": "2026-08-21",
+      "spec_ref": "agent mcp_tools wp_parse; CONTRACT.md \u00a71",
+      "what": "P3 asserts STRUCTURAL round-trip idempotence, not byte-identical markup.",
+      "why": "TreeIR carries no innerHTML by rule, but core blocks store their text in html-sourced attributes, which live in innerHTML rather than in parse_blocks()' attrs. A stripped tree therefore cannot round-trip prose: recompiling preserves every block and attrs-sourced attribute and loses the text. P3 asserts this explicitly in both directions (raw form retains it, stripped form does not) so brownfield lifting is documented as needing the raw form."
+    },
+    {
+      "when": "2026-08-21",
+      "spec_ref": "agent M4_oracle",
+      "what": "Fixed: wp_tokens_apply now clears the oracle's per-fingerprint theme-style cache (x-agent/mcp/src/tools/tokens.ts).",
+      "why": "Found by P10. A token write changes the site's CSS but does NOT move the fingerprint, so a wp_verify that ran before the write kept serving pre-token stylesheets and reported rgba(0,0,0,0) for a token-styled element. Ordering-dependent, so it passed in isolation and failed in a full run. P10 asserts the measured pixel to keep the fix honest."
+    },
+    {
+      "when": "2026-08-21",
+      "spec_ref": "agent M1_scaffold tests",
+      "what": "Rewrote 4 assertions in x-agent/tests/validate.test.ts that asserted the six session/oracle/factory tools were NOT implemented.",
+      "why": "They encoded build order rather than behaviour and had to fail the moment the work they were waiting on landed. Replaced with the end-state invariant (all 16 declared tools resolve to real handlers) plus a synthetic-placeholder test that keeps covering the not_implemented degradation path."
+    },
+    {
+      "when": "2026-08-21T14:40:00Z",
+      "spec_ref": "proof suite ordering",
+      "what": "Scenario execution order is deliberately non-numeric: P10 (design-token write) runs LAST.",
+      "why": "P10 rewrites the site's global styles, and P9/P15 measure geometry and computed colour against specs captured from the untouched theme. Both passed alone and failed in sequence. Ordering is documented in scenarios.ts rather than left to luck."
+    }
+  ]
+}

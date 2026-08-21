@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "x-contract/manifest.schema.json",
+  "title": "Manifest",
+  "type": "object",
+  "required": [
+    "fingerprint", "generated_at", "wp_version", "site_url", "posture",
+    "interfaces_version", "blocks", "patterns", "theme_tokens", "suites", "counts"
+  ],
+  "properties": {
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 hex of canonical JSON of: sorted block names + each block's attributes schema + parent/ancestor + api_version + active theme slug+version + active plugin slugs+versions + interfaces.version"
+    },
+    "generated_at": { "type": "string" },
+    "wp_version": { "type": "string" },
+    "site_url": { "type": "string" },
+    "posture": { "enum": ["toolchain", "production"] },
+    "interfaces_version": { "type": "string" },
+    "blocks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["title", "category", "api_version", "attributes", "is_dynamic"],
+        "properties": {
+          "title": { "type": "string" },
+          "category": { "type": ["string", "null"] },
+          "api_version": { "type": "integer" },
+          "attributes": { "type": "object", "description": "verbatim from registry" },
+          "supports": { "type": "object" },
+          "parent": { "type": ["array", "null"], "items": { "type": "string" } },
+          "ancestor": { "type": ["array", "null"], "items": { "type": "string" } },
+          "provides_context": { "type": "object" },
+          "uses_context": { "type": "array", "items": { "type": "string" } },
+          "is_dynamic": { "type": "boolean", "description": "has render_callback or render file" },
+          "variations_count": { "type": "integer" },
+          "agent_hints": {
+            "type": "object",
+            "properties": {
+              "allowed_blocks": { "type": ["array", "null"], "items": { "type": "string" } },
+              "template_lock": { "type": ["string", "boolean", "null"] },
+              "usage_notes": { "type": "string" },
+              "example_attributes": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "title", "categories", "source", "has_content"],
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "categories": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": ["string", "null"] },
+          "has_content": { "type": "boolean" }
+        }
+      }
+    },
+    "theme_tokens": {
+      "type": "object",
+      "description": "resolved wp_get_global_settings() subset",
+      "required": ["color", "spacing", "typography", "layout"],
+      "properties": {
+        "color": { "type": "object", "properties": { "palette": {} } },
+        "spacing": { "type": "object", "properties": { "spacingSizes": {}, "spacingScale": {} } },
+        "typography": { "type": "object", "properties": { "fontSizes": {}, "fontFamilies": {} } },
+        "layout": { "type": "object", "properties": { "contentSize": {}, "wideSize": {} } }
+      }
+    },
+    "suites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "version"],
+        "properties": { "slug": { "type": "string" }, "version": { "type": "string" } }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": ["blocks", "dynamic_blocks", "static_blocks", "patterns"],
+      "properties": {
+        "blocks": { "type": "integer" },
+        "dynamic_blocks": { "type": "integer" },
+        "static_blocks": { "type": "integer" },
+        "patterns": { "type": "integer" }
+      }
+    }
+  }
+}

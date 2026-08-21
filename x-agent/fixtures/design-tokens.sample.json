@@ -1,0 +1,36 @@
+{
+  "palette": [
+    { "slug": "base", "name": "Base", "color": "#ffffff", "role": "background" },
+    { "slug": "surface", "name": "Surface", "color": "#f4f5f7", "role": "surface" },
+    { "slug": "contrast", "name": "Contrast", "color": "#111111", "role": "text" },
+    { "slug": "muted", "name": "Muted", "color": "#5b6270", "role": "muted" },
+    { "slug": "primary", "name": "Primary", "color": "#1a4fd6", "role": "primary" },
+    { "slug": "accent", "name": "Accent", "color": "#f5b301", "role": "accent" },
+    { "slug": "border", "name": "Border", "color": "#dfe3e8", "role": "border" }
+  ],
+  "spacing": {
+    "scale_unit": "rem",
+    "steps": [
+      { "slug": "20", "size": "0.5rem" },
+      { "slug": "30", "size": "1rem" },
+      { "slug": "40", "size": "1.5rem" },
+      { "slug": "50", "size": "3rem" },
+      { "slug": "60", "size": "4.5rem" },
+      { "slug": "70", "size": "6rem" }
+    ]
+  },
+  "typography": {
+    "families": [
+      { "slug": "body", "name": "Body", "fontFamily": "\"Inter\", system-ui, sans-serif" },
+      { "slug": "heading", "name": "Heading", "fontFamily": "\"Playfair Display\", Georgia, serif" }
+    ],
+    "sizes": [
+      { "slug": "small", "size": "0.875rem" },
+      { "slug": "medium", "size": "1rem" },
+      { "slug": "large", "size": "1.5rem" },
+      { "slug": "x-large", "size": "2.25rem", "fluid": { "min": "1.75rem", "max": "2.25rem" } },
+      { "slug": "xx-large", "size": "3.5rem", "fluid": true }
+    ]
+  },
+  "layout": { "contentSize": "720px", "wideSize": "1200px" }
+}

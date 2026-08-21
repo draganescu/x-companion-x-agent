@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "x-agent": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp/dist/mcp/src/server.js"
+      ],
+      "env": {
+        "X_AGENT_PLUGIN_ROOT": "${CLAUDE_PLUGIN_ROOT}",
+        "X_AGENT_DATA_DIR": "${CLAUDE_PLUGIN_DATA}"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "x-tools",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Live test infrastructure for x-companion / x-agent: WordPress Playground boot, auth, and REST helpers.",
+  "dependencies": {
+    "@wp-playground/cli": "3.1.50"
+  },
+  "devDependencies": {
+    "playwright": "1.60.0"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "palette": [
+    { "slug": "canvas", "name": "Canvas", "color": "#fdfaf4", "role": "background" },
+    { "slug": "shelf", "name": "Shelf", "color": "#f0e9dc", "role": "surface" },
+    { "slug": "ink", "name": "Ink", "color": "#14110c", "role": "text" },
+    { "slug": "graphite", "name": "Graphite", "color": "#5a5347", "role": "muted" },
+    { "slug": "cobalt", "name": "Cobalt", "color": "#1f3fd6", "role": "primary" },
+    { "slug": "clay", "name": "Clay", "color": "#b4522d", "role": "secondary" },
+    { "slug": "citron", "name": "Citron", "color": "#d8e04b", "role": "accent" },
+    { "slug": "hairline", "name": "Hairline", "color": "#ded5c4", "role": "border" }
+  ],
+  "spacing": {
+    "scale_unit": "rem",
+    "steps": [
+      { "slug": "20", "size": "0.5rem" },
+      { "slug": "30", "size": "1rem" },
+      { "slug": "40", "size": "1.75rem" },
+      { "slug": "50", "size": "2.75rem" },
+      { "slug": "60", "size": "4.5rem" },
+      { "slug": "70", "size": "7.25rem" }
+    ]
+  },
+  "typography": {
+    "families": [
+      { "slug": "body", "name": "Body", "fontFamily": "\"Source Sans 3\", system-ui, sans-serif" },
+      { "slug": "display", "name": "Display", "fontFamily": "\"Bodoni Moda\", Georgia, serif" },
+      { "slug": "mono", "name": "Mono", "fontFamily": "\"IBM Plex Mono\", ui-monospace, monospace" }
+    ],
+    "sizes": [
+      { "slug": "small", "size": "0.9375rem" },
+      { "slug": "medium", "size": "1.0625rem" },
+      { "slug": "large", "size": "1.5rem" },
+      { "slug": "x-large", "size": "2.375rem", "fluid": { "min": "1.875rem", "max": "2.375rem" } },
+      { "slug": "xx-large", "size": "3.75rem", "fluid": true }
+    ]
+  },
+  "layout": {
+    "contentSize": "672px",
+    "wideSize": "1180px"
+  }
+}

@@ -1,0 +1,21 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"description": "x test matrix profile `core-only`: WordPress latest + Twenty Twenty-Five, no extra plugins. Blueprint v1. Consumed by tools/playground/boot.mjs, which appends activatePlugin steps for every mounted plugin before handing the declaration to runCLI().",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"steps": [
+		{
+			"step": "activateTheme",
+			"themeFolderName": "twentytwentyfive",
+			"progress": { "caption": "Activating Twenty Twenty-Five" }
+		},
+		{
+			"step": "setSiteOptions",
+			"options": {
+				"blogname": "x-companion core-only"
+			}
+		}
+	]
+}

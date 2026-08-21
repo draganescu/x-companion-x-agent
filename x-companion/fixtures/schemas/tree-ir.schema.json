@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "x-contract/tree-ir.schema.json",
+  "title": "TreeIR",
+  "description": "What agents generate INSTEAD of serialized markup. No innerHTML anywhere - innerHTML is a compiler output, produced only by the harness.",
+  "type": "object",
+  "required": ["version", "epoch", "blocks"],
+  "properties": {
+    "version": { "const": 1 },
+    "epoch": {
+      "type": "string",
+      "description": "Manifest fingerprint this tree was generated against."
+    },
+    "blocks": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/BlockNode" }
+    }
+  },
+  "definitions": {
+    "BlockNode": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+$" },
+        "attributes": { "type": "object" },
+        "innerBlocks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BlockNode" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    { "name": "core/paragraph", "attributes": { "content": "First." } },
+    { "name": "core/paragraph", "attributes": { "content": "Second: same block name, no second warning." } },
+    { "name": "core/spacer", "attributes": { "height": "40px" } },
+    { "name": "core/image", "attributes": { "url": "https://example.com/a.jpg" } }
+  ]
+}

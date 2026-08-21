@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/group",
+      "attributes": {
+        "tagName": "header",
+        "align": "full",
+        "layout": {
+          "type": "constrained"
+        },
+        "backgroundColor": "base"
+      },
+      "innerBlocks": [
+        {
+          "name": "core/heading",
+          "attributes": {
+            "textAlign": "center",
+            "level": 1,
+            "fontSize": "xx-large",
+            "content": "Ship the layout, not the guesswork."
+          }
+        },
+        {
+          "name": "core/paragraph",
+          "attributes": {
+            "align": "center",
+            "fontSize": "large",
+            "content": "Generate trees, compile them in the real editor, verify the geometry numerically."
+          }
+        },
+        {
+          "name": "core/buttons",
+          "attributes": {
+            "layout": {
+              "type": "flex",
+              "justifyContent": "center"
+            }
+          },
+          "innerBlocks": [
+            {
+              "name": "core/button",
+              "attributes": {
+                "text": "Start building",
+                "url": "/docs",
+                "tagName": "a"
+              }
+            },
+            {
+              "name": "core/button",
+              "attributes": {
+                "text": "Read the contract",
+                "url": "/contract",
+                "tagName": "a"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "core/columns",
+      "attributes": {
+        "align": "wide",
+        "isStackedOnMobile": true
+      },
+      "innerBlocks": [
+        {
+          "name": "core/column",
+          "attributes": {
+            "width": "33.33%"
+          },
+          "innerBlocks": [
+            {
+              "name": "core/heading",
+              "attributes": {
+                "level": 3,
+                "content": "Deterministic"
+              }
+            },
+            {
+              "name": "core/paragraph",
+              "attributes": {
+                "content": "Markup comes from the block's own save()."
+              }
+            }
+          ]
+        },
+        {
+          "name": "core/column",
+          "attributes": {
+            "width": "33.33%"
+          },
+          "innerBlocks": [
+            {
+              "name": "core/heading",
+              "attributes": {
+                "level": 3,
+                "content": "Measured"
+              }
+            },
+            {
+              "name": "core/paragraph",
+              "attributes": {
+                "content": "Layout is diffed in pixels, not squinted at."
+              }
+            }
+          ]
+        },
+        {
+          "name": "core/column",
+          "attributes": {
+            "width": "33.33%"
+          },
+          "innerBlocks": [
+            {
+              "name": "core/heading",
+              "attributes": {
+                "level": 3,
+                "content": "Extensible"
+              }
+            },
+            {
+              "name": "core/paragraph",
+              "attributes": {
+                "content": "A vocabulary gap becomes a new dynamic block."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "core/group",
+      "attributes": {
+        "tagName": "section",
+        "align": "full",
+        "layout": {
+          "type": "constrained"
+        }
+      },
+      "innerBlocks": [
+        {
+          "name": "core/list",
+          "attributes": {
+            "ordered": false
+          },
+          "innerBlocks": [
+            {
+              "name": "core/list-item",
+              "attributes": {
+                "content": "Retrieve patterns first."
+              }
+            },
+            {
+              "name": "core/list-item",
+              "attributes": {
+                "content": "Validate, then compile."
+              }
+            },
+            {
+              "name": "core/list-item",
+              "attributes": {
+                "content": "Verify numerically, screenshot once."
+              }
+            }
+          ]
+        },
+        {
+          "name": "core/separator",
+          "attributes": {
+            "opacity": "alpha-channel"
+          }
+        },
+        {
+          "name": "core/latest-posts",
+          "attributes": {
+            "postsToShow": 3,
+            "order": "desc",
+            "orderBy": "date"
+          }
+        }
+      ]
+    }
+  ]
+}

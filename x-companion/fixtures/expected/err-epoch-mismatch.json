@@ -1,0 +1,8 @@
+{
+  "valid": false,
+  "epoch_ok": false,
+  "diagnostics": [
+    { "code": "E_EPOCH_MISMATCH", "severity": "error", "path": "/epoch" },
+    { "code": "W_STATIC_NEEDS_HARNESS", "severity": "warning", "path": "/blocks/0", "fix_hint": "canonical markup must come from harness compile, do not hand-serialize" }
+  ]
+}

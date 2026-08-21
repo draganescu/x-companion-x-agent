@@ -1,0 +1,18 @@
+{
+  "name": "x-companion-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Live tests for the x-companion plugin. harness.spec.ts drives GET /harness in a real browser; the PHP suites run with the system php. Playwright is normally resolved out of tools/node_modules (proof/lib/env.mjs does that on purpose, so one browser download serves the whole repo) — the dependency is declared here for anyone running this directory on its own. Keep the version pinned: 1.60.0 is the release whose Chromium build is already cached on the development machine.",
+  "scripts": {
+    "test": "bash run-all.sh",
+    "test:harness": "node --test harness.spec.ts",
+    "test:offline": "php test-manifest.php && php test-validator.php"
+  },
+  "devDependencies": {
+    "playwright": "1.60.0"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

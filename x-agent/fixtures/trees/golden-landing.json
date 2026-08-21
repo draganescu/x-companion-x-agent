@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/cover",
+      "attributes": {
+        "tagName": "header",
+        "align": "full",
+        "minHeight": 560,
+        "minHeightUnit": "px",
+        "overlayColor": "accent-5",
+        "isUserOverlayColor": true,
+        "dimRatio": 100,
+        "isDark": false,
+        "contentPosition": "center center",
+        "layout": { "type": "constrained" }
+      },
+      "innerBlocks": [
+        {
+          "name": "core/heading",
+          "attributes": {
+            "level": 1,
+            "fontSize": "xx-large",
+            "content": "Ship the layout, not the guesswork."
+          }
+        },
+        {
+          "name": "core/paragraph",
+          "attributes": {
+            "fontSize": "large",
+            "content": "Generate a block tree, compile it with the editor's own save(), then verify the geometry in numbers."
+          }
+        },
+        {
+          "name": "core/buttons",
+          "attributes": {
+            "layout": { "type": "flex", "justifyContent": "center" }
+          },
+          "innerBlocks": [
+            {
+              "name": "core/button",
+              "attributes": {
+                "text": "Start building",
+                "url": "/docs",
+                "tagName": "a",
+                "backgroundColor": "accent-3",
+                "textColor": "base"
+              }
+            },
+            {
+              "name": "core/button",
+              "attributes": {
+                "text": "Read the contract",
+                "url": "/contract",
+                "tagName": "a"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "core/columns",
+      "attributes": {
+        "align": "wide",
+        "isStackedOnMobile": true,
+        "style": {
+          "spacing": {
+            "padding": {
+              "top": "var:preset|spacing|60",
+              "bottom": "var:preset|spacing|60"
+            }
+          }
+        }
+      },
+      "innerBlocks": [
+        {
+          "name": "core/column",
+          "attributes": { "width": "33.33%" },
+          "innerBlocks": [
+            {
+              "name": "core/heading",
+              "attributes": { "level": 3, "fontSize": "medium", "content": "Deterministic" }
+            },
+            {
+              "name": "core/paragraph",
+              "attributes": { "content": "Markup comes from the block's own save(), never from a language model." }
+            }
+          ]
+        },
+        {
+          "name": "core/column",
+          "attributes": { "width": "33.33%" },
+          "innerBlocks": [
+            {
+              "name": "core/heading",
+              "attributes": { "level": 3, "fontSize": "medium", "content": "Measured" }
+            },
+            {
+              "name": "core/paragraph",
+              "attributes": { "content": "Layout is diffed in pixels against a spec, not squinted at in a screenshot." }
+            }
+          ]
+        },
+        {
+          "name": "core/column",
+          "attributes": { "width": "33.33%" },
+          "innerBlocks": [
+            {
+              "name": "core/heading",
+              "attributes": { "level": 3, "fontSize": "medium", "content": "Extensible" }
+            },
+            {
+              "name": "core/paragraph",
+              "attributes": { "content": "A vocabulary gap becomes a new dynamic block, not an inline style." }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "core/group",
+      "attributes": {
+        "tagName": "section",
+        "align": "full",
+        "backgroundColor": "accent-5",
+        "layout": { "type": "constrained" },
+        "style": {
+          "spacing": {
+            "padding": {
+              "top": "var:preset|spacing|60",
+              "bottom": "var:preset|spacing|60"
+            }
+          }
+        }
+      },
+      "innerBlocks": [
+        {
+          "name": "core/heading",
+          "attributes": { "level": 2, "fontSize": "large", "content": "Ready when your instance is." }
+        },
+        {
+          "name": "core/paragraph",
+          "attributes": { "content": "Every block, pattern and token comes from the connected site at its current epoch." }
+        },
+        {
+          "name": "core/buttons",
+          "attributes": { "layout": { "type": "flex", "justifyContent": "left" } },
+          "innerBlocks": [
+            {
+              "name": "core/button",
+              "attributes": {
+                "text": "Connect an instance",
+                "url": "/connect",
+                "tagName": "a",
+                "backgroundColor": "accent-3",
+                "textColor": "base"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

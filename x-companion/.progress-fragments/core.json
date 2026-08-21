@@ -1,0 +1,100 @@
+{
+  "milestones": {
+    "M1_skeleton": {
+      "status": "in_progress",
+      "evidence": "Verified offline against a stubbed WordPress surface (no live WP available to this agent). Loader + route table + gating proven:\n$ php scratch/boot2.php\nroutes registered: 13\n  GET    x-companion/v1/fingerprint\n  GET    x-companion/v1/manifest\n  POST   x-companion/v1/validate\n  POST   x-companion/v1/parse\n  POST   x-companion/v1/render\n  GET    x-companion/v1/patterns\n  GET    x-companion/v1/harness\n  POST   x-companion/v1/blocks/install\n  GET    x-companion/v1/blocks/library\n  POST   x-companion/v1/blocks/library/(?P<slug>[a-z0-9-]+)/rollback\n  DELETE x-companion/v1/blocks/library/(?P<slug>[a-z0-9-]+)\n  POST   x-companion/v1/theme/tokens\n  POST   x-companion/v1/snapshot/export\nrole caps (toolchain): {\"read\":true,\"x_companion_read\":true,\"x_companion_author\":true,\"x_companion_extend\":true}\nrole caps (production): {\"read\":true,\"x_companion_read\":true,\"x_companion_author\":true}\ntoolchain: anonymous GET /manifest -> rest_forbidden (401); x_agent GET /manifest -> allow; x_agent POST /blocks/install -> rest_forbidden_capability (403); admin POST /blocks/install -> allow\nproduction: x_agent POST /blocks/install -> posture_forbidden (403); admin POST /blocks/install -> posture_forbidden (403)\ngarbage X_COMPANION_POSTURE value -> falls back to production -> posture_forbidden (403)\nroute_harness/route_blocks_install/route_blocks_library/route_blocks_rollback/route_blocks_delete/route_snapshot_export -> not_implemented (501)\nadd_filter('x_companion_route_blocks_library', ...) -> [{\"slug\":\"testimonial\"}]  (another class takes the route over without editing class-rest.php)\ntheme/tokens with a partial body -> rest_invalid_param (400) [\"/spacing\",\"/typography\",\"/layout\"]  (schema gate runs before dispatch)\nBoot with includes/class-harness.php, class-block-library.php, class-theme-tokens.php ABSENT: no fatal; hooks registered: activate, plugins_loaded, activated_plugin, deactivated_plugin, switch_theme, rest_api_init.\nx_companion_class_for_file() derivation checked for all 7 include filenames: 7/7 correct.\n$ for f in $(find . -name '*.php'); do php -l $f; done  -> all lint clean (PHP 8.4.4).\n\nSTILL TO VERIFY LIVE: (1) `wp plugin activate x-companion` exits 0 on the core-only Playground env; (2) curl unauthenticated GET /manifest -> 401 and authenticated as the x_agent role -> 200; (3) curl POST /blocks/install with X_COMPANION_POSTURE=production -> 403 code=posture_forbidden over the wire; (4) plugin header/uninstall.php behaviour under a real activation; (5) PHP 8.1 parse (only 8.4 is installed here - no 8.2+ syntax was used, but that is unverified).",
+      "updated_at": "2026-08-21T00:00:00Z"
+    },
+    "M2_manifest": {
+      "status": "in_progress",
+      "evidence": "$ php x-companion/tests/test-manifest.php\n== manifest ==\n  PASS  canonical_json sorts object keys ascending at every depth\n  PASS  canonical_json preserves array order\n  PASS  canonical_json does not escape slashes or unicode\n  PASS  canonical_json emits no insignificant whitespace\n  PASS  canonical_json keeps an empty object an object\n  PASS  canonical_json is insensitive to key insertion order\n  PASS  fingerprint_inputs matches the pinned contract shape\n  PASS  fingerprint_inputs sorts blocks ascending by name using strcmp\n  PASS  fingerprint_inputs nulls unset parent/ancestor and sorts the set ones\n  PASS  fingerprint_inputs sorts plugins ascending by slug\n  PASS  the fingerprint is 64 lowercase hex characters\n  PASS  the fingerprint is stable across identical inputs\n  PASS  the fingerprint ignores registry iteration order\n  PASS  the fingerprint moves when a block attribute schema changes\n  PASS  the fingerprint moves when a block is added or removed\n  PASS  the fingerprint moves when the theme or a plugin version changes\n  PASS  the fingerprint ignores manifest-only metadata\n  PASS  build_blocks emits every key the Manifest schema requires\n  PASS  an attribute-less block still serialises attributes as an object\n  PASS  agent_hints are omitted when they carry nothing\n  PASS  the x_companion_agent_hints filter merges into the manifest\n  PASS  the agent_hints filter cannot inject arbitrary keys or wrong types\n  PASS  build() produces every key the Manifest schema requires\n  PASS  the manifest transient is keyed by the fingerprint and rebuilt when it moves\n  PASS  GET /fingerprint does not build the heavy manifest body\n----------------------------------------\nPASS  manifest: 186/186 assertions passed   (exit 0)\n\nCross-checked the emitted manifest against the frozen contract schema with a real JSON-Schema validator (python jsonschema 4.26, Draft7, contract/schemas/manifest.schema.json): MANIFEST ok.\nThe 'fingerprint moves when a plugin is activated' case covers the Kadence toggle at the algorithm level (adding {slug: kadence-blocks} to the plugin list changes the hash). Cache behaviour proven against the stubbed registry + transient store: transient key is x_companion_manifest_<fp32>, an unchanged registry serves the cached body, a newly registered block moves the epoch and rebuilds, and an installed agent/* block appears in manifest.blocks automatically. GET /fingerprint writes no transient and no cache key.\n\nSTILL TO VERIFY LIVE: (1) the real WP_Block_Type_Registry read (snapshot_registry) against core-only and core-plus-suite, incl. Kadence blocks appearing with correct attributes; (2) fingerprint actually changing when Kadence is activated/deactivated through wp-cli, and the activated_plugin/deactivated_plugin/switch_theme hooks busting the transient; (3) wp_get_global_settings() returning a real palette+spacing subset from the active theme.json; (4) the mu-plugin fixture registering x_companion_agent_hints for core/group showing allowed_blocks in the served manifest (the filter merge itself is proven offline); (5) WP_Block_Patterns_Registry summaries.",
+      "updated_at": "2026-08-21T00:00:00Z"
+    },
+    "M3_validator": {
+      "status": "done",
+      "evidence": "$ php x-companion/tests/test-validator.php\n== validator ==\n  PASS  the snapshot fixture produced a usable blocks map\n  PASS  the W_STATIC_NEEDS_HARNESS fix_hint is the exact contract string\n  PASS  the global attribute whitelist is exactly the contract list\n  PASS  every diagnostic code in the contract has a fixture\n  PASS  fixture err-attr-enum\n  PASS  fixture err-attr-type\n  PASS  fixture err-epoch-mismatch\n  PASS  fixture err-nest-ancestor\n  PASS  fixture err-nest-parent\n  PASS  fixture err-tree-schema\n  PASS  fixture err-unknown-block\n  PASS  fixture valid-core\n  PASS  fixture warn-attr-unknown\n  PASS  fixture warn-hint-allowed-blocks\n  PASS  fixture warn-hint-template-lock\n  PASS  fixture warn-static-needs-harness\n  PASS  the fixture set covers every code in the Diagnostics schema\n  PASS  E_TREE_SCHEMA stops all further checks\n  PASS  a non-object body is E_TREE_SCHEMA at /\n  PASS  E_EPOCH_MISMATCH does not stop the other checks\n  PASS  attribute type may be declared as an array of types\n  PASS  no source-based HTML attribute semantics are applied\n  PASS  RFC 6901 escaping is applied to attribute keys\n  PASS  a block with parent[] at the tree root is E_NEST_PARENT\n  PASS  W_STATIC_NEEDS_HARNESS is emitted once per distinct block name\n  PASS  validator state does not leak between runs\n  PASS  a body decoded with objects preserved behaves identically\n  PASS  empty JSON objects are not mistaken for empty arrays\n----------------------------------------\nPASS  validator: 140/140 assertions passed   (exit 0)\n\n12 tree fixtures pair 1:1 with 12 expected files; each expected file pins exact code + severity + RFC 6901 path (and the exact fix_hint for W_STATIC_NEEDS_HARNESS). All 11 contract diagnostic codes are covered, asserted by the 'covers every code in the Diagnostics schema' case.\n\nIndependently cross-checked with python jsonschema 4.26 (Draft7) against the frozen contract schemas:\n  - all 12 emitted Diagnostics documents validate against contract/schemas/diagnostics.schema.json\n  - 11 of the 12 tree fixtures validate against contract/schemas/tree-ir.schema.json; err-tree-schema.json is the one that fails, exactly as the hand-written PHP walk reports\n  - a further 18 hand-built edge-case bodies (missing keys, wrong version, name-pattern violations, {} vs [] in every position, nested innerHTML, extra top-level keys) were compared code-for-code: the PHP TreeIR walk and the reference JSON-Schema validator agree on all 18, 0 mismatches.",
+      "updated_at": "2026-08-21T00:00:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "POST /parse, POST /render and GET /patterns are implemented in class-rest.php rather than left as 501 stubs.",
+      "why": "No milestone in this agent's scope and no file in the parallel agent's scope owns them, so a stub would have been permanently dead. All three are thin wrappers over core APIs (parse_blocks, do_blocks, WP_Block_Patterns_Registry) and live in a file this agent owns, so implementing them cost nothing and collided with nobody. They are NOT covered by the offline tests: /render's faux main-query guard and its wp_styles queue diff for enqueued_styles need live verification."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "POST /validate decodes the raw request body with json_decode($body) (objects preserved) instead of using $request->get_json_params().",
+      "why": "json_decode($body, true) collapses {} and [] to the same PHP value, which makes 'blocks': {} and 'innerBlocks': {} indistinguishable from empty arrays and silently passes bodies the TreeIR schema rejects. With objects preserved the walk agrees with a reference JSON-Schema validator on all 18 cross-checked edge cases. get_json_params() remains the fallback when the body is not parseable JSON. One residual ambiguity is accepted and documented in code: 'attributes': [] is treated as an empty attributes object (both mean 'no attributes')."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "POST /validate does NOT enforce the TreeIR schema through route args, so a malformed tree never returns a bare 400.",
+      "why": "CONTRACT.md section 5 makes E_TREE_SCHEMA a diagnostic inside a 200 Diagnostics body. That is the agent's primary feedback channel; a rest_invalid_param 400 would give it a pointer-less error. Capability check still runs first; schema validation is the route's work."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Diagnostic emission order within a node: E_NEST_PARENT, E_NEST_ANCESTOR, attribute diagnostics in key order, W_STATIC_NEEDS_HARNESS, W_HINT_TEMPLATE_LOCK; then per child, W_HINT_ALLOWED_BLOCKS before descending into it.",
+      "why": "The contract pins codes, severities and paths but not array order. Errors ahead of warnings inside a node reads best, and a fixed order is required for the fixtures to assert exact arrays."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "E_TREE_SCHEMA short-circuits every semantic check but epoch_ok is still reported as a plain string comparison (no E_EPOCH_MISMATCH diagnostic is emitted in that case).",
+      "why": "'Stops all further checks' governs diagnostics. epoch_ok is a required Diagnostics field, not a check, and reporting it costs nothing and tells the agent whether a refetch is also needed."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Tree fixtures carry the literal epoch sentinel \"__CURRENT_FINGERPRINT__\", which the test substitutes with the fingerprint of fixtures/registry-snapshot.json.",
+      "why": "A fixture cannot hard-code an epoch that depends on the registry it is validated against. err-epoch-mismatch.json deliberately keeps a literal 64-zero epoch instead. __compile() takes TreeIR.blocks only, so the sentinel is invisible to the harness milestone's use of valid-core.json."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "fixtures/registry-snapshot.json is an OFFLINE TEST SNAPSHOT ONLY. It is 15 core blocks with attribute schemas transcribed from Gutenberg block.json definitions (WP 6.5 era) and is never consulted by the plugin at runtime.",
+      "why": "The manifest and the validator always read the live WP_Block_Type_Registry; instance-as-ground-truth is the whole point of the plugin. The snapshot exists so the pure algorithms are testable with the system php. Two entries carry agent_hints (core/cover: allowed_blocks; core/query: template_lock 'all') purely so the W_HINT_* fixtures have something to violate. If a transcribed attribute schema turns out to differ from a given WP version, only the offline expectations shift, never production behaviour."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "agent_hints is omitted from a manifest block entry when every hint is still at its default.",
+      "why": "Most blocks declare no hints; emitting four null/empty keys on ~100 blocks bloats the manifest the agent has to read. Consumers must treat a missing agent_hints as all-defaults; X_Companion_Validator does exactly that."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The manifest transient name is x_companion_manifest_<first 32 hex of fingerprint>, and the live key is tracked in the x_companion_manifest_cache_key option.",
+      "why": "Deriving the key from the fingerprint makes invalidation structural: any registry, theme or plugin change produces a different key, so a stale body can never be served under a new epoch. The tracked option only exists so bust_cache() can delete the row rather than leak it."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The live registry snapshot carries the WP_Block_Type object on a '_type' key, which build_blocks() passes as the third x_companion_agent_hints filter argument and never copies into the output.",
+      "why": "The filter signature is pinned as (array $hints, string $block_name, WP_Block_Type $type), but the manifest algorithm has to stay a pure function of a JSON-serialisable snapshot for offline testing. Carrying the object on the snapshot keeps both. A test asserts no entry leaks _type."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The bootstrap also requires includes/adapters/class-*.php, but never calls ::init() on them.",
+      "why": "The brief pinned the includes/class-*.php glob; adapters sit one level down and would otherwise never load. Requiring a class definition is side-effect free, and the theme-tokens class stays in charge of discovering and applying its adapters."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The Abilities API registration signature was taken from developer.wordpress.org (wp_register_ability / wp_register_ability_category reference pages), not from the WordPress/abilities-api repository.",
+      "why": "The repository was archived on 2026-02-05 and its README no longer carries the signature. Confirmed from the reference pages: wp_register_ability(string $name, array $args) on the wp_abilities_api_init action, required args label/description/category/execute_callback/permission_callback, optional input_schema/output_schema/meta/ability_class; categories via wp_register_ability_category(string $slug, array $args) on wp_abilities_api_categories_init. ASSUMPTION: this is current for the shipping API. Everything is behind function_exists('wp_register_ability'), so an absent or differently-shaped API is a silent no-op, never a fatal. Only the three introspect-tier abilities this agent owns are registered; extend-tier abilities are filtered out entirely in production posture, and other classes add their own through the x_companion_abilities filter."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "This agent wrote only x-companion/.progress-fragments/core.json and left x-companion/PROGRESS.json untouched.",
+      "why": "PROGRESS.json is shared with the parallel agents and is outside this agent's file ownership list; the fragment is meant to be merged into it."
+    }
+  ],
+  "deviations": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "milestones[M3_validator].acceptance[0] - 'fixture set: 1 valid core tree, 1 valid kadence tree, and one tree per error/warning code'",
+      "what": "There is no fixtures/trees/valid-kadence.json. The set is 1 valid core tree plus one tree per error and warning code (12 fixtures, all 11 codes covered).",
+      "why": "Authoring a trustworthy Kadence tree needs Kadence's real registered attribute schemas, which are only available on the core-plus-suite environment. Guessing them would put a wrong 'ground truth' into the fixture set, which is worse than an absent one. To add it later: activate Kadence, GET /manifest, pick a kadence/rowlayout tree, and drop the pair into fixtures/trees + fixtures/expected - the test discovers fixtures by glob and needs no code change."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "environment.php_min = 8.1",
+      "what": "All code was linted and tested on PHP 8.4.4 only; no PHP 8.1 interpreter is installed on this machine.",
+      "why": "No 8.2+ syntax was used (array_is_list and str_starts_with are the newest functions, 8.1 and 8.0 respectively; no enums, readonly, first-class callables, or standalone types), and the suite runs clean under -d error_reporting=E_ALL with zero deprecations on 8.4. An 8.1 parse check still belongs in the live run."
+    }
+  ]
+}

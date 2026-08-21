@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/query",
+      "attributes": { "queryId": 1, "query": { "perPage": 3, "postType": "post" } },
+      "innerBlocks": [
+        {
+          "name": "core/post-template",
+          "innerBlocks": [
+            { "name": "core/post-title", "attributes": { "level": 3, "isLink": true } }
+          ]
+        }
+      ]
+    }
+  ]
+}

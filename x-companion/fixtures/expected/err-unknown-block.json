@@ -1,0 +1,8 @@
+{
+  "valid": false,
+  "epoch_ok": true,
+  "diagnostics": [
+    { "code": "W_STATIC_NEEDS_HARNESS", "severity": "warning", "path": "/blocks/0", "fix_hint": "canonical markup must come from harness compile, do not hand-serialize" },
+    { "code": "E_UNKNOWN_BLOCK", "severity": "error", "path": "/blocks/0/innerBlocks/0" }
+  ]
+}

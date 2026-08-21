@@ -1,0 +1,134 @@
+{
+  "spec_version": "1.0.0",
+  "id": "x-agent",
+  "title": "X Agent — Claude Code plugin (skill + local MCP server) that makes an agent a precise designer/builder of WordPress block layouts against a live instance running the X Companion plugin",
+  "mission": "Give the agent a compiler, a verifier, and a discipline. The agent generates JSON block trees (never serialized markup), validated against the target instance's real registry, compiled to canonical markup by driving the instance's harness page in a warm headless browser, and verified numerically against a design spec instead of screenshot-squinting. When the instance's block vocabulary can't express a design region, the agent scaffolds a dynamic block, smoke-tests it in a local Playground, and installs it to the instance — which immediately makes it part of the vocabulary.",
+
+  "problem_context": {
+    "why": "Gutenberg persisted markup validity is defined by each block's JS save() output; hand-writing it fails in the editor. Current practice (generate HTML -> convert -> screenshot-diff loop) is not engineering. This plugin replaces it with: manifest -> tree -> validate -> compile (real save() in real browser) -> numeric layout verify -> one final visual acceptance.",
+    "instance_as_ground_truth": "All vocabulary (blocks, patterns, tokens) comes from the connected WP instance at its current fingerprint (epoch). Never from training-data memory of 'what WordPress has'.",
+    "two_input_modes": {
+      "from_prompt": "Creativity is expressed through the design-token system (theme.json vocabulary), not free CSS/HTML.",
+      "from_design": "Images/Figma are LIFTED into a Design Spec IR (measured geometry + inferred tokens + content inventory) by the agent's own vision, validated against a schema, then implemented and numerically diffed against that spec. Fidelity deltas are itemized decisions (snap-to-token log), never vibes."
+    }
+  },
+
+  "counterpart": {
+    "id": "x-companion",
+    "what": "WordPress plugin on the target instance. Serves: GET /manifest, GET /fingerprint, POST /validate, POST /parse, POST /render, GET /patterns, GET /harness (the compile page), POST /blocks/install (+library mgmt), POST /theme/tokens, POST /snapshot/export. Namespace x-companion/v1, Basic auth with WP Application Passwords, contract interfaces.version '1'.",
+    "postures": "Instance may be 'toolchain' (sandbox, all routes) or 'production' (extend-tier routes 403 code=posture_forbidden). This plugin must read posture from GET /fingerprint and never attempt extend-tier calls against production — surface the constraint to the agent in tool descriptions and skill.",
+    "division_of_labor": "Instance serves capability; THIS side supplies all compute: warm Playwright (compiler + layout oracle), Node + @wordpress/scripts (block builds), @wp-playground/cli (smoke-test sandbox), the LLM (design lifting, tree generation). Credentials live only here (env/keychain), never in any relay — explicit rejection of the credential-custody model.",
+    "shared_types": "TreeIR, Diagnostics, Manifest exactly as defined in companion spec interfaces.shared_types. Vendor copies of those JSON Schemas into schemas/ and treat companion spec as canonical on conflict."
+  },
+
+  "operating_rules_for_implementing_agent": [
+    "Work until every milestone's acceptance commands pass. No questions after start. Unspecified details: choose simplest option consistent with 'all compute local, instance is ground truth', log in PROGRESS.json decisions[].",
+    "Before scaffolding, verify the CURRENT Claude Code plugin packaging format (plugin manifest filename/fields, how skills and MCP servers are declared) from https://docs.claude.com — do not trust memory. Record the verified format in PROGRESS.json decisions[]. Everything below is packaging-agnostic: it defines required components, not manifest syntax.",
+    "MCP server: TypeScript, @modelcontextprotocol/sdk, stdio transport, single package, no framework beyond it + playwright + zod (schema validation) + adm-zip.",
+    "Every MCP tool validates input AND output against its zod schema; tool errors are structured {code, message, hint}, never bare throws to the client.",
+    "The companion may be absent during development: ship tests/mock-companion/ (a tiny Node http server implementing the contract from vendored schemas + canned fixtures) so the full test suite runs with zero WordPress. Integration tests against a real instance are a separate opt-in script."
+  ],
+
+  "environment": {
+    "runtime": "Node >= 20, Playwright chromium, @wp-playground/cli available via npx.",
+    "config": "Connection config resolved from (in order): tool arguments > .x-agent.json in CWD > env vars X_WP_URL, X_WP_USER, X_WP_APP_PASSWORD. Never write the app password anywhere except the user's own .x-agent.json if the user placed it there."
+  },
+
+  "file_layout": {
+    "x-agent/<plugin-manifest per verified format>": "Declares the skill and the MCP server command.",
+    "x-agent/skills/wp-blocks/SKILL.md": "The discipline (content contract below).",
+    "x-agent/skills/wp-blocks/references/tree-ir.md": "TreeIR + Diagnostics quick reference with 3 worked examples (core page, kadence section, agent-block usage).",
+    "x-agent/skills/wp-blocks/references/design-spec.md": "Design Spec IR authoring guide for lifting (below).",
+    "x-agent/mcp/src/server.ts": "Tool registration + config resolution.",
+    "x-agent/mcp/src/session.ts": "Warm browser pool: launches chromium once, loads /harness with Basic auth, awaits __ready, exposes compile(); auto-reloads page when fingerprint changes; falls back per companion README (real-editor injection) when __registry diff reports missing blocks — implement detection + reload-into-editor path behind a flag, default off, documented.",
+    "x-agent/mcp/src/oracle.ts": "Layout extraction + numeric diff.",
+    "x-agent/mcp/src/factory.ts": "Block scaffold/build/smoke-test/package/install.",
+    "x-agent/mcp/src/companion.ts": "Typed client for all companion routes, epoch-aware (every call carries expected fingerprint; on E_EPOCH_MISMATCH/409 refresh manifest once and retry once, then surface).",
+    "x-agent/templates/dynamic-block/": "Scaffold: block.json (apiVersion 3, name agent/{slug}, render file), render.php (escaped attribute output, get_block_wrapper_attributes()), src/edit.js (minimal: useBlockProps + InspectorControls for declared attrs), package.json (wp-scripts build).",
+    "x-agent/templates/theme-json/emitter.ts": "DesignTokens -> theme.json settings object (mirrors companion's server-side compiler for local preview/diff).",
+    "x-agent/schemas/": "Vendored: tree-ir.schema.json, diagnostics.schema.json, design-tokens.schema.json, design-spec.schema.json (defined below), manifest.schema.json.",
+    "x-agent/fixtures/": "Golden trees + expected markup + sample images (below).",
+    "x-agent/tests/": "vitest unit + mock-companion integration + optional live-instance script.",
+    "PROGRESS.json": "Ledger, same schema/rules as companion spec."
+  },
+
+  "design_spec_ir": {
+    "purpose": "The pivot type that makes from-design use the same back half as from-prompt. Produced by the agent's vision (skill-guided), validated by tool wp_spec_validate, consumed by wp_verify as the numeric reference.",
+    "schema_outline": {
+      "version": 1,
+      "source": "{kind: 'image'|'figma'|'synthesized', files: string[], viewport: {width, height}}",
+      "tokens_candidates": "DesignTokens (same schema as companion /theme/tokens) + quantization_log: [{observed, snapped_to, delta}]",
+      "content": "[{id, kind: 'heading'|'paragraph'|'image'|'button'|'list'|'other', text?, image_ref?, region_id}]",
+      "regions": "recursive: [{id, role: 'header'|'hero'|'features'|'gallery'|'testimonial'|'cta'|'footer'|'section'|'column'|'item', box: {x,y,w,h} in source px, layout: {direction: 'row'|'column'|'grid', gap_px, align, justify, columns?}, style_refs: {palette_slug?, font_size_slug?, spacing_slugs?}, children: [region], responsive_assumptions: [{breakpoint, change, confidence: 'observed'|'synthesized'}]}]",
+      "notes": "Every synthesized (not observed) responsive behavior MUST appear in responsive_assumptions with confidence='synthesized' — these are the human-vetoable items."
+    }
+  },
+
+  "mcp_tools": [
+    { "name": "wp_connect", "input": "{url?, user?, app_password?} (else config chain)", "output": "{site_url, posture, fingerprint, wp_version, blocks_count, suites: string[]}", "behavior": "Fetch /fingerprint then /manifest, cache manifest in memory keyed by fingerprint, warm the harness session lazily (first compile). Refuse with {code:'https_required'} on plain http unless url is localhost/playground." },
+    { "name": "wp_manifest", "input": "{refresh?: bool, filter?: {name_prefix?, dynamic_only?}}", "output": "Manifest (optionally filtered; blocks map can be large — support filter and a summary:true mode returning names+parents only)", "behavior": "Serve cache unless refresh or fingerprint moved (cheap /fingerprint check, max once per 10s)." },
+    { "name": "wp_patterns", "input": "{query?: string, category?: string}", "output": "[{name,title,categories,parsed_tree}]", "behavior": "Fetch /patterns once per fingerprint; local substring+category filter. This is the retrieval corpus — skill mandates checking it before novel composition." },
+    { "name": "wp_validate", "input": "TreeIR", "output": "Diagnostics", "behavior": "POST /validate, plus LOCAL pre-check against vendored TreeIR schema so schema errors don't burn a round trip." },
+    { "name": "wp_compile", "input": "TreeIR", "output": "{markup, all_valid, invalid: [{path,name,validation_issues}], registry_gaps: string[] (manifest blocks missing from __registry), epoch}", "behavior": "Ensure session warm at current fingerprint (reload page if epoch moved); call window.__compile; if registry_gaps intersects tree block names -> return {code:'harness_gap', blocks:[...]} error with hint to enable editor-injection fallback flag." },
+    { "name": "wp_render", "input": "{markup}", "output": "{html}", "behavior": "POST /render (server-side dynamic-block rendering for preview and oracle of dynamic output)." },
+    { "name": "wp_verify", "input": "{markup? | url?, spec?: DesignSpecIR, spec_region_id?: string, viewport: {width,height}}", "output": "{box_tree: [{selector_path, block_name?, box:{x,y,w,h}, computed:{display,gap,fontSize,color,background}}], a11y_outline: [{role,name,level?}], diffs: [{region_id, kind: 'position'|'size'|'gap'|'font_size'|'color'|'missing'|'extra', expected, actual, delta, within_tolerance: bool}], pass: bool}", "behavior": "If markup: create a throwaway draft? NO — no author routes in v1; instead render via /render into a local static page shell that enqueues the site's front-end stylesheet URLs returned by /render.enqueued_styles (best effort; if empty, load the site's homepage first to harvest theme stylesheet links, cache per fingerprint). If url: navigate directly. Extract per-element geometry via el.getBoundingClientRect + getComputedStyle for block wrapper elements (identify via .wp-block-* classes and data-block attributes where present). Diff numerically against spec regions when provided (match regions to elements by role heuristics + order + a11y name; unmatched -> 'missing'/'extra'). Tolerances: position/size 4px or 2%, gap 1 spacing-step, font 1px; make tolerances an optional input override. No spec -> return box_tree + a11y_outline only, pass=true.", "note": "This is the oracle. Screenshot comparison is deliberately NOT a tool primitive; wp_screenshot exists for the single final human acceptance image only." },
+    { "name": "wp_screenshot", "input": "{url|markup, viewport}", "output": "{path_to_png}", "behavior": "One full-page screenshot via the warm browser. Skill restricts usage to final acceptance." },
+    { "name": "wp_spec_validate", "input": "DesignSpecIR", "output": "Diagnostics-shaped {valid, diagnostics:[{code: 'E_SPEC_SCHEMA'|'E_BOX_OVERLAP'|'E_ORPHAN_CONTENT'|'W_UNQUANTIZED'|'W_NO_RESPONSIVE', path, message, fix_hint}]}", "behavior": "Local: schema check; children boxes within parent box (2% slack); every content.region_id resolves; tokens_candidates values all appear in quantization_log (W_UNQUANTIZED otherwise); at least one responsive_assumptions entry per top-level region (W_NO_RESPONSIVE)." },
+    { "name": "wp_tokens_apply", "input": "DesignTokens", "output": "{applied, adapters_applied, fingerprint}", "behavior": "POST /theme/tokens. Extend tier: check posture first, structured refusal {code:'posture_forbidden', hint:'clone to sandbox via wp_snapshot then apply there'} on production." },
+    { "name": "wp_block_scaffold", "input": "{slug, title, attributes: [{name, type, default?, control: 'text'|'textarea'|'number'|'toggle'|'select', options?}], render_intent: string (natural-language description embedded as a comment for the agent to implement render.php against)}", "output": "{dir}", "behavior": "Copy templates/dynamic-block, interpolate. Never scaffolds static blocks." },
+    { "name": "wp_block_build_test", "input": "{dir, sample_attributes: object}", "output": "{built: bool, smoke: {registered: bool, rendered_html: string, php_error?: string}, zip_path?}", "behavior": "npm ci+build via wp-scripts in dir; boot @wp-playground/cli with a blueprint that installs the built block dir as a plugin wrapper (generate a one-line loader plugin around register_block_type); assert block appears in /wp/v2/block-types and POST-render sample markup through Playground's REST; on success produce zip per companion install policy (block.json at root, render present, size<5MB). Any failure returns structured details — this local gate is THE safety mechanism; companion deliberately does not lint PHP." },
+    { "name": "wp_block_install", "input": "{zip_path}", "output": "{installed, fingerprint}", "behavior": "POST /blocks/install; on success immediately refresh manifest + reload harness session to the new epoch, and return the new fingerprint so the calling agent adopts it in subsequent trees. Posture-guarded like wp_tokens_apply." },
+    { "name": "wp_parse", "input": "{markup}", "output": "{blocks (parse output incl. innerHTML)}", "behavior": "POST /parse — brownfield lifting of existing content into trees (strip innerHTML/innerContent, keep name/attrs/innerBlocks to form TreeIR; provide both raw and stripped forms)." },
+    { "name": "wp_snapshot", "input": "{}", "output": "{zip_path}", "behavior": "POST /snapshot/export streamed to disk. The clone-to-sandbox and promotion-gate primitive (fingerprint inside the zip vs target's /fingerprint)." }
+  ],
+
+  "skill_contract": {
+    "file": "skills/wp-blocks/SKILL.md",
+    "frontmatter": "name + description tuned to trigger on: WordPress blocks/Gutenberg, block themes, page/pattern/layout building, converting designs to WordPress, theme.json, and any mention of a site running X Companion.",
+    "mandatory_rules_the_skill_must_state": [
+      "R1 NEVER hand-write serialized block markup ('<!-- wp:'). Generate TreeIR; markup exists only as wp_compile output.",
+      "R2 Vocabulary = wp_manifest at current fingerprint. Never assume a block exists; never use attributes not in the manifest entry (W_ATTR_UNKNOWN warnings are review items, not noise).",
+      "R3 Every tree carries epoch = current fingerprint. On any epoch_mismatch, refresh manifest, regenerate or re-validate, continue.",
+      "R4 Styling ONLY via theme tokens (preset slugs / supports attributes: backgroundColor, fontSize, spacing presets, layout). Raw CSS/HTML styling is forbidden; if tokens can't express it, that is a vocabulary gap -> R7 ladder, not an inline style.",
+      "R5 Loop: retrieve (wp_patterns first — adapt idioms before inventing) -> generate tree -> wp_validate (fix all errors, review warnings) -> wp_compile (must be all_valid) -> wp_verify against spec/expectations (fix diffs outside tolerance) -> repeat. wp_screenshot exactly once, at the end, as acceptance evidence.",
+      "R6 from-design mode: lift binaries into DesignSpecIR per references/design-spec.md (measure, don't trace; quantize every observed value onto the token scale and log the delta; mark every synthesized responsive behavior). wp_spec_validate must pass before any tree is generated. wp_verify diffs are then attributable: token decision, mapping approximation, or vocabulary gap.",
+      "R7 Vocabulary-gap ladder, in order: (1) different composition of existing blocks; (2) a block style/pattern; (3) new dynamic block via wp_block_scaffold -> implement render.php -> wp_block_build_test (must pass) -> wp_block_install -> adopt new fingerprint. Static blocks are never created.",
+      "R8 Posture awareness: extend-tier tools fail on production posture by design. For structural work on a production site: wp_snapshot -> work in a sandbox instance -> promote artifacts. Never look for a way around the gate.",
+      "R9 Greenfield ordering: design tokens FIRST (as DesignTokens JSON, kept as source of truth), wp_tokens_apply, then layout. theme.json is a compile target, not the design system itself.",
+      "R10 Credentials stay in local config; never echo the app password into conversation, files, or tool outputs."
+    ],
+    "worked_examples_required": ["from-prompt: 3-section landing page on core-only", "from-design: single hero image -> spec -> tree -> verify with one deliberate token-snap delta", "vocabulary gap: testimonial card -> R7 ladder end-to-end"]
+  },
+
+  "fixtures": {
+    "authoring_rule": "Ground-truth markup fixtures are CAPTURED, not hand-written: drive a real Playground editor via Playwright once (script: tests/capture-golden.ts), build the fixture content interactively via wp.data dispatch, save, snapshot post_content. Hand-authored expected markup is the original sin of this domain and is forbidden even in tests.",
+    "set": [
+      "trees/valid-core-landing.json + golden/valid-core-landing.html",
+      "trees/valid-with-agent-block.json (uses agent/testimonial from companion fixture package)",
+      "trees/invalid-*.json — one per Diagnostics error code",
+      "specs/hero-sample.json + images/hero-sample.png (render the golden landing hero at 1440px, screenshot it, lift-target)",
+      "design-tokens.sample.json (identical to companion fixture)"
+    ]
+  },
+
+  "milestones": [
+    { "id": "M1_scaffold", "goal": "Verified plugin packaging; skill file stub + MCP server boots and lists all tools with schemas; config chain + mock-companion server running.", "acceptance": ["npx <mcp inspector or a tests/list-tools.ts script> shows all 16 tools with input schemas", "vitest tests/config.test.ts green (config precedence incl. refusing http non-localhost)", "mock-companion serves /fingerprint,/manifest,/validate from fixtures"] },
+    { "id": "M2_client_and_validate", "goal": "companion.ts typed client with epoch retry; wp_connect, wp_manifest, wp_patterns, wp_validate, wp_parse against mock.", "acceptance": ["vitest: epoch-mismatch injected by mock triggers exactly one refresh+retry then success; wp_validate local pre-check catches schema error without network call (mock logs zero /validate hits)"] },
+    { "id": "M3_compiler_session", "goal": "session.ts warm browser + wp_compile against a REAL companion instance (this milestone requires live integration: script tests/live/setup.sh boots wp-env or Playground with the companion plugin from its repo/zip path given in .x-agent.json).", "acceptance": ["tests/live/compile.test.ts: wp_compile(fixtures/trees/valid-core-landing.json) returns all_valid=true and markup byte-equal (whitespace-normalized) to golden/valid-core-landing.html", "fingerprint bump on the instance (toggle a plugin) causes automatic session reload and next compile succeeds at new epoch", "registry_gaps path: unregister a block client-side in test -> harness_gap error surfaced with hint"] },
+    { "id": "M4_oracle", "goal": "oracle.ts + wp_verify + wp_screenshot + wp_render.", "acceptance": ["tests/live/verify.test.ts: verify(golden landing markup, spec=specs/hero-sample.json) -> pass=true, diffs all within tolerance; mutate tree hero fontSize one preset step -> exactly one font_size diff outside tolerance pointing at the hero region_id", "wp_verify with no spec returns box_tree with .wp-block-* mapped block_names for >= 80% of nodes"] },
+    { "id": "M5_factory", "goal": "wp_block_scaffold / wp_block_build_test / wp_block_install end-to-end.", "acceptance": ["tests/live/factory.test.ts: scaffold slug 'pricing-card' with 3 attributes -> implement render.php from template default -> build_test passes (registered=true, rendered_html contains sample attr) -> install against toolchain-posture instance -> new fingerprint -> wp_compile of a tree using agent/pricing-card is all_valid", "against production-posture instance: wp_block_install returns posture_forbidden with sandbox hint (assert exact code)", "sabotaged render.php (syntax error) -> build_test smoke.php_error non-empty, no zip produced, nothing sent to instance"] },
+    { "id": "M6_spec_and_tokens", "goal": "wp_spec_validate, wp_tokens_apply, wp_snapshot; design-spec.md + tree-ir.md references complete.", "acceptance": ["vitest: every E_/W_ code in wp_spec_validate triggered by a crafted spec fixture; specs/hero-sample.json passes clean", "live: wp_tokens_apply(sample tokens) then wp_verify of golden landing shows palette color computed values matching token hex; wp_snapshot zip contains manifest.json whose fingerprint equals live /fingerprint"] },
+    { "id": "M7_skill_and_e2e", "goal": "SKILL.md complete per skill_contract (all 10 rules, 3 worked examples with literal tool-call transcripts), packaging finalized, end-to-end demo scripts.", "acceptance": ["tests/e2e/from-prompt.sh: fresh toolchain instance -> scripted tool sequence (manifest->patterns->compile->verify->screenshot) produces a 3-section page, verify pass=true, exactly one screenshot taken", "tests/e2e/from-design.sh: lift fixtures/images/hero-sample.png using a spec pre-authored to simulate the lift (spec fixture) -> implement -> verify diffs limited to logged quantization deltas", "Plugin installs into Claude Code per the verified packaging format; skill triggers on 'build me a landing page on my WordPress site' (manual check documented in PROGRESS evidence)"] }
+  ],
+
+  "progress_protocol": { "same_as": "companion spec progress_protocol — identical file schema and rules, including decisions[] for the packaging-format verification and any tolerance tuning." },
+
+  "non_goals": [
+    "No content publishing/author routes in v1 (use core WP REST directly if a task needs a draft; not wrapped as a tool yet).",
+    "No multi-agent orchestration machinery — this plugin is the toolchain one agent (or many, externally coordinated) uses.",
+    "No hosted anything: no relay, no telemetry, no credential leaves the machine.",
+    "No screenshot-diff loop primitives — numeric oracle is the loop; screenshot is terminal evidence only.",
+    "No static block generation under any circumstances.",
+    "No LSP in this package (future thin client over the same manifest/validate)."
+  ]
+}

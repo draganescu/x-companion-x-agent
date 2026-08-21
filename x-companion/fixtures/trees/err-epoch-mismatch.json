@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "epoch": "0000000000000000000000000000000000000000000000000000000000000000",
+  "blocks": [
+    { "name": "core/paragraph", "attributes": { "content": "Generated against a stale registry." } }
+  ]
+}

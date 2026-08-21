@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    // rootDir is the plugin root because templates/theme-json/emitter.ts lives
+    // outside mcp/. Emitted layout is therefore dist/mcp/src/** + dist/templates/**,
+    // and the server entry point is dist/mcp/src/server.js (see ../.mcp.json).
+    "rootDir": "..",
+    "outDir": "dist",
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts", "../templates/**/*.ts"]
+}

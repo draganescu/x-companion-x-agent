@@ -1,0 +1,390 @@
+{
+  "version": 1,
+  "source": {
+    "kind": "synthesized",
+    "files": [
+      "fixtures/golden/golden-landing.html"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "tokens_candidates": {
+    "palette": [
+      {
+        "slug": "base",
+        "name": "Base",
+        "color": "#ffffff"
+      },
+      {
+        "slug": "contrast",
+        "name": "Contrast",
+        "color": "#111111"
+      },
+      {
+        "slug": "accent-1",
+        "name": "Accent 1",
+        "color": "#ffee58"
+      },
+      {
+        "slug": "accent-2",
+        "name": "Accent 2",
+        "color": "#f6cff4"
+      },
+      {
+        "slug": "accent-3",
+        "name": "Accent 3",
+        "color": "#503aa8"
+      },
+      {
+        "slug": "accent-4",
+        "name": "Accent 4",
+        "color": "#686868"
+      },
+      {
+        "slug": "accent-5",
+        "name": "Accent 5",
+        "color": "#fbfaf3"
+      }
+    ],
+    "spacing": {
+      "scale_unit": "px",
+      "steps": [
+        {
+          "slug": "gap-19",
+          "size": "19px"
+        },
+        {
+          "slug": "gap-50",
+          "size": "50px"
+        }
+      ]
+    },
+    "typography": {
+      "families": [
+        {
+          "slug": "body",
+          "name": "Body",
+          "fontFamily": "inherit"
+        }
+      ],
+      "sizes": [
+        {
+          "slug": "measured-22",
+          "size": "22px"
+        },
+        {
+          "slug": "measured-48",
+          "size": "48px"
+        }
+      ]
+    },
+    "layout": {
+      "contentSize": "1440px",
+      "wideSize": "1440px"
+    },
+    "quantization_log": [
+      {
+        "observed": "#ffffff",
+        "snapped_to": "#ffffff",
+        "delta": 0,
+        "note": "theme palette slug base, read from GET /manifest"
+      },
+      {
+        "observed": "#111111",
+        "snapped_to": "#111111",
+        "delta": 0,
+        "note": "theme palette slug contrast, read from GET /manifest"
+      },
+      {
+        "observed": "#ffee58",
+        "snapped_to": "#ffee58",
+        "delta": 0,
+        "note": "theme palette slug accent-1, read from GET /manifest"
+      },
+      {
+        "observed": "#f6cff4",
+        "snapped_to": "#f6cff4",
+        "delta": 0,
+        "note": "theme palette slug accent-2, read from GET /manifest"
+      },
+      {
+        "observed": "#503aa8",
+        "snapped_to": "#503aa8",
+        "delta": 0,
+        "note": "theme palette slug accent-3, read from GET /manifest"
+      },
+      {
+        "observed": "#686868",
+        "snapped_to": "#686868",
+        "delta": 0,
+        "note": "theme palette slug accent-4, read from GET /manifest"
+      },
+      {
+        "observed": "#fbfaf3",
+        "snapped_to": "#fbfaf3",
+        "delta": 0,
+        "note": "theme palette slug accent-5, read from GET /manifest"
+      },
+      {
+        "observed": "19px",
+        "snapped_to": "19px",
+        "delta": 0,
+        "note": "measured child spacing, no snap applied"
+      },
+      {
+        "observed": "50px",
+        "snapped_to": "50px",
+        "delta": 0,
+        "note": "measured child spacing, no snap applied"
+      },
+      {
+        "observed": "22px",
+        "snapped_to": "22px",
+        "delta": 0,
+        "note": "measured computed font-size at 1440px"
+      },
+      {
+        "observed": "48px",
+        "snapped_to": "48px",
+        "delta": 0,
+        "note": "measured computed font-size at 1440px"
+      },
+      {
+        "observed": "1440px",
+        "snapped_to": "1440px",
+        "delta": 0,
+        "note": "measured full-bleed width"
+      },
+      {
+        "observed": "1440px",
+        "snapped_to": "1440px",
+        "delta": 0,
+        "note": "measured full-bleed width"
+      }
+    ]
+  },
+  "content": [
+    {
+      "id": "c1",
+      "kind": "heading",
+      "text": "Ship the layout, not the guesswork.",
+      "region_id": "hero-1"
+    },
+    {
+      "id": "c2",
+      "kind": "button",
+      "text": "Start building",
+      "region_id": "hero-1"
+    },
+    {
+      "id": "c3",
+      "kind": "button",
+      "text": "Read the contract",
+      "region_id": "hero-1"
+    },
+    {
+      "id": "c4",
+      "kind": "heading",
+      "text": "Deterministic",
+      "region_id": "features-2-column-1"
+    },
+    {
+      "id": "c5",
+      "kind": "heading",
+      "text": "Measured",
+      "region_id": "features-2-column-2"
+    },
+    {
+      "id": "c6",
+      "kind": "heading",
+      "text": "Extensible",
+      "region_id": "features-2-column-3"
+    },
+    {
+      "id": "c7",
+      "kind": "heading",
+      "text": "Deterministic",
+      "region_id": "features-2"
+    },
+    {
+      "id": "c8",
+      "kind": "heading",
+      "text": "Measured",
+      "region_id": "features-2"
+    },
+    {
+      "id": "c9",
+      "kind": "heading",
+      "text": "Extensible",
+      "region_id": "features-2"
+    },
+    {
+      "id": "c10",
+      "kind": "heading",
+      "text": "Ready when your instance is.",
+      "region_id": "section-3"
+    },
+    {
+      "id": "c11",
+      "kind": "button",
+      "text": "Connect an instance",
+      "region_id": "section-3"
+    }
+  ],
+  "regions": [
+    {
+      "id": "hero-1",
+      "role": "hero",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 560
+      },
+      "layout": {
+        "direction": "row",
+        "gap_px": 0
+      },
+      "style_refs": {
+        "font_size_slug": "measured-48"
+      },
+      "responsive_assumptions": [
+        {
+          "breakpoint": "<=781px",
+          "change": "inner columns stack; the region keeps its vertical rhythm",
+          "confidence": "synthesized"
+        }
+      ]
+    },
+    {
+      "id": "features-2",
+      "role": "features",
+      "box": {
+        "x": 0,
+        "y": 579.19,
+        "w": 1440,
+        "h": 241.03
+      },
+      "layout": {
+        "direction": "row",
+        "gap_px": 50
+      },
+      "style_refs": {
+        "palette_slug": "contrast",
+        "font_size_slug": "measured-22"
+      },
+      "children": [
+        {
+          "id": "features-2-column-1",
+          "role": "column",
+          "box": {
+            "x": 0,
+            "y": 649.19,
+            "w": 446.67,
+            "h": 101.03
+          },
+          "layout": {
+            "direction": "column",
+            "gap_px": 19.19
+          },
+          "style_refs": {
+            "palette_slug": "contrast",
+            "font_size_slug": "measured-22"
+          },
+          "responsive_assumptions": [
+            {
+              "breakpoint": "<=781px",
+              "change": "inner columns stack; the region keeps its vertical rhythm",
+              "confidence": "synthesized"
+            }
+          ]
+        },
+        {
+          "id": "features-2-column-2",
+          "role": "column",
+          "box": {
+            "x": 496.67,
+            "y": 649.19,
+            "w": 446.66,
+            "h": 101.03
+          },
+          "layout": {
+            "direction": "column",
+            "gap_px": 19.19
+          },
+          "style_refs": {
+            "palette_slug": "contrast",
+            "font_size_slug": "measured-22"
+          },
+          "responsive_assumptions": [
+            {
+              "breakpoint": "<=781px",
+              "change": "inner columns stack; the region keeps its vertical rhythm",
+              "confidence": "synthesized"
+            }
+          ]
+        },
+        {
+          "id": "features-2-column-3",
+          "role": "column",
+          "box": {
+            "x": 993.33,
+            "y": 649.19,
+            "w": 446.67,
+            "h": 101.03
+          },
+          "layout": {
+            "direction": "column",
+            "gap_px": 19.19
+          },
+          "style_refs": {
+            "palette_slug": "contrast",
+            "font_size_slug": "measured-22"
+          },
+          "responsive_assumptions": [
+            {
+              "breakpoint": "<=781px",
+              "change": "inner columns stack; the region keeps its vertical rhythm",
+              "confidence": "synthesized"
+            }
+          ]
+        }
+      ],
+      "responsive_assumptions": [
+        {
+          "breakpoint": "<=781px",
+          "change": "inner columns stack; the region keeps its vertical rhythm",
+          "confidence": "synthesized"
+        }
+      ]
+    },
+    {
+      "id": "section-3",
+      "role": "section",
+      "box": {
+        "x": 0,
+        "y": 839.41,
+        "w": 1440,
+        "h": 321.91
+      },
+      "layout": {
+        "direction": "column",
+        "gap_px": 19.19
+      },
+      "style_refs": {
+        "palette_slug": "contrast",
+        "background_palette_slug": "accent-5",
+        "font_size_slug": "measured-22"
+      },
+      "responsive_assumptions": [
+        {
+          "breakpoint": "<=781px",
+          "change": "inner columns stack; the region keeps its vertical rhythm",
+          "confidence": "synthesized"
+        }
+      ]
+    }
+  ]
+}

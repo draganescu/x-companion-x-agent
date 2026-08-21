@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/group",
+      "innerBlocks": [
+        { "name": "core/column", "attributes": { "width": "50%" } }
+      ]
+    }
+  ]
+}

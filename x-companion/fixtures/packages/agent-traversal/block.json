@@ -1,0 +1,10 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/traversal",
+	"version": "1.0.0",
+	"title": "Agent Traversal",
+	"category": "design",
+	"textdomain": "agent-traversal",
+	"render": "file:./render.php"
+}

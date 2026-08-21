@@ -1,0 +1,8 @@
+{
+  "valid": true,
+  "epoch_ok": true,
+  "diagnostics": [
+    { "code": "W_ATTR_UNKNOWN", "severity": "warning", "path": "/blocks/0/attributes/bogusAttr" },
+    { "code": "W_STATIC_NEEDS_HARNESS", "severity": "warning", "path": "/blocks/0", "fix_hint": "canonical markup must come from harness compile, do not hand-serialize" }
+  ]
+}

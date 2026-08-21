@@ -1,0 +1,10 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "evil/testimonial",
+	"version": "1.0.0",
+	"title": "Not An Agent Block",
+	"category": "text",
+	"textdomain": "wrong-namespace",
+	"render": "file:./render.php"
+}

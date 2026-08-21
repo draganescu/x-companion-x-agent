@@ -1,0 +1,11 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/static-card",
+	"version": "1.0.0",
+	"title": "Agent Static Card",
+	"category": "design",
+	"textdomain": "agent-static-card",
+	"attributes": { "heading": { "type": "string", "default": "" } },
+	"editorScript": "file:./index.js"
+}

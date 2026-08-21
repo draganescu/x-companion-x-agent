@@ -1,0 +1,325 @@
+{
+  "spec_version": "1.0.0",
+  "id": "x-companion",
+  "title": "X Companion — WordPress plugin that makes a WP instance a ground-truth toolchain target for block-generating agents",
+  "mission": "Expose this WordPress instance's real block registry, theme tokens, and patterns as machine-readable contracts; validate agent-generated block trees against them; provide a browser-executable serialization harness; accept agent-generated dynamic blocks into a managed library. The agent NEVER hand-writes serialized block markup and NEVER guesses what blocks exist — this plugin is why.",
+
+  "problem_context": {
+    "why": "Gutenberg persisted content is HTML with JSON-carrying comment delimiters whose validity is defined by each block's JS save() output. LLMs cannot reliably produce it. The correct architecture: agents generate a JSON Tree IR, this plugin validates it against the live registry, and a browser harness (driven by the counterpart agent plugin) compiles Tree IR -> canonical markup using the real registered save() functions.",
+    "instance_as_ground_truth": "Validity is defined by THIS site's registry (core + whatever suites are active, e.g. Kadence), not by an abstract 'WordPress'. Everything this plugin serves derives from the live registry at request time.",
+    "postures": {
+      "toolchain": "Plugin runs on a disposable sandbox (Playground/Studio/wp-env). All tiers enabled. Never ships to production; production receives only exported artifacts.",
+      "production": "Plugin installed on a live brownfield site. Introspect + author tiers only. Extend tier (block install, theme writes) is hard-disabled in code, not just hidden."
+    }
+  },
+
+  "counterpart": {
+    "id": "x-agent",
+    "what": "A Claude Code plugin (skill + local MCP server) running on the agent's machine. It holds the credentials, runs a warm Playwright browser against this plugin's harness route to compile trees, runs the layout oracle, builds/smoke-tests blocks with Node, and POSTs finished block zips to this plugin.",
+    "division_of_labor": "This plugin serves capability (registry, validation, harness page, install target). The agent machine supplies all heavy compute (browser, Node, LLM). Nothing in this plugin requires exec(), shell, Node, or a browser on the server. Must run on lowest-common-denominator shared hosting: PHP 8.1+, WP 6.5+, writes only under wp-content/uploads.",
+    "contract": "The interfaces.rest_api section below IS the contract the counterpart codes against. Do not change shapes without bumping interfaces.version."
+  },
+
+  "operating_rules_for_implementing_agent": [
+    "Work until every milestone's acceptance commands pass. Do not ask questions after start.",
+    "When a detail is genuinely unspecified, choose the simplest option consistent with 'runs on shared hosting' and 'agent machine does the heavy lifting', then record it in PROGRESS.json decisions[].",
+    "Update PROGRESS.json after every milestone state change. A milestone is 'done' ONLY when its acceptance commands exit 0; paste the command + last output lines as evidence.",
+    "All code in one repo, installable as a standard WP plugin directory named x-companion/.",
+    "No frameworks. WordPress core APIs + plain PHP. No Composer runtime deps (dev-deps for tests are fine).",
+    "Every REST handler: capability check first, then input schema validation, then work. No exceptions.",
+    "If WordPress Abilities API is present (function wp_register_ability / WP >= 6.9), additionally register each REST capability as an ability with the same input/output JSON Schemas. REST routes are the primary, always-present interface; abilities are a conditional wrapper. Verify the current abilities registration signature from the WordPress/abilities-api repo before writing that wrapper."
+  ],
+
+  "environment": {
+    "dev_target": "wp-env (Docker) OR @wp-playground/cli — use whichever is available in the build environment; both must be supported by the test scripts.",
+    "test_matrix": [
+      { "id": "core-only", "blueprint": "WP latest, Twenty Twenty-Five, no extra plugins" },
+      { "id": "core-plus-suite", "blueprint": "WP latest + Kadence Blocks (free, from wordpress.org) active" }
+    ],
+    "php_min": "8.1",
+    "wp_min": "6.5"
+  },
+
+  "file_layout": {
+    "x-companion/x-companion.php": "Plugin bootstrap: constants, posture resolution, hook registration.",
+    "x-companion/includes/class-manifest.php": "Registry -> manifest compiler + fingerprint.",
+    "x-companion/includes/class-validator.php": "Tree IR validation -> Diagnostics.",
+    "x-companion/includes/class-harness.php": "Harness page controller + asset enqueue logic.",
+    "x-companion/includes/class-block-library.php": "agent-blocks install/list/remove/rollback + registrar.",
+    "x-companion/includes/class-theme-tokens.php": "Design-tokens -> theme.json writer (+ suite adapter interface).",
+    "x-companion/includes/adapters/class-adapter-kadence.php": "Maps the same tokens into Kadence global settings. No-op if Kadence absent.",
+    "x-companion/includes/class-rest.php": "Route registration, auth, schema enforcement, posture gating.",
+    "x-companion/includes/class-abilities.php": "Conditional Abilities API wrapper.",
+    "x-companion/harness/harness.js": "window.__compile / window.__registry implementation (~80 lines, vanilla, no build step).",
+    "x-companion/fixtures/": "Copied from spec fixtures (see verification).",
+    "x-companion/tests/": "Integration tests (see verification).",
+    "PROGRESS.json": "Progress ledger (schema in progress_protocol)."
+  },
+
+  "constants_and_options": {
+    "X_COMPANION_POSTURE": "Constant, 'toolchain' | 'production'. Default when undefined: 'production'. In 'production', extend-tier routes return 403 {code:'posture_forbidden'} AND are not registered as abilities.",
+    "X_COMPANION_ALLOW_STATIC_BLOCKS": "Constant, default false. When false, install-block rejects zips whose block.json has no \"render\" entry (dynamic-by-default is a hard rule: static blocks freeze save() output into content and break on iteration).",
+    "x_companion_agent_hints": "Filter. Signature: apply_filters('x_companion_agent_hints', array $hints, string $block_name, WP_Block_Type $type). Lets any block author declare machine-invisible constraints: allowed_blocks (string[]), template_lock (string|false), usage_notes (string), example_attributes (object). Merged into manifest per block.",
+    "capabilities": {
+      "x_companion_read": "introspect tier (manifest, patterns, harness, parse, render)",
+      "x_companion_author": "author tier (validate is read-tier; author covers content insert if later added — reserve the cap now)",
+      "x_companion_extend": "extend tier (install-block, library mutations, theme token writes, snapshot export)"
+    },
+    "role": "On activation create role 'x_agent' with read + the three caps above minus x_companion_extend; grant x_companion_extend to the role only when posture is 'toolchain'. Administrators get all three always (posture gate still applies at route level)."
+  },
+
+  "interfaces": {
+    "version": "1",
+    "auth": "WordPress Application Passwords over HTTPS (Basic auth on REST). The harness route also accepts Basic auth directly since it is fetched by Playwright, not a browser session. No credential is ever stored by this plugin; no relay, no proxy — the counterpart holds the app password locally. This is a deliberate rejection of the hosted-relay/credential-custody model.",
+    "namespace": "x-companion/v1",
+
+    "shared_types": {
+      "TreeIR": {
+        "description": "What agents generate INSTEAD of serialized markup. No innerHTML anywhere — innerHTML is a compiler output, produced only by the harness.",
+        "schema": {
+          "type": "object",
+          "required": ["version", "epoch", "blocks"],
+          "properties": {
+            "version": { "const": 1 },
+            "epoch": { "type": "string", "description": "Manifest fingerprint this tree was generated against." },
+            "blocks": { "type": "array", "items": { "$ref": "#/BlockNode" } }
+          },
+          "BlockNode": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+$" },
+              "attributes": { "type": "object" },
+              "innerBlocks": { "type": "array", "items": { "$ref": "#/BlockNode" } }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "Diagnostics": {
+        "schema": {
+          "type": "object",
+          "required": ["valid", "epoch_ok", "diagnostics"],
+          "properties": {
+            "valid": { "type": "boolean", "description": "true iff zero severity=error diagnostics" },
+            "epoch_ok": { "type": "boolean" },
+            "server_fingerprint": { "type": "string" },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["code", "severity", "path", "message"],
+                "properties": {
+                  "code": { "enum": ["E_TREE_SCHEMA", "E_UNKNOWN_BLOCK", "E_ATTR_TYPE", "E_ATTR_ENUM", "E_NEST_PARENT", "E_NEST_ANCESTOR", "E_EPOCH_MISMATCH", "W_ATTR_UNKNOWN", "W_STATIC_NEEDS_HARNESS", "W_HINT_ALLOWED_BLOCKS", "W_HINT_TEMPLATE_LOCK"] },
+                  "severity": { "enum": ["error", "warning"] },
+                  "path": { "type": "string", "description": "JSON pointer into the tree, e.g. /blocks/0/innerBlocks/2" },
+                  "message": { "type": "string" },
+                  "fix_hint": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Manifest": {
+        "schema_outline": {
+          "fingerprint": "sha256 hex of canonical JSON of: sorted block names + each block's attributes schema + parent/ancestor + api_version + active theme slug+version + active plugin slugs+versions + interfaces.version",
+          "generated_at": "ISO8601",
+          "wp_version": "string",
+          "site_url": "string",
+          "posture": "toolchain|production",
+          "blocks": "map<name, {title, category, api_version, attributes (verbatim from registry), supports, parent, ancestor, provides_context, uses_context, is_dynamic (bool: has render_callback or render file), variations_count, agent_hints}>",
+          "patterns": "[{name, title, categories, source, has_content}] — content itself via GET /patterns to keep manifest small",
+          "theme_tokens": "resolved wp_get_global_settings() subset: color.palette (all origins), spacing.spacingSizes + spacingScale, typography.fontSizes + fontFamilies, layout.contentSize + wideSize",
+          "suites": "[{slug, version}] for a known-suite allowlist detected among active plugins: kadence-blocks, ultimate-addons-for-gutenberg (Spectra), generateblocks, stackable-ultimate-gutenberg-blocks",
+          "counts": "{blocks, dynamic_blocks, static_blocks, patterns}"
+        }
+      }
+    },
+
+    "rest_api": [
+      {
+        "route": "GET /manifest",
+        "tier": "introspect",
+        "returns": "Manifest",
+        "notes": "Cache in a transient keyed by fingerprint inputs; invalidate on activated_plugin, deactivated_plugin, switch_theme, and after install-block. Must never serve a stale fingerprint after a registry change — recompute inputs hash cheaply on each request and rebuild the heavy body only when it moved."
+      },
+      {
+        "route": "POST /validate",
+        "tier": "introspect",
+        "body": "TreeIR",
+        "returns": "Diagnostics",
+        "validation_semantics": [
+          "E_TREE_SCHEMA: body fails TreeIR schema (stop further checks).",
+          "E_EPOCH_MISMATCH: tree.epoch !== current fingerprint. Still run remaining checks (best effort) but epoch_ok=false and valid=false.",
+          "E_UNKNOWN_BLOCK: name not in registry.",
+          "E_ATTR_TYPE / E_ATTR_ENUM: attribute value violates the registered attribute's type/enum. Coverage: type (string,number,integer,boolean,array,object,null), enum, and default-fill awareness. Do NOT attempt source-based html attribute semantics — that is the harness's job.",
+          "W_ATTR_UNKNOWN: attribute key not declared (warning: many blocks tolerate extras; supports-generated attrs like className, style, lock, metadata, align are pre-whitelisted globally).",
+          "E_NEST_PARENT / E_NEST_ANCESTOR: violates registered parent[] / ancestor[] of the child block (checked against actual chain in the tree).",
+          "W_HINT_ALLOWED_BLOCKS / W_HINT_TEMPLATE_LOCK: violates agent_hints for the containing block (warning severity because hints are best-effort declarations).",
+          "W_STATIC_NEEDS_HARNESS: block is static (is_dynamic=false); attach once per distinct static block name, fix_hint='canonical markup must come from harness compile, do not hand-serialize'."
+        ]
+      },
+      {
+        "route": "POST /parse",
+        "tier": "introspect",
+        "body": "{ markup: string }",
+        "returns": "{ blocks: parse_blocks() output verbatim (name, attrs, innerBlocks, innerHTML, innerContent) }",
+        "notes": "Read-back path: lets the agent lift existing site content into trees."
+      },
+      {
+        "route": "POST /render",
+        "tier": "introspect",
+        "body": "{ markup: string }",
+        "returns": "{ html: do_blocks() output, enqueued_styles: string[] }",
+        "notes": "Server render for preview/oracle of dynamic blocks. Run inside a faux main query guard; capture styles enqueued during render via wp_enqueue_scripts introspection where feasible, else return []."
+      },
+      {
+        "route": "GET /patterns",
+        "tier": "introspect",
+        "returns": "[{name, title, categories, content (serialized markup), parsed: parse_blocks(content)}]",
+        "notes": "All registered patterns from WP_Block_Patterns_Registry, both source markup AND parsed tree, because patterns are the agent's retrieval corpus of layout idioms."
+      },
+      {
+        "route": "GET /harness",
+        "tier": "introspect",
+        "returns": "text/html page",
+        "spec": {
+          "purpose": "The Tree IR compiler. Loaded once by the counterpart's warm Playwright instance; window.__compile is then called repeatedly.",
+          "server_side": [
+            "Authenticate via Basic app-password (reuse REST auth by making this a REST route with a callback that echoes HTML and exits, so auth is uniform).",
+            "Emit a minimal HTML page (no theme, no admin chrome) that: (1) prints get_block_editor_server_block_settings() into an inline bootstrap for wp.blocks.unstable__bootstrapServerSideBlockDefinitions — exactly as core's editor does; (2) enqueues wp-blocks, wp-block-library, wp-element, wp-data, wp-dom-ready, wp-i18n; (3) for every WP_Block_Type in the registry, enqueues all handles in editor_script_handles (this is how third-party blocks self-register client-side); (4) fires do_action('enqueue_block_editor_assets') wrapped in try/catch-equivalent (shutdown handler) because some plugins assume full admin — if a fatal occurs, serve the page WITHOUT that action and set header X-Harness-Degraded: enqueue_block_editor_assets; (5) enqueues harness/harness.js last."
+          ],
+          "harness_js_api": {
+            "window.__ready": "Promise resolving after DOMContentLoaded + one tick, when registration has settled.",
+            "window.__registry()": "returns string[] of wp.blocks.getBlockTypes() names. The counterpart diffs this against manifest.blocks to detect blocks whose editor script failed to load client-side.",
+            "window.__compile(tree)": "tree = TreeIR.blocks (array of BlockNode). Recursively wp.blocks.createBlock(name, attributes, innerBlocks) — createBlock applies defaults and sanitizes attrs; then wp.blocks.serialize(blocks) -> markup; then wp.blocks.parse(markup) and walk it collecting isValid per block with its clientId path. Returns { markup: string, all_valid: bool, invalid: [{path, name, validation_issues: any}] }. Wrap the whole body in try/catch and return { error: message } on throw — never leave the caller hanging.",
+            "window.__version": "Constant string matching interfaces.version."
+          },
+          "known_risk_and_fallback": "Some third-party blocks may fail to register outside the real editor DOM/stores. Detection: __registry() diff. Documented fallback (implement only the detection, document the fallback for the counterpart): counterpart loads wp-admin/post-new.php via Playwright and injects harness.js into the editor iframe. Record in README."
+        }
+      },
+      {
+        "route": "POST /blocks/install",
+        "tier": "extend",
+        "body": "multipart/form-data, field 'package' = zip",
+        "returns": "{ installed: {slug, name, version}, fingerprint: string, replaced_previous: bool }",
+        "spec": [
+          "Zip must contain exactly one top-level dir OR flat files, with block.json at root of the block.",
+          "block.json requirements enforced: name matches ^agent/[a-z0-9-]+$ (namespace filterable via 'x_companion_block_namespace'); \"render\" entry present pointing to an existing render.php in the zip, UNLESS X_COMPANION_ALLOW_STATIC_BLOCKS. Reject otherwise with 422 {code:'block_policy', reasons:[...]}.",
+          "Structural validation only — NO php -l, NO exec. The safety gate is on the counterpart (Playground smoke-test before POSTing). Server responsibilities: sanitize slug, reject path traversal in zip entries, size cap 5MB, verify block.json parses, verify every file referenced by block.json exists in the zip.",
+          "Install target: wp_upload_dir()/x-agent-blocks/{slug}/ . If slug exists, move current to {slug}.prev/ (single-level rollback) before extracting.",
+          "Registrar (runs on init, always, both postures — installed blocks must keep rendering even in production posture): glob upload_dir/x-agent-blocks/*/block.json, register_block_type(dir) each, individually wrapped so one broken block cannot fatal the site: pre-check with a file_exists + json_decode guard; render.php fatals are contained per-request by WordPress's block rendering, and rollback exists.",
+          "After successful install: bust manifest transient, recompute fingerprint, return it. The returned fingerprint is the new epoch the counterpart must adopt."
+        ]
+      },
+      { "route": "GET /blocks/library", "tier": "extend", "returns": "[{slug, name, version, installed_at, has_prev}]" },
+      { "route": "POST /blocks/library/{slug}/rollback", "tier": "extend", "returns": "{fingerprint}" },
+      { "route": "DELETE /blocks/library/{slug}", "tier": "extend", "returns": "{fingerprint}", "notes": "Refuse (409 {code:'in_use', posts:[ids]}) if any published content contains the block name (WP_Query s= '<!-- wp:'+name limited scan, best effort)." },
+      {
+        "route": "POST /theme/tokens",
+        "tier": "extend",
+        "body": "DesignTokens (schema shipped in fixtures/design-tokens.schema.json; outline: {palette:[{slug,name,color,role}], spacing:{scale_unit, steps:[{slug,size}]}, typography:{families:[{slug,name,fontFamily}], sizes:[{slug,size,fluid?}]}, layout:{contentSize, wideSize}})",
+        "returns": "{ theme_json_written: bool, adapters_applied: string[], fingerprint }",
+        "spec": [
+          "Compile tokens into the ACTIVE theme's theme.json settings (merge, preserving unrelated keys) — settings.color.palette, settings.spacing.spacingSizes, settings.typography.fontSizes/fontFamilies, settings.layout. Write via filesystem only if the theme dir is writable; otherwise write to wp_get_global_settings user origin via the global styles CPT (wp_global_styles) — implement the CPT path as primary since it works everywhere and survives theme updates.",
+          "Then iterate registered suite adapters (interface: supports(): bool; apply(tokens): string[] of change notes). Ship the Kadence adapter: map palette into Kadence's global palette option and spacing into its defaults where its option schema allows; adapter must introspect option shape defensively and no-op with a logged note on mismatch rather than guess."
+        ]
+      },
+      {
+        "route": "POST /snapshot/export",
+        "tier": "extend",
+        "returns": "application/zip stream",
+        "spec": "Minimal viable artifact bundle for promotion/cloning: /theme/ (active theme dir if child or block theme), /agent-blocks/ (the library), /patterns.json (GET /patterns payload), /content.xml (WXR export of published posts+pages), /manifest.json (current manifest incl. fingerprint). This is the 'production receives artifacts, not the toolchain' pipeline's wire format."
+      },
+      {
+        "route": "GET /fingerprint",
+        "tier": "introspect",
+        "returns": "{ fingerprint, posture, interfaces_version }",
+        "notes": "Cheap epoch check the counterpart calls before every batch; also the promotion gate primitive (compare sandbox vs prod fingerprints)."
+      }
+    ]
+  },
+
+  "milestones": [
+    {
+      "id": "M1_skeleton",
+      "goal": "Plugin activates on both test environments; posture, role, caps, and route scaffolding in place; all routes return 501 with correct auth + tier gating already enforced.",
+      "acceptance": [
+        "wp plugin activate x-companion exits 0 on core-only env",
+        "curl unauthenticated GET /manifest -> 401; authenticated as x_agent role -> 501",
+        "With X_COMPANION_POSTURE=production, POST /blocks/install -> 403 code=posture_forbidden"
+      ]
+    },
+    {
+      "id": "M2_manifest",
+      "goal": "GET /manifest + GET /fingerprint complete per spec on both envs; Kadence blocks appear with correct attributes on core-plus-suite; agent_hints filter merges; transient invalidation on plugin (de)activation proven.",
+      "acceptance": [
+        "tests/test-manifest.php passes: fingerprint changes when Kadence toggled; identical across two consecutive requests otherwise; theme_tokens contains palette+spacing from active theme.json",
+        "A mu-plugin fixture registering x_companion_agent_hints for core/group shows allowed_blocks in manifest output"
+      ]
+    },
+    {
+      "id": "M3_validator",
+      "goal": "POST /validate implements every code in validation_semantics.",
+      "acceptance": [
+        "tests/test-validator.php runs all trees in fixtures/trees/ and asserts exact diagnostic codes+paths against fixtures/expected/ (fixture set: 1 valid core tree, 1 valid kadence tree, and one tree per error/warning code — author these fixtures as part of this milestone, deriving 'valid' ground truth by round-tripping through the real editor if any doubt exists)"
+      ]
+    },
+    {
+      "id": "M4_harness",
+      "goal": "GET /harness serves the compiler page; __compile round-trips fixture trees to markup that the SAME page's wp.blocks.parse marks fully valid; __registry diff clean on core-only.",
+      "acceptance": [
+        "tests/harness.spec.ts (Playwright, lives in this repo's tests/, node dev-dep OK): loads /harness with Basic auth on core-only env; __registry() superset-of manifest.blocks keys for core; __compile(fixtures/trees/valid-core.json) returns all_valid=true and markup containing '<!-- wp:'; injected bad tree returns invalid[] non-empty",
+        "Same spec against core-plus-suite: either passes for a Kadence rowlayout fixture tree OR the degraded-registration case is detected via __registry diff and reported (assert one of the two, log which — this feeds the documented fallback)"
+      ]
+    },
+    {
+      "id": "M5_block_library",
+      "goal": "install/list/rollback/delete per spec; registrar loads installed blocks; policy enforcement (namespace, dynamic-only, traversal, size).",
+      "acceptance": [
+        "tests/test-install.php: installing fixtures/packages/agent-testimonial.zip (a valid dynamic block package — author it: block.json name agent/testimonial, render.php echoing attributes) succeeds, block renders via POST /render with markup '<!-- wp:agent/testimonial {\"quote\":\"q\"} /-->', fingerprint changed, appears in GET /manifest",
+        "Static-block zip rejected 422; zip with ../ entry rejected; second install of same slug creates .prev and rollback restores prior render output"
+      ]
+    },
+    {
+      "id": "M6_tokens_and_export",
+      "goal": "POST /theme/tokens (global-styles-CPT path + Kadence adapter) and POST /snapshot/export per spec.",
+      "acceptance": [
+        "tests/test-tokens.php: after POST with fixtures/design-tokens.sample.json, wp_get_global_settings() reflects palette slugs and spacing steps; on core-plus-suite, adapters_applied includes 'kadence' with at least palette applied (or a logged structured no-op note if option schema unrecognized — assert note format)",
+        "snapshot zip contains all five entries and manifest.json fingerprint matches GET /fingerprint"
+      ]
+    },
+    {
+      "id": "M7_hardening_and_docs",
+      "goal": "Abilities wrapper (conditional), README (install, postures, auth setup incl. creating the x_agent user + app password, harness fallback doc, counterpart contract pointer), plugin passes WordPress Plugin Check (wp plugin check) with zero errors.",
+      "acceptance": [
+        "wp plugin check x-companion reports 0 errors",
+        "README.md sections present: Postures, Auth, Contract v1, Harness fallback, Uninstall (removes role/caps, leaves agent-blocks with a warning)",
+        "Full test suite green on both envs in one command: bash tests/run-all.sh"
+      ]
+    }
+  ],
+
+  "progress_protocol": {
+    "file": "PROGRESS.json",
+    "schema": {
+      "milestones": "map<milestone_id, {status: 'pending'|'in_progress'|'done'|'blocked', evidence: string, updated_at: ISO8601}>",
+      "decisions": "[{when, what, why}] — every unspecified-detail choice goes here",
+      "deviations": "[{when, spec_ref, what, why}] — any place implementation had to diverge from this spec; empty is the goal"
+    },
+    "rules": [
+      "Initialize with all milestones pending before writing any code.",
+      "Never mark done without pasted passing acceptance output in evidence.",
+      "If blocked > 3 attempts on the same failure, mark blocked with the failure detail and move to the next non-dependent milestone; return after."
+    ]
+  },
+
+  "non_goals": [
+    "No content-authoring routes (post insert/update) in v1 — the counterpart uses core REST for that.",
+    "No LSP (separate client over /manifest + /validate, out of scope).",
+    "No hosted relay, no credential storage, no OAuth server — Application Passwords only, held by the counterpart.",
+    "No attempt to execute or lint PHP from installed packages server-side.",
+    "No suite adapters beyond Kadence in v1 (interface must make adding Spectra/GenerateBlocks a one-file affair)."
+  ]
+}

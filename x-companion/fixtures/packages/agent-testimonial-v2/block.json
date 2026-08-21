@@ -1,0 +1,51 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/testimonial",
+	"version": "2.0.0",
+	"title": "Agent Testimonial (v2)",
+	"category": "text",
+	"icon": "format-quote",
+	"description": "A quote with an attribution line. Rendered on the server so its markup can change without invalidating saved content. supports.autoRegister is required (WordPress 7.0+): a dynamic block ships no editor script, so without it nothing calls registerBlockType() client-side and the x-companion harness cannot compile trees that use this block.",
+	"textdomain": "agent-testimonial",
+	"attributes": {
+		"quote": {
+			"type": "string",
+			"default": ""
+		},
+		"attribution": {
+			"type": "string",
+			"default": ""
+		},
+		"role": {
+			"type": "string",
+			"default": ""
+		},
+		"tone": {
+			"type": "string",
+			"enum": [
+				"plain",
+				"accent"
+			],
+			"default": "plain"
+		}
+	},
+	"supports": {
+		"autoRegister": true,
+		"html": false,
+		"anchor": true,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"color": {
+			"background": true,
+			"text": true
+		}
+	},
+	"render": "file:./render.php"
+}

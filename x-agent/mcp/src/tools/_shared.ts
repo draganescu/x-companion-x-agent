@@ -1,0 +1,36 @@
+/**
+ * Shared plumbing for CORE tool modules. Session-track modules may import this
+ * too — nothing here is private.
+ */
+import { z } from 'zod';
+import type { ToolDef } from '../registry.js';
+
+/** Connection arguments accepted by every tool (config chain: args win). */
+export const ConnectionArgsShape = {
+  url: z.string().optional().describe('Site URL override. Falls back to .x-agent.json then X_WP_URL.'),
+  user: z.string().optional().describe('WordPress user override. Falls back to .x-agent.json then X_WP_USER.'),
+  app_password: z
+    .string()
+    .optional()
+    .describe('WordPress Application Password override. Never logged or echoed. Falls back to .x-agent.json then X_WP_APP_PASSWORD.'),
+};
+
+export const ConnectionArgsSchema = z.object(ConnectionArgsShape);
+
+export function connectionArgs(input: unknown): { url?: string; user?: string; app_password?: string } {
+  const parsed = ConnectionArgsSchema.safeParse(input ?? {});
+  return parsed.success ? parsed.data : {};
+}
+
+export function defineTool<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(def: {
+  name: string;
+  title: string;
+  description: string;
+  inputSchema: I;
+  outputSchema: O;
+  handler: ToolDef['handler'];
+  /** True when the tool never needs a resolved connection (fully local). */
+  local?: boolean;
+}): ToolDef {
+  return def as unknown as ToolDef;
+}

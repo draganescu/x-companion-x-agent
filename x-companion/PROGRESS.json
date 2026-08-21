@@ -1,0 +1,391 @@
+{
+  "milestones": {
+    "M1_skeleton": {
+      "status": "done",
+      "evidence": "Verified live by the interop suite (bash proof/run-all.sh) against Playground WP 7.1 with x-companion mounted and activated by tools/playground/boot.mjs (activation also proven by the x_agent role existing in the booted instance).\nP2 'Auth and capability gating are real' \u2014 PASS (6 observations):\n  anonymous GET /manifest is 401  ->  401\n  with the pinned error envelope code  ->  rest_forbidden\n  the x_agent role reads the manifest  ->  200\n  even the cheap epoch route requires auth  ->  401\n  extend tier is reachable for admin on toolchain  ->  HTTP 200\nP11 'Posture wall holds from the agent side' \u2014 PASS, on a production-posture instance:\n  /x-companion/v1/blocks/install -> 403, code -> posture_forbidden\n  /x-companion/v1/theme/tokens   -> 403, code -> posture_forbidden\n  /x-companion/v1/snapshot/export-> 403, code -> posture_forbidden\nDeviation from the literal wording: routes return 200, not 501, because they are now implemented; the 501 in the original acceptance described the scaffold-only state.",
+      "updated_at": "2026-08-21T14:05:00Z"
+    },
+    "M2_manifest": {
+      "status": "done",
+      "evidence": "php x-companion/tests/test-manifest.php -> exit 0, PASS 186/186 assertions.\nLive corroboration from bash proof/run-all.sh (WP 7.1):\nP1 \u2014 agent fingerprint === companion GET /fingerprint -> 3dfb9d38...e12; blocks_count === manifest counts.blocks -> 116; manifest block count tracks the live WP registry -> manifest=116 wp/v2/block-types=116.\nP5 \u2014 fingerprint moved after a registry change -> E1=3dfb9d3876c4... E2=3f0cde9f360f...; the newly registered block appears in the manifest -> 117 blocks.\nP4 \u2014 a mu-plugin registering x_companion_agent_hints for core/cover is reflected in the manifest: 'the x_companion_agent_hints filter reaches the manifest' -> allowed_blocks present, and the live validator then emits W_HINT_ALLOWED_BLOCKS at /blocks/0/innerBlocks/1.\nP10 \u2014 theme_tokens carries the written palette: 8/8 slugs (canvas, shelf, ink, graphite, cobalt, clay, citron, hairline).",
+      "updated_at": "2026-08-21T14:05:00Z"
+    },
+    "M3_validator": {
+      "status": "done",
+      "evidence": "$ php x-companion/tests/test-validator.php\n== validator ==\n  PASS  the snapshot fixture produced a usable blocks map\n  PASS  the W_STATIC_NEEDS_HARNESS fix_hint is the exact contract string\n  PASS  the global attribute whitelist is exactly the contract list\n  PASS  every diagnostic code in the contract has a fixture\n  PASS  fixture err-attr-enum\n  PASS  fixture err-attr-type\n  PASS  fixture err-epoch-mismatch\n  PASS  fixture err-nest-ancestor\n  PASS  fixture err-nest-parent\n  PASS  fixture err-tree-schema\n  PASS  fixture err-unknown-block\n  PASS  fixture valid-core\n  PASS  fixture warn-attr-unknown\n  PASS  fixture warn-hint-allowed-blocks\n  PASS  fixture warn-hint-template-lock\n  PASS  fixture warn-static-needs-harness\n  PASS  the fixture set covers every code in the Diagnostics schema\n  PASS  E_TREE_SCHEMA stops all further checks\n  PASS  a non-object body is E_TREE_SCHEMA at /\n  PASS  E_EPOCH_MISMATCH does not stop the other checks\n  PASS  attribute type may be declared as an array of types\n  PASS  no source-based HTML attribute semantics are applied\n  PASS  RFC 6901 escaping is applied to attribute keys\n  PASS  a block with parent[] at the tree root is E_NEST_PARENT\n  PASS  W_STATIC_NEEDS_HARNESS is emitted once per distinct block name\n  PASS  validator state does not leak between runs\n  PASS  a body decoded with objects preserved behaves identically\n  PASS  empty JSON objects are not mistaken for empty arrays\n----------------------------------------\nPASS  validator: 140/140 assertions passed   (exit 0)\n\n12 tree fixtures pair 1:1 with 12 expected files; each expected file pins exact code + severity + RFC 6901 path (and the exact fix_hint for W_STATIC_NEEDS_HARNESS). All 11 contract diagnostic codes are covered, asserted by the 'covers every code in the Diagnostics schema' case.\n\nIndependently cross-checked with python jsonschema 4.26 (Draft7) against the frozen contract schemas:\n  - all 12 emitted Diagnostics documents validate against contract/schemas/diagnostics.schema.json\n  - 11 of the 12 tree fixtures validate against contract/schemas/tree-ir.schema.json; err-tree-schema.json is the one that fails, exactly as the hand-written PHP walk reports\n  - a further 18 hand-built edge-case bodies (missing keys, wrong version, name-pattern violations, {} vs [] in every position, nested innerHTML, extra top-level keys) were compared code-for-code: the PHP TreeIR walk and the reference JSON-Schema validator agree on all 18, 0 mismatches.",
+      "updated_at": "2026-08-21T00:00:00Z"
+    },
+    "M4_harness": {
+      "status": "done",
+      "evidence": "M4 harness \u2014 DONE. GET /harness serves the compiler page; __compile round-trips\nfixture trees to markup the SAME page's wp.blocks.parse marks fully valid.\n\n$ node --test x-companion/tests/harness.spec.ts\n> harness on core-only\n  PASS  the page loads over Basic auth and is not degraded\n  PASS  window.__version is the interfaces version\n  PASS  window.__ready resolves and __registry() returns names\n  PASS  __registry() is a superset of manifest.blocks, bar the server-only trio\n  PASS  an installed agent block auto-registers and compiles\n  PASS  __compile(valid-core.blocks) round-trips to fully valid markup\n  PASS  a deliberately broken tree comes back with a non-empty invalid[]\n  PASS  a nested broken block reports its full pointer\n  PASS  __compile never leaves the caller hanging\n  PASS  a plugin that fatals in enqueue_block_editor_assets degrades the page\n  PASS  an unregistered block is refused, not silently dropped\n> harness on core-plus-suite\n  [harness] KADENCE PATH: REGISTERED - 59/59 kadence/* blocks reached wp.blocks\n  [harness] X-Harness-Admin-Context: page healthy\n  PASS  the suite is actually installed\n  PASS  either the Kadence blocks compile, or the registry gap is detected\n  PASS  core blocks still compile with the suite loaded\ntests 16 / pass 16 / fail 0\n\nREGISTRY DIFF, core-only: manifest 116 blocks, wp.blocks 113. The only three\nmissing are core/legacy-widget, core/post-comments, core/widget-group -- server-only\nwidget-bridge blocks that registerCoreBlocks() never registers. Pinned as an exact\nset in the spec so any further loss fails.\n\nREGISTRY DIFF, core-plus-suite: manifest 175 blocks, wp.blocks 176. Zero kadence/*\nmissing; wp.blocks additionally carries 4 client-only inner blocks (kadence/pane,\nkadence/tab, kadence/countdown-timer, kadence/countdown-inner). So the Kadence tree\npath PASSED -- a kadence/rowlayout > kadence/column > core/paragraph tree built from\nthe LIVE manifest attributes compiles with all_valid:true:\n  <!-- wp:kadence/rowlayout {\"uniqueID\":\"xc-row-1\"} -->\n  <!-- wp:kadence/column {\"uniqueID\":\"xc-col-1\"} -->\n  <div class=\"wp-block-kadence-column kadence-columnxc-col-1\"><div class=\"kt-inside-inner-col\">...\n\nCOMPILE, valid-core fixture (all_valid true, invalid []):\n  <!-- wp:group {\"layout\":{\"type\":\"constrained\"}} -->\n  <div class=\"wp-block-group\"><!-- wp:heading -->\n  <h2 class=\"wp-block-heading\">Selected work</h2>\n  <!-- /wp:heading --> ...\n\nBROKEN TREE (core/heading with level:\"two\" -- a string where the registry declares a\nnumber, so createBlock keeps it and parse discards it back to the default):\n  {\"markup\":\"<!-- wp:heading {\\\"level\\\":\\\"two\\\"} -->\\n<htwo class=\\\"wp-block-heading\\\">Broken</htwo>\\n<!-- /wp:heading -->\",\n   \"all_valid\":false,\n   \"invalid\":[{\"path\":\"/0\",\"name\":\"core/heading\",\n               \"validation_issues\":[[\"Expected tag name `%s`, instead saw `%s`.\",\"h2\",\"htwo\"], ...]}]}\n\nDEGRADED PATH (contract 6.4), proven with a real fatal, not a simulation. An\nmu-plugin that half-enqueues a script and then calls a method on the null from\nget_current_screen():\n  HTTP/1.1 200 OK\n  content-type: text/html; charset=utf-8\n  x-harness-version: 1\n  x-harness-admin-context: 1\n  x-harness-degraded: enqueue_block_editor_assets\n  grep \"Fatal error\" -> 0        (no PHP error text in the document)\n  grep \"x-half-enqueued-before-the-fatal\" -> 0   (the partial enqueue was rolled back)\n  grep \"harness/harness.js\" -> 1 (still enqueued last, and __compile still works)\n\nAUTH: anonymous GET /harness -> 401 rest_forbidden; the x_agent role -> 200.",
+      "updated_at": "2026-08-21T13:45:00Z"
+    },
+    "M5_block_library": {
+      "status": "done",
+      "evidence": "M5 block library \u2014 DONE. install / list / rollback / delete + the registrar, with\nevery policy item enforced.\n\n$ php x-companion/tests/test-install.php --runtime tools/.runtime/core-only-toolchain.json\n== block library (live: core-only/toolchain) ==\n  PASS  POST /blocks/install accepts a valid dynamic package\n  PASS  the install response carries the new epoch, and GET /fingerprint agrees\n  PASS  the installed block renders through POST /render\n  PASS  the installed block appears in GET /manifest as a dynamic block\n  PASS  GET /blocks/library lists it with no rollback available yet\n  PASS  POST /blocks/install refuses a static package (no render entry) with 422 block_policy\n  PASS  POST /blocks/install refuses a package with a ../ zip entry with 422 block_policy\n  PASS  POST /blocks/install refuses a package outside the namespace with 422 block_policy\n  PASS  a refused package leaves the library untouched\n  PASS  a second install of the same slug moves the old version aside\n  PASS  the replacement is what renders now\n  PASS  rollback restores the previous render output\n  PASS  a second rollback is 409 no_previous\n  PASS  an unknown slug is 404 not_found on rollback and delete\n  PASS  a flat package (block.json at the zip root) is accepted too\n  PASS  DELETE is refused 409 in_use while published content carries the block\n  PASS  DELETE succeeds once nothing published uses the block\nPASS  block library (live: core-only/toolchain): 62/62 assertions passed\n\nWire evidence:\n  POST /blocks/install  (agent-testimonial.zip) -> 200\n    {\"installed\":{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"1.0.0\"},\n     \"fingerprint\":\"258dfbfcec43d408a0ebcd3bd8cfda51da018c5f8e97f887451eec956d3b1a9e\",\n     \"replaced_previous\":false}\n    GET /fingerprint immediately after returns the same 258dfbfc... epoch.\n  POST /render '<!-- wp:agent/testimonial {\"quote\":\"q\"} /-->' -> 200\n    {\"html\":\"<figure class=\\\"agent-testimonial is-tone-plain wp-block-agent-testimonial\\\" data-agent=\\\"testimonial-v1\\\">\\n\\t<blockquote class=\\\"agent-testimonial__quote\\\">q</blockquote>...\"}\n  422 block_policy reasons, verbatim:\n    static:    [\"block.json has no \\\"render\\\" entry; static blocks are refused unless X_COMPANION_ALLOW_STATIC_BLOCKS is defined true\"]\n    traversal: [\"unsafe zip entries (path traversal or absolute path): agent-traversal/../../evil.php\"]\n    namespace: [\"block.json name \\\"evil/testimonial\\\" must match agent/[a-z0-9-]+\"]\n  409 in_use: {\"code\":\"in_use\",\"message\":\"Block \\\"agent/testimonial\\\" is still used by 1 published item(s).\",\"data\":{\"status\":409,\"posts\":[4]}}\n  409 no_previous / 404 not_found both confirmed.\n\nRegistrar, verified on a PRODUCTION-posture instance (core-plus-suite/production):\n  POST /blocks/install -> 403 posture_forbidden   (extend tier hard-disabled)\n  POST /theme/tokens   -> 403 posture_forbidden\n  block dir copied into uploads by hand:\n    GET /manifest -> posture \"production\", agent/testimonial in manifest: True\n    POST /render  -> \"<figure ... >production render</blockquote>...\"\n  Three deliberately broken block dirs added (bad JSON, missing render file, no name):\n    GET /manifest still 200, agent blocks registered: ['agent/testimonial'], 176 blocks\n    front page still 200.  One broken block cannot fatal the site.\n\nX_COMPANION_ALLOW_STATIC_BLOCKS proven both ways: with the constant defined true the\nstatic package installs 200 (slug static-card); with it off the same zip is 422.\n\nBUG FOUND AND FIXED during this milestone (worth knowing, it is not obvious):\nWP_Filesystem_Direct::move($src,$dst,true) intermittently returned false on\nPlayground's mounted WASM filesystem while a bare rename() of the same two paths\nsucceeded on the very next line, because move()'s overwrite branch abandons the move\nwhen its recursive delete reports a partial failure, and because a worker's stat\ncache can disagree with the directory (measured: is_dir($target) false at the top of\nthe installer, file_exists($target) true a few statements later, same request).\nX_Companion_Block_Library::move() now clearstatcache()s around its decisions, clears\na real destination itself, and judges the result by the state of the filesystem\nrather than by a return value. 12 consecutive installs and 3 consecutive full-suite\nruns green afterwards; before the fix the harness suite failed reproducibly.",
+      "updated_at": "2026-08-21T13:45:00Z"
+    },
+    "M6_tokens_and_export": {
+      "status": "done",
+      "evidence": "M6 tokens and export \u2014 DONE.\n\n$ php x-companion/tests/test-tokens.php --runtime <core-only>\n== theme tokens + snapshot (live: core-only/toolchain) ==\n  PASS  POST /theme/tokens returns the contract shape\n  PASS  wp_get_global_settings() reflects the palette, slug for slug\n  PASS  wp_get_global_settings() reflects the spacing steps\n  PASS  wp_get_global_settings() reflects typography and layout\n  PASS  unrelated global-styles settings are preserved by the merge\n  PASS  every adapter note obeys the documented format\n  PASS  no suite adapter claims an instance with no suite installed\n  PASS  POST /snapshot/export streams a zip\n  PASS  the snapshot contains exactly the five contract entries\n  PASS  snapshot manifest.json carries the live fingerprint\nPASS  theme tokens + snapshot (live: core-only/toolchain): 35/35 assertions passed\n\n$ php x-companion/tests/test-tokens.php --runtime <core-plus-suite>\n  ... same ten, plus:\n  PASS  the Kadence adapter ran and applied the palette\n  PASS  the Kadence palette option really holds the token colours\n  PASS  a target the adapter does not understand is a structured, logged no-op\nPASS  theme tokens + snapshot (live: core-plus-suite/toolchain): 46/46 assertions passed\n\nPOST /theme/tokens (core-plus-suite) response:\n  theme_json_written  True\n  adapters_applied    ['kadence']\n  adapter_notes       [\"kadence:kadence_blocks_colors:applied:palette_colors=8\",\n                       \"kadence:kadence_blocks_global:noop:no_spacing_target_in_option_shape\"]\n\nNote grammar, pinned by tests/test-tokens.php as\n  /^(?P<adapter>[a-z0-9-]+):(?P<target>[a-z0-9_.-]+):(?P<status>applied|noop|skipped):(?P<detail>[^:]*)$/\nThe no-op is real, not a placeholder: Kadence Blocks 3.7.9.1 has a palette option\n(kadence_blocks_colors, a JSON string) and no spacing-scale option at all, so the\nadapter introspects kadence_blocks_global, finds no key it understands, writes\nnothing and logs the note. The test asserts adapter/target/status/detail separately.\n\nwp_get_global_settings(), observed through GET /manifest.theme_tokens (which is that\nfunction narrowed to the four contract groups):\n  color palette      origins ['default','theme','custom'],\n                     custom slugs ['canvas','shelf','ink','graphite','cobalt','clay','citron','hairline']\n                     cobalt -> #1f3fd6 (the token hex, not a theme default)\n  spacingSizes       custom slugs ['20','30','40','50','60','70'], step 60 -> 4.5rem\n  fontSizes          custom slugs ['small','medium','large','x-large','xx-large']\n  fontFamilies       custom slugs ['body','display','mono']; the display stack\n                     '\"Bodoni Moda\", Georgia, serif' survives the wp_slash/unslash\n                     round trip through wp_update_post()\n  layout             {\"contentSize\":\"672px\",\"wideSize\":\"1180px\"}\nThe theme and default origins are still present next to custom: the merge preserves\nunrelated keys.\n\nKadence option after the write (read back over GET /wp/v2/settings):\n  kadence_blocks_colors = {\"palette\":[{\"color\":\"#fdfaf4\",\"name\":\"Canvas\",\"slug\":\"canvas\"},\n  ... 8 entries ...,{\"color\":\"#ded5c4\",\"name\":\"Hairline\",\"slug\":\"hairline\"}],\"override\":false}\n\nPOST /snapshot/export:\n  HTTP 200, content-type application/zip, 8268863 bytes, 264 entries\n  top-level entries: ['agent-blocks/', 'content.xml', 'manifest.json', 'patterns.json', 'theme/']\n  manifest.json fingerprint == GET /fingerprint  (asserted every run)\n  patterns.json: 109 entries\n  content.xml: well-formed XML; post types {'post','page'}, statuses {'publish'} only\n  (export_wp() defines wxr_cdata() inside its own body, so it can be called only once\n  per request -- the export runs once over everything and the <item> elements are\n  filtered afterwards, which is also the only way to get posts AND pages from one call)",
+      "updated_at": "2026-08-21T13:45:00Z"
+    },
+    "M7_hardening_and_docs": {
+      "status": "done",
+      "evidence": "$ bash x-companion/bin/plugin-check.sh\n  plugin-check: 0 error(s), 6 warning(s) for 'x-companion'.\n  (warnings: 4x direct-DB in uninstall.php for the prefix transient sweep; 2x deliberate in   class-harness.php \u2014 the WP_ADMIN define and the dynamic hook name.)\nREADME.md required sections verified present by grep: Postures, Auth, Contract v1, Harness fallback, Uninstall.\n$ bash x-companion/tests/run-all.sh -> EXIT=0 on both envs in one command:\n  PASS manifest 186/186; PASS validator 140/140; PASS block library (live core-only) 62/62;\n  PASS theme tokens + snapshot (live core-only) 35/35; PASS (live core-plus-suite) 46/46;\n  KADENCE PATH: REGISTERED - 59/59 kadence/* blocks reached wp.blocks; tests 16 / pass 16 / fail 0.",
+      "updated_at": "2026-08-21T14:05:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "PROGRESS.json lives inside x-companion/ (spec file_layout listed it as a sibling of the plugin dir).",
+      "why": "Keeps the ledger with the artifact it tracks; the repo hosts two plugins so a single root PROGRESS.json would be ambiguous."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Live test environment is @wp-playground/cli (PHP-WASM), not wp-env.",
+      "why": "Spec allows either; Docker is not running on this machine and Playground needs no daemon. wp-env paths are kept in tests/run-all.sh behind a detector."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Fingerprint canonicalisation pinned in contract/CONTRACT.md section 4.",
+      "why": "Both sides must agree byte-for-byte for snapshot promotion-gate comparison; the spec described the inputs but not the canonical JSON rules."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "POST /parse, POST /render and GET /patterns are implemented in class-rest.php rather than left as 501 stubs.",
+      "why": "No milestone in this agent's scope and no file in the parallel agent's scope owns them, so a stub would have been permanently dead. All three are thin wrappers over core APIs (parse_blocks, do_blocks, WP_Block_Patterns_Registry) and live in a file this agent owns, so implementing them cost nothing and collided with nobody. They are NOT covered by the offline tests: /render's faux main-query guard and its wp_styles queue diff for enqueued_styles need live verification.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "POST /validate decodes the raw request body with json_decode($body) (objects preserved) instead of using $request->get_json_params().",
+      "why": "json_decode($body, true) collapses {} and [] to the same PHP value, which makes 'blocks': {} and 'innerBlocks': {} indistinguishable from empty arrays and silently passes bodies the TreeIR schema rejects. With objects preserved the walk agrees with a reference JSON-Schema validator on all 18 cross-checked edge cases. get_json_params() remains the fallback when the body is not parseable JSON. One residual ambiguity is accepted and documented in code: 'attributes': [] is treated as an empty attributes object (both mean 'no attributes').",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "POST /validate does NOT enforce the TreeIR schema through route args, so a malformed tree never returns a bare 400.",
+      "why": "CONTRACT.md section 5 makes E_TREE_SCHEMA a diagnostic inside a 200 Diagnostics body. That is the agent's primary feedback channel; a rest_invalid_param 400 would give it a pointer-less error. Capability check still runs first; schema validation is the route's work.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Diagnostic emission order within a node: E_NEST_PARENT, E_NEST_ANCESTOR, attribute diagnostics in key order, W_STATIC_NEEDS_HARNESS, W_HINT_TEMPLATE_LOCK; then per child, W_HINT_ALLOWED_BLOCKS before descending into it.",
+      "why": "The contract pins codes, severities and paths but not array order. Errors ahead of warnings inside a node reads best, and a fixed order is required for the fixtures to assert exact arrays.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "E_TREE_SCHEMA short-circuits every semantic check but epoch_ok is still reported as a plain string comparison (no E_EPOCH_MISMATCH diagnostic is emitted in that case).",
+      "why": "'Stops all further checks' governs diagnostics. epoch_ok is a required Diagnostics field, not a check, and reporting it costs nothing and tells the agent whether a refetch is also needed.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Tree fixtures carry the literal epoch sentinel \"__CURRENT_FINGERPRINT__\", which the test substitutes with the fingerprint of fixtures/registry-snapshot.json.",
+      "why": "A fixture cannot hard-code an epoch that depends on the registry it is validated against. err-epoch-mismatch.json deliberately keeps a literal 64-zero epoch instead. __compile() takes TreeIR.blocks only, so the sentinel is invisible to the harness milestone's use of valid-core.json.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "fixtures/registry-snapshot.json is an OFFLINE TEST SNAPSHOT ONLY. It is 15 core blocks with attribute schemas transcribed from Gutenberg block.json definitions (WP 6.5 era) and is never consulted by the plugin at runtime.",
+      "why": "The manifest and the validator always read the live WP_Block_Type_Registry; instance-as-ground-truth is the whole point of the plugin. The snapshot exists so the pure algorithms are testable with the system php. Two entries carry agent_hints (core/cover: allowed_blocks; core/query: template_lock 'all') purely so the W_HINT_* fixtures have something to violate. If a transcribed attribute schema turns out to differ from a given WP version, only the offline expectations shift, never production behaviour.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "agent_hints is omitted from a manifest block entry when every hint is still at its default.",
+      "why": "Most blocks declare no hints; emitting four null/empty keys on ~100 blocks bloats the manifest the agent has to read. Consumers must treat a missing agent_hints as all-defaults; X_Companion_Validator does exactly that.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The manifest transient name is x_companion_manifest_<first 32 hex of fingerprint>, and the live key is tracked in the x_companion_manifest_cache_key option.",
+      "why": "Deriving the key from the fingerprint makes invalidation structural: any registry, theme or plugin change produces a different key, so a stale body can never be served under a new epoch. The tracked option only exists so bust_cache() can delete the row rather than leak it.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The live registry snapshot carries the WP_Block_Type object on a '_type' key, which build_blocks() passes as the third x_companion_agent_hints filter argument and never copies into the output.",
+      "why": "The filter signature is pinned as (array $hints, string $block_name, WP_Block_Type $type), but the manifest algorithm has to stay a pure function of a JSON-serialisable snapshot for offline testing. Carrying the object on the snapshot keeps both. A test asserts no entry leaks _type.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The bootstrap also requires includes/adapters/class-*.php, but never calls ::init() on them.",
+      "why": "The brief pinned the includes/class-*.php glob; adapters sit one level down and would otherwise never load. Requiring a class definition is side-effect free, and the theme-tokens class stays in charge of discovering and applying its adapters.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The Abilities API registration signature was taken from developer.wordpress.org (wp_register_ability / wp_register_ability_category reference pages), not from the WordPress/abilities-api repository.",
+      "why": "The repository was archived on 2026-02-05 and its README no longer carries the signature. Confirmed from the reference pages: wp_register_ability(string $name, array $args) on the wp_abilities_api_init action, required args label/description/category/execute_callback/permission_callback, optional input_schema/output_schema/meta/ability_class; categories via wp_register_ability_category(string $slug, array $args) on wp_abilities_api_categories_init. ASSUMPTION: this is current for the shipping API. Everything is behind function_exists('wp_register_ability'), so an absent or differently-shaped API is a silent no-op, never a fatal. Only the three introspect-tier abilities this agent owns are registered; extend-tier abilities are filtered out entirely in production posture, and other classes add their own through the x_companion_abilities filter.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "This agent wrote only x-companion/.progress-fragments/core.json and left x-companion/PROGRESS.json untouched.",
+      "why": "PROGRESS.json is shared with the parallel agents and is outside this agent's file ownership list; the fragment is meant to be merged into it.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Use @wp-playground/cli 3.1.50 via its exported runCLI() rather than shelling out to the wp-playground-cli binary.",
+      "why": "Docker is installed but not running on this machine, so wp-env is not viable. runCLI({command:'server'}) returns a RunCLIServer with { playground, server, serverUrl } and an asyncDispose, which is what makes it possible to (a) run PHP inside the *same* instance that is serving HTTP and (b) tear down deterministically. Verified: package.json exports '.' -> index.js which re-exports runCLI from run-cli.d.ts; the type signature runCLI(args & {command:'server'}): Promise<RunCLIServer> is in node_modules/@wp-playground/cli/run-cli.d.ts.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Provision users and application passwords with playground.run({code}) after the server is up, not with a separate `wp-playground-cli php` process.",
+      "why": "A separate CLI process is a different WordPress instance with a different database. Verified that playground.run() shares state with the HTTP request handler: created a user via run(), then authenticated as that user over HTTP with curl in the same boot and got 200. This works because the CLI's worker threads share a native site directory (bootRequestHandler takes nativeInternalDirPath and a FileLockManager).",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Enable Application Passwords over plain http via a boot-generated mu-plugin filtering wp_is_application_passwords_available and wp_is_application_passwords_available_for_user to true.",
+      "why": "WordPress gates Application Passwords on is_ssl(); the sandbox is http://127.0.0.1:<port>, so without the filter the whole Basic-auth half of CONTRACT.md is untestable. Generating the file from boot.mjs (rather than asking a human to place it) keeps the override scoped to the sandbox: it lives in tools/.runtime/work/<key>/mu-plugins/, is rewritten every boot, and never enters either plugin's source tree. Verified: with the filter, curl -u user:app_password against /wp/v2/users/me returns 200 and anonymous returns 401. Documented as sandbox-only in tools/README.md.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Inject X_COMPANION_POSTURE primarily through Playground's php.defineConstant() (RunCLIArgs.define), with a guarded mu-plugin as a second path.",
+      "why": "Verified by experiment which mechanisms are visible to an HTTP request: --define/define (php.defineConstant) IS visible, and it applies before wp-config.php, i.e. earlier than mu-plugins and earlier than plugins; blueprint-level `constants` and a defineWpConfigConsts step with method rewrite-wp-config are also visible. Chose define because it needs no on-disk rewrite and survives a wiped site directory. The mu-plugin (000-x-posture.php, wrapped in if(!defined())) is the fallback for processes that do not go through the CLI's --define, which the CLI help explicitly calls process-specific. boot.mjs asserts the constant inside the sandbox after boot and refuses to return an instance whose posture does not match the request.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Mount plugin directories with the CLI's after-install `mount` (host dir -> /wordpress/wp-content/plugins/<dirname>) and activate them with an appended blueprint activatePlugin step.",
+      "why": "Verified with --help on `server`: --mount takes /host/path:/vfs/path and is applied after WordPress installs but before blueprint steps run, so activatePlugin can see the mounted plugin. Verified the mount is a live filesystem view, not a copy: edited a mounted PHP file on the host mid-run and the next HTTP request returned the new behaviour with no restart. This is the property the plugin authors care about most.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Always mount a host directory at /wordpress via mount-before-install, so siteDir in the runtime JSON is a real path.",
+      "why": "The `server` command otherwise keeps the site in a temp dir that is not exposed to the caller. Verified: with mount-before-install the WordPress install lands in the host dir (wp-load.php, wp-content/database present) and a second boot with wordpressInstallMode=install-from-existing-files-if-needed reuses it, cutting boot from ~7s to ~2.3s. --persist keeps the dir; without it the dir is wiped so the proof suite never inherits state.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Blueprint v1 declarations, validated against the schema validator shipped in @wp-playground/blueprints.",
+      "why": "Step names and shapes were read out of node_modules/@wp-playground/blueprints/blueprint-schema.json (definitions.StepDefinition.oneOf) rather than guessed: activateTheme{themeFolderName}, setSiteOptions{options}, installPlugin{pluginData,options}, activatePlugin{pluginPath}, runPHP{code}, defineWpConfigConsts{consts,method}. Both profile blueprints were run through the package's own blueprint-schema-validator.js and report valid=true.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "core-plus-suite installs Kadence Blocks with options.onError='throw' AND boot.mjs re-asserts the plugin is active afterwards.",
+      "why": "The profile must fail loudly rather than silently degrade to core-only. Verified working online: 175 registered block types of which 59 are kadence/*. The double check means a future change in how a failed download is reported still cannot produce a mislabelled instance.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "boot.mjs detaches by default: the parent spawns itself with --__daemon, waits on a ready file keyed by a boot id, prints the runtime JSON and exits.",
+      "why": "The natural shell idiom is `RT=$(node tools/playground/boot.mjs ... --json)` followed by curl, which requires the booting process to exit while the server keeps serving. --foreground keeps the old behaviour for interactive use, and proof/lib/env.mjs boots in-process so withInstance can dispose deterministically.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Extend the CONTRACT.md \u00a75 fallback trigger from '404' to '404 that is not a rest_* JSON error, or any 3xx'.",
+      "why": "Measured against an instance booted with --permalinks plain: GET /wp-json/wp/v2/users/me returns 301 (WordPress canonical-redirects it), not 404, while /?rest_route=/wp/v2/users/me returns 200. A strict 404-only rule would never fall back on a plain-permalink site. The rest_* JSON check keeps a genuinely missing route (rest_no_route, which arrives as a 404 with a JSON body) from being misread as a permalink problem.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "In proof/lib/env.mjs, authenticate the Playwright context with BOTH browser.newContext({httpCredentials}) and extraHTTPHeaders: { Authorization: Basic ... }.",
+      "why": "httpCredentials alone does not authenticate a page navigation against WordPress, including with send:'always'. Chromium only replays Basic credentials after a 401 carrying WWW-Authenticate, and the WP REST API returns rest_forbidden 401s without that header. Measured: page.goto -> 401 with httpCredentials only (both with and without send/origin); 200 with the explicit header; context.request.get -> 200 either way, which is what makes the difference easy to miss. extraHTTPHeaders also covers sub-resource requests the harness page makes back to the REST API, which CONTRACT.md \u00a76 requires.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Pin playwright to exactly 1.60.0.",
+      "why": "Chromium build 1223 is already in ~/Library/Caches/ms-playwright on this machine, and 1.60.0 is the release that expects 1223 (checked playwright-core@<v>/browsers.json for 1.55-1.61: 1187/1194/1200/1208/1217/1223/1228). 1.62.1 wanted chromium-1234 and would have forced a browser download.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Probe port availability by binding the wildcard address, not 127.0.0.1.",
+      "why": "Playground's Express server binds :: (dual stack). A probe bound to 127.0.0.1 reported an occupied port as free and the boot then died with EADDRINUSE on :::9400.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Flush stdout before process.exit() in wpcall.mjs and boot.mjs.",
+      "why": "process.exit() truncates asynchronous pipe writes. A 947 KB /wp/v2/block-types response was being cut mid-JSON when piped to jq; writing through a callback and only then exiting fixes it.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Deterministic default ports 9400/9401/9402/9403 for core-only|core-plus-suite x toolchain|production, scanning to 9450 when taken.",
+      "why": "The proof suite needs a production-posture instance running next to a toolchain one to assert posture_forbidden, and predictable ports make ad-hoc curl during development possible without reading the runtime file first.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Shared wire contract authored up front in contract/CONTRACT.md + contract/schemas/, vendored byte-identically into both plugins.",
+      "why": "Two independent implementation tracks cannot converge on TreeIR/Diagnostics/Manifest/fingerprint by coincidence. Pinning canonical-JSON rules and the diagnostic path/severity table before any code meant neither side had to guess.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Parallel tracks coordinate through per-track .progress-fragments/*.json merged by tools/merge-progress.py, never by editing a shared PROGRESS.json.",
+      "why": "Concurrent writers to one ledger file lose data. The merger also filters each spec's own milestone ids into its own ledger.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Cross-track seams were published as code, not prose: the x_companion_route_{id} filter dispatch on the PHP side, and registerSessionProvider/registerFactoryProvider + a 16-entry registry table on the TypeScript side.",
+      "why": "Lets a track ship while its counterpart is unbuilt: routes 501 and tools report not_implemented instead of the package failing to boot. Verified empirically in both directions.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Rewrote 4 assertions in x-agent/tests/validate.test.ts that asserted the six session/oracle/factory tools were NOT implemented.",
+      "why": "They encoded build order, not behaviour, and had to fail the moment the work they were waiting for landed. Replaced with the end-state invariant (all 16 declared tools resolve to real handlers) plus a synthetic-placeholder test that keeps covering the not_implemented degradation path, and a note documenting that config resolution precedes the handler for connection-requiring tools.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "harness.js refuses to compile a block name that is not in wp.blocks, instead of letting serialize() drop it.",
+      "why": "wp.blocks.createBlock() accepts an unregistered name and wp.blocks.serialize() then emits nothing for that subtree: measured, __compile([{name:'agent/does-not-exist'}]) returned {markup:'',all_valid:true,invalid:[]}. Silent content loss reported as success is the worst possible failure for a compiler. It now returns {error:'block \"X\" is not registered in this harness; it would serialize to nothing'} at any depth, which is still the pinned CONTRACT.md 6 error envelope. The agent's __registry() diff remains the primary gap detector; this is the backstop for when it is not consulted.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "Agent block packages must declare supports.autoRegister:true; the shipped fixture does.",
+      "why": "A dynamic block ships no editor script, so nothing calls registerBlockType() for it client-side and the harness cannot compile trees that use it. WordPress 7.0 added the opt-in: _wp_enqueue_auto_register_blocks() lists such blocks in window.__unstableAutoRegisterBlocks and registerCoreBlocks() registers them from the server-side bootstrap with a ServerSideRender edit. That hook hangs off enqueue_block_editor_assets, which the harness fires, so it works with no harness-side special casing. Proven: after installing agent-testimonial.zip, agent/testimonial appears in __registry() and compiles to '<!-- wp:agent/testimonial {\"quote\":\"Compiled by the harness\"} /-->'. Without the flag the block is a registry gap.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "The tokens response carries two keys beyond the contract three: adapter_notes (string[]) and theme_file_written (bool), plus the compiled settings.",
+      "why": "The contract pins {theme_json_written, adapters_applied, fingerprint}; the agent side parses that with a non-strict zod object, so extra keys are dropped rather than rejected. adapter_notes is the only way a caller can see WHY an adapter no-opped, which is the difference between 'Kadence took the palette' and 'Kadence silently ignored you'.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "Adapter id is 'kadence', not 'kadence-blocks'.",
+      "why": "specs/companion-plugin.spec.json M6 acceptance says adapters_applied includes 'kadence'. x-agent's mock companion answers 'kadence-blocks', but that is a fixture in their own test, not a wire contract -- the real client passes adapters_applied through untouched.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "POST /snapshot/export lives in class-theme-tokens.php next to POST /theme/tokens.",
+      "why": "Milestone M6 is 'tokens and export' and the owned-file list has no class-snapshot.php. They are two halves of the same promotion story: one writes the design system in, the other packages the instance out.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "Every filesystem mutation goes through WP_Filesystem, with one documented rename() fallback.",
+      "why": "Plugin Check flags rename()/rmdir()/is_writable() as errors. WP_Filesystem is also the right answer for hosts whose FS_METHOD is not direct. The single remaining rename() is a last resort inside X_Companion_Block_Library::move(), reached only when WP_Filesystem::move() has already refused, and it carries a phpcs:ignore with the measurement that justifies it. wp plugin check: 0 errors.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "tests/test-install.php and tests/test-tokens.php are live-only, and each carries its own ~120-line REST client.",
+      "why": "Install, rollback, delete and global-styles writes are filesystem-and-registry behaviour; the only honest oracle is a real instance, and the only honest interface is the wire the agent uses. The client is duplicated and function_exists()-guarded rather than extracted, because a shared include would be a file neither test owns.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "harness.spec.ts runs on node's built-in test runner and node's native TypeScript stripping.",
+      "why": "No @playwright/test, no tsx, no build step: the only dependency is playwright itself, which proof/lib/env.mjs already resolves out of tools/node_modules so one browser download serves the whole repo. tests/package.json declares it pinned at 1.60.0 for anyone running the directory standalone.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "what": "run-all.sh honours X_RUNTIME_CORE_ONLY / X_RUNTIME_CORE_PLUS_SUITE to run against instances it did not boot.",
+      "why": "tools/.runtime/<profile>-<posture> is shared bookkeeping. With several agents on one machine, another process stopping 'its' core-only-toolchain deletes the descriptor for a live instance and wipes the shared site directory underneath it -- observed twice during this run. The escape hatch lets a caller point the suite at a descriptor it owns; nothing is booted and nothing is stopped in that mode.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T14:05:00Z",
+      "what": "M1_skeleton, M2_manifest and M7_hardening_and_docs were closed out from live proof-suite and plugin-check evidence gathered by the orchestrator, not by the track that wrote the code.",
+      "why": "The core track could only verify against a stubbed WP surface and honestly left them in_progress; M7 spanned two tracks so neither owned it. The acceptance criteria are now met by observed output, which is what the ledger rule actually requires.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    }
+  ],
+  "deviations": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "milestones[M3_validator].acceptance[0] - 'fixture set: 1 valid core tree, 1 valid kadence tree, and one tree per error/warning code'",
+      "what": "There is no fixtures/trees/valid-kadence.json. The set is 1 valid core tree plus one tree per error and warning code (12 fixtures, all 11 codes covered).",
+      "why": "Authoring a trustworthy Kadence tree needs Kadence's real registered attribute schemas, which are only available on the core-plus-suite environment. Guessing them would put a wrong 'ground truth' into the fixture set, which is worse than an absent one. To add it later: activate Kadence, GET /manifest, pick a kadence/rowlayout tree, and drop the pair into fixtures/trees + fixtures/expected - the test discovers fixtures by glob and needs no code change.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "environment.php_min = 8.1",
+      "what": "All code was linted and tested on PHP 8.4.4 only; no PHP 8.1 interpreter is installed on this machine.",
+      "why": "No 8.2+ syntax was used (array_is_list and str_starts_with are the newest functions, 8.1 and 8.0 respectively; no enums, readonly, first-class callables, or standalone types), and the suite runs clean under -d error_reporting=E_ALL with zero deprecations on 8.4. An 8.1 parse check still belongs in the live run.",
+      "source": "x-companion/.progress-fragments/core.json"
+    },
+    {
+      "what": "boot.mjs takes --mu-plugin (not --muPlugin) on the command line; the programmatic option is muPlugins: string[]. Both spellings are accepted on the CLI.",
+      "why": "Consistency with --plugin and normal CLI casing.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "what": "The runtime JSON carries exactly the keys the brief specified. Extra bookkeeping (port, pid file, log, mounts, active plugins) lives in tools/.runtime/<key>.pid, <key>.log and the in-process return value of boot(), not in the descriptor.",
+      "why": "The brief said 'prints, with --json, exactly' that object, and other tools parse it.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "what": "Added --permalinks pretty|plain to boot.mjs, which is not in the brief.",
+      "why": "Playground boots with pretty permalinks, so nothing would ever exercise the ?rest_route= half of CONTRACT.md \u00a75. It is how the fallback was proven, and it lets the proof suite assert both branches.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "what": "wp-env is not implemented. Only the Playground backend exists.",
+      "why": "Docker is installed but not running on this machine (established before the work started); an untested wp-env path would be worse than an absent one. tools/README.md records what a wp-env backend would have to reproduce.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "what": "tools/ has its own package.json and node_modules rather than using a repo-root manifest.",
+      "why": "The repo root is not in this agent's file ownership. proof/lib/env.mjs resolves playwright through createRequire anchored at tools/package.json so it works regardless of the caller's cwd.",
+      "source": "tools/.progress-fragments/infra.json"
+    },
+    {
+      "when": "2026-08-21",
+      "spec_ref": "companion progress_protocol",
+      "what": "M4_harness / M5_block_library / M6_tokens_and_export read 'pending' in x-companion/PROGRESS.json although their implementation files exist and the harness is demonstrably working live.",
+      "why": "The track implementing them was terminated by a session limit during its test run, before it wrote its progress fragment. The ledger correctly refuses to claim a milestone without pasted acceptance output. Independent corroboration that the harness works: the session/oracle track compiled fixture trees through GET /harness end to end (cold 1147ms -> warm 5ms), and the docs track drove the same page with Playwright to capture real markup. The library and tokens routes have NOT been independently verified and their tests have not been run.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "spec_ref": "CONTRACT.md 6 (harness page contract), steps 1-5",
+      "what": "The harness request defines WP_ADMIN for itself before init fires, so that is_admin() is true while blocks register. On by default in toolchain posture, off in production; force either way with X_COMPANION_HARNESS_ADMIN_CONTEXT, or the x_companion_harness_admin_context filter. Header X-Harness-Admin-Context reports which happened.",
+      "why": "Contract 6.3 says 'for every WP_Block_Type, enqueue all handles in editor_script_handles'. Measured against Kadence Blocks 3.7.9.1: those handles are declared by the block types but only REGISTERED from an init callback whose first line is 'if ( ! is_admin() ) return;'. A REST request is not admin, so by the time the harness route runs the handles do not exist, wp_script_is() is false, and all 59 kadence/* blocks are missing from wp.blocks -- measured, registry 113 with the suite installed, identical to core-only. That is not the client-side registration failure 6 anticipates and answers with the __registry() diff; it is a server-side gate, and it is fixable server-side. Defining WP_ADMIN is enough (verified: registry 176, 59/59 kadence blocks, kadence/rowlayout trees compile all_valid). Blast radius is small because admin_init is fired by wp-admin/admin.php, which is not in play: only code that asks is_admin() sees a difference, on a route whose entire job is to be the editor minus the editor. Production posture keeps literal 6 behaviour.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "spec_ref": "task brief: 'also author x-companion/fixtures/trees/valid-kadence.json + fixtures/expected/valid-kadence.json'",
+      "what": "NOT DONE. The Kadence tree is exercised by tests/harness.spec.ts, built at runtime from the live manifest, instead of committed as a validator fixture.",
+      "why": "tests/test-validator.php globs fixtures/trees/*.json and validates every one against fixtures/registry-snapshot.json, which holds 15 core blocks and no Kadence. A kadence tree there produces E_UNKNOWN_BLOCK, so the 'expected' file would have to encode failure and a fixture named valid-kadence would assert valid:false. Making it genuinely valid needs the Kadence blocks added to registry-snapshot.json -- a file this agent does not own, and one that tests/test-manifest.php:488 pins with x_assert_same( 4, $manifest['counts']['dynamic_blocks'] ). Kadence blocks are all dynamic, so adding them breaks a passing test in someone else's milestone. Left for a coordinated change. The tree that compiles cleanly, for whoever picks it up: [{name:'kadence/rowlayout',attributes:{uniqueID:'xc-row-1',columns:2},innerBlocks:[{name:'kadence/column',attributes:{uniqueID:'xc-col-1'},innerBlocks:[{name:'core/paragraph',attributes:{content:'Left'}}]},{name:'kadence/column',attributes:{uniqueID:'xc-col-2'},innerBlocks:[{name:'core/paragraph',attributes:{content:'Right'}}]}]}]",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "spec_ref": "M4 acceptance: '__registry() superset-of manifest.blocks keys for core'",
+      "what": "Three core blocks are asserted as an exact expected-missing set rather than required to be present: core/legacy-widget, core/post-comments, core/widget-group.",
+      "why": "They are registered server-side but registerCoreBlocks() never registers them client-side -- widget-bridge infrastructure and a deprecated alias, none of which an agent should ever emit. The set is pinned exactly (deepEqual, not a subset check), so losing any further block fails the assertion. agent/* is excluded from the same check on purpose: an installed agent block only reaches wp.blocks when it declares supports.autoRegister, which is the registry gap the next case tests.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T13:45:00Z",
+      "spec_ref": "CONTRACT.md 5, POST /theme/tokens",
+      "what": "The filesystem theme.json write is off unless X_COMPANION_TOKENS_WRITE_THEME_FILE is defined true, even when the theme directory is writable.",
+      "why": "The contract calls the user-origin global styles CPT the primary path and this makes it the only path by default. Playground's theme directory IS writable, so a 'write the file when you can' rule would rewrite the active theme's theme.json on every token apply -- a destructive side effect nobody asked for, and one that makes the CPT path untested. theme_json_written reports the CPT write; theme_file_written reports the optional one.",
+      "source": "x-companion/.progress-fragments/extend.json"
+    },
+    {
+      "when": "2026-08-21T14:05:00Z",
+      "spec_ref": "companion M1_skeleton acceptance",
+      "what": "The acceptance line 'authenticated as x_agent role -> 501' is satisfied as 200, not 501.",
+      "why": "501 described the scaffold-only milestone state, before the routes were implemented. Every route is now implemented, so the meaningful assertion is the auth/tier/posture matrix, which P2 and P11 verify in full.",
+      "source": "x-companion/.progress-fragments/orchestration.json"
+    }
+  ]
+}

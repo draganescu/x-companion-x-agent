@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/group",
+      "innerBlocks": [
+        {
+          "name": "core/post-template",
+          "attributes": {}
+        }
+      ]
+    }
+  ]
+}

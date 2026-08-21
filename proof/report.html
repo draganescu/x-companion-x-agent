@@ -1,0 +1,1592 @@
+<title>Block Toolchain Proof Run</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600;700&display=swap">
+<style>
+  :root {
+    --paper:#FBFBFD; --surface:#FFFFFF; --sunk:#F2F3F8;
+    --ink:#12141C; --slate:#5A6178; --faint:#878DA0;
+    --rule:#E4E6EE; --rule-strong:#CDD1DE;
+    --accent:#3858E9; --accent-soft:#EBEEFF;
+    --pass:#1B7A5A; --pass-soft:#E2F3EC;
+    --fail:#B3261E; --fail-soft:#FBE9E7;
+    --skip:#8A6A16; --skip-soft:#F7EFD9;
+    --shadow:0 1px 2px rgba(18,20,28,.05), 0 8px 24px -12px rgba(18,20,28,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0D0F16; --surface:#151824; --sunk:#1B1F2E;
+      --ink:#E7E9F2; --slate:#A2A9BE; --faint:#79809A;
+      --rule:#252A3A; --rule-strong:#333A50;
+      --accent:#8098FF; --accent-soft:#1C2240;
+      --pass:#4CC29A; --pass-soft:#12291F;
+      --fail:#F2867C; --fail-soft:#2E1614;
+      --skip:#D7B25A; --skip-soft:#2A2211;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0D0F16; --surface:#151824; --sunk:#1B1F2E;
+    --ink:#E7E9F2; --slate:#A2A9BE; --faint:#79809A;
+    --rule:#252A3A; --rule-strong:#333A50;
+    --accent:#8098FF; --accent-soft:#1C2240;
+    --pass:#4CC29A; --pass-soft:#12291F;
+    --fail:#F2867C; --fail-soft:#2E1614;
+    --skip:#D7B25A; --skip-soft:#2A2211;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:78rem;margin:0 auto;padding:clamp(1.5rem,4vw,4rem) clamp(1rem,4vw,3rem) 6rem}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  a{color:var(--accent)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+  /* ── masthead ─────────────────────────────────────────────── */
+  .eyebrow{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.72rem; font-weight:500;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--faint); margin:0 0 1rem;
+  }
+  h1{
+    font-family:"IBM Plex Serif",Georgia,serif; font-weight:700;
+    font-size:clamp(2rem,5vw,3.1rem); line-height:1.1; letter-spacing:-.02em;
+    text-wrap:balance; margin:0 0 .9rem;
+  }
+  .standfirst{max-width:62ch;color:var(--slate);font-size:1.06rem;margin:0 0 2.5rem}
+  .standfirst strong{color:var(--ink);font-weight:600}
+
+  .verdict{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr)); gap:1px;
+    background:var(--rule); border:1px solid var(--rule); border-radius:10px;
+    overflow:hidden; box-shadow:var(--shadow); margin-bottom:1rem;
+  }
+  .stat{background:var(--surface);padding:1.1rem 1.25rem}
+  .stat__n{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;
+    font-size:1.85rem; font-weight:600; letter-spacing:-.02em; line-height:1.1; display:block;
+  }
+  .stat--pass .stat__n{color:var(--pass)}
+  .stat__k{
+    display:block; margin-top:.35rem; font-size:.72rem; font-weight:500; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--faint);
+  }
+  .runmeta{
+    display:flex; flex-wrap:wrap; gap:.4rem 1.5rem; padding:0 .15rem;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.78rem; color:var(--slate);
+  }
+  .runmeta b{color:var(--faint);font-weight:500}
+
+  /* ── order strip ──────────────────────────────────────────── */
+  .order{margin:2.75rem 0 0;padding:1.25rem 1.4rem;background:var(--sunk);border-radius:10px;border:1px solid var(--rule)}
+  .order h2{font-family:"IBM Plex Sans",sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:0 0 .75rem}
+  .seq{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 .8rem;padding:0;list-style:none}
+  .seq li{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.78rem;font-weight:500;
+    padding:.2rem .5rem;border-radius:5px;background:var(--surface);border:1px solid var(--rule-strong);color:var(--slate);
+  }
+  .seq li.moved{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .order p{margin:0;font-size:.9rem;color:var(--slate);max-width:70ch}
+
+  /* ── index ────────────────────────────────────────────────── */
+  h2.section{
+    font-family:"IBM Plex Serif",Georgia,serif;font-size:1.5rem;font-weight:600;
+    letter-spacing:-.01em;margin:3.5rem 0 1.1rem;
+  }
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  .idx{background:var(--surface);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+  .idx th{
+    text-align:left;font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);padding:.75rem 1rem;border-bottom:1px solid var(--rule);white-space:nowrap;
+  }
+  .idx td{padding:.7rem 1rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  .idx tr:last-child td{border-bottom:0}
+  .idx__id a{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;text-decoration:none}
+  .idx__title{font-weight:500;min-width:15rem}
+  .idx__proves{color:var(--slate);min-width:24rem}
+  .idx__obs{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--faint);text-align:right}
+
+  .chip{
+    display:inline-block;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.68rem;
+    font-weight:600;letter-spacing:.06em;padding:.16rem .45rem;border-radius:4px;white-space:nowrap;
+  }
+  .chip--pass{color:var(--pass);background:var(--pass-soft)}
+  .chip--fail{color:var(--fail);background:var(--fail-soft)}
+  .chip--skip{color:var(--skip);background:var(--skip-soft)}
+
+  /* ── scenario cards ───────────────────────────────────────── */
+  .scen{
+    background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+    padding:1.4rem 1.5rem 1.1rem;margin:1rem 0;box-shadow:var(--shadow);scroll-margin-top:1.5rem;
+  }
+  .scen__head{display:flex;flex-wrap:wrap;gap:.75rem;align-items:baseline;justify-content:space-between;margin-bottom:.55rem}
+  .scen__id{display:flex;gap:.7rem;align-items:baseline}
+  .scen__num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:1rem;font-weight:600;color:var(--accent)}
+  .scen__seq,.scen__inst,.scen__ms{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;color:var(--faint);
+    font-variant-numeric:tabular-nums;
+  }
+  .scen__meta{display:flex;gap:.85rem;align-items:baseline}
+  .scen__title{font-family:"IBM Plex Serif",Georgia,serif;font-size:1.22rem;font-weight:600;margin:0 0 .35rem;letter-spacing:-.01em;text-wrap:balance}
+  .scen__proves{margin:0 0 1rem;color:var(--slate);font-size:.94rem;max-width:78ch}
+  .detail{
+    background:var(--fail-soft);color:var(--fail);border-radius:6px;padding:.8rem 1rem;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.8rem;overflow-x:auto;margin:0 0 1rem;
+  }
+
+  .obs{font-size:.84rem}
+  .obs td{padding:.4rem .7rem;border-top:1px solid var(--rule);vertical-align:top}
+  .obs tr:first-child td{border-top:0}
+  .mark{width:1.4rem;color:var(--pass);font-weight:600;text-align:center}
+  .row--bad .mark{color:var(--fail)}
+  .what{color:var(--slate);min-width:16rem}
+  .val{font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--ink);font-size:.8rem}
+  .valwrap{max-height:11rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;max-width:46rem}
+
+  footer{margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--rule);color:var(--faint);font-size:.85rem}
+  footer code{font-family:"IBM Plex Mono",ui-monospace,monospace;color:var(--slate)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:640px){ .what{min-width:9rem} .idx__proves{min-width:16rem} }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">x-companion &nbsp;·&nbsp; x-agent &nbsp;·&nbsp; interop verification</p>
+  <h1>Do the two plugins actually work together?</h1>
+  <p class="standfirst">
+    Every row on this page was produced by running <strong>x-companion</strong> and <strong>x-agent</strong>
+    against each other on a real WordPress instance — a live Playground sandbox, the real MCP tool
+    entrypoint, and a real browser compiling block trees through the instance's own
+    <code>save()</code> functions. Nothing here is mocked, and nothing is asserted without a recorded value.
+  </p>
+
+  <div class="verdict">
+    <div class="stat stat--pass"><span class="stat__n">15/15</span><span class="stat__k">scenarios pass</span></div>
+    <div class="stat"><span class="stat__n">187</span><span class="stat__k">observations</span></div>
+    <div class="stat"><span class="stat__n">0</span><span class="stat__k">failed</span></div>
+    <div class="stat"><span class="stat__n">0</span><span class="stat__k">skipped</span></div>
+    <div class="stat"><span class="stat__n">83.7s</span><span class="stat__k">wall clock</span></div>
+  </div>
+  <div class="runmeta">
+    <span><b>wordpress</b> 7.1</span>
+    <span><b>instances</b> toolchain, production</span>
+    <span><b>generated</b> 2026-08-21T13:57:30.015Z</span>
+    <span><b>command</b> bash proof/run-all.sh</span>
+  </div>
+
+  <section class="order">
+    <h2>Execution order</h2>
+    <ul class="seq"><li class="">P1</li><li class="">P2</li><li class="">P3</li><li class="">P4</li><li class="">P5</li><li class="">P6</li><li class="">P7</li><li class="">P8</li><li class="">P9</li><li class="">P11</li><li class="">P12</li><li class="">P13</li><li class="">P14</li><li class="">P15</li><li class="moved">P10</li></ul>
+    <p>
+      Order is deliberately not numeric. <strong>P10</strong> writes design tokens, which rewrites the
+           site's global styles — and P9 and P15 measure geometry and computed colour against specs captured
+           from the untouched theme. Both passed alone and failed in sequence before this was pinned, so P10
+           runs last and the reasoning lives in <code>proof/scenarios.ts</code> rather than in someone's memory.
+    </p>
+  </section>
+
+  <h2 class="section">The scenarios</h2>
+  <div class="tablewrap">
+    <table class="idx">
+      <thead><tr><th>id</th><th>scenario</th><th>what it proves</th><th>obs</th><th>status</th></tr></thead>
+      <tbody>
+          <tr>
+            <td class="idx__id"><a href="#p1">P1</a></td>
+            <td class="idx__title">Handshake and epoch agreement</td>
+            <td class="idx__proves">The client speaks the companion’s dialect and the epoch is one shared value, not two guesses.</td>
+            <td class="idx__obs">10</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p2">P2</a></td>
+            <td class="idx__title">Auth and capability gating are real</td>
+            <td class="idx__proves">Tiering is enforced in code by the permission callback, not hidden in a UI.</td>
+            <td class="idx__obs">6</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p3">P3</a></td>
+            <td class="idx__title">Tree → validate → compile → parse round trip</td>
+            <td class="idx__proves">The core loop is closed and idempotent; the markup came from WordPress’s own save(), not a model.</td>
+            <td class="idx__obs">14</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p4">P4</a></td>
+            <td class="idx__title">The validator is grounded in this instance’s registry</td>
+            <td class="idx__proves">Validation catches, before a round trip, what the compiler would mishandle.</td>
+            <td class="idx__obs">28</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p5">P5</a></td>
+            <td class="idx__title">Epoch invalidation is live, not cached optimism</td>
+            <td class="idx__proves">Ground truth moves and both sides notice — the whole reason epochs exist.</td>
+            <td class="idx__obs">10</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p6">P6</a></td>
+            <td class="idx__title">Vocabulary gap ladder, end to end</td>
+            <td class="idx__proves">The agent can grow the instance’s block vocabulary and immediately use it. The headline claim of both specs.</td>
+            <td class="idx__obs">13</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p7">P7</a></td>
+            <td class="idx__title">The local safety gate is the gate</td>
+            <td class="idx__proves">The division of labour is honoured: the agent stops bad packages, the companion does no PHP linting.</td>
+            <td class="idx__obs">5</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p8">P8</a></td>
+            <td class="idx__title">Install policy is enforced server-side</td>
+            <td class="idx__proves">The companion does not trust the agent, even though the agent is the safety gate.</td>
+            <td class="idx__obs">13</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p9">P9</a></td>
+            <td class="idx__title">Numeric oracle, not screenshot squinting</td>
+            <td class="idx__proves">The oracle is sensitive and specific: it catches a one-step change and reports nothing else.</td>
+            <td class="idx__obs">7</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p10">P10</a></td>
+            <td class="idx__title">Tokens flow through both sides to computed pixels</td>
+            <td class="idx__proves">The design-token system is one system across both plugins, all the way to rendered CSS.</td>
+            <td class="idx__obs">11</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p11">P11</a></td>
+            <td class="idx__title">Posture wall holds from the agent side</td>
+            <td class="idx__proves">R8: the agent surfaces the constraint instead of routing around it, and sends nothing that would mutate.</td>
+            <td class="idx__obs">13</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p12">P12</a></td>
+            <td class="idx__title">Snapshot is a promotion gate</td>
+            <td class="idx__proves">The “production receives artifacts, not the toolchain” pipeline has a real wire format.</td>
+            <td class="idx__obs">7</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p13">P13</a></td>
+            <td class="idx__title">Schema drift tripwire</td>
+            <td class="idx__proves">The two codebases cannot silently diverge on the shared types.</td>
+            <td class="idx__obs">21</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p14">P14</a></td>
+            <td class="idx__title">End-to-end from-prompt demo (the R5 loop)</td>
+            <td class="idx__proves">The skill’s prescribed loop runs start to finish, and the screenshot is terminal evidence — taken exactly once, never inside the loop.</td>
+            <td class="idx__obs">15</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr>
+          <tr>
+            <td class="idx__id"><a href="#p15">P15</a></td>
+            <td class="idx__title">End-to-end from-design demo (lift → implement → attribute the delta)</td>
+            <td class="idx__proves">A design spec is validated before any tree is generated, and every residual difference is an itemised decision rather than a vibe.</td>
+            <td class="idx__obs">14</td>
+            <td><span class="chip chip--pass">pass</span></td>
+          </tr></tbody>
+    </table>
+  </div>
+
+  <h2 class="section">Recorded observations</h2>
+  
+      <article class="scen" id="p1">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P1</span>
+            <span class="scen__seq">run 1 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">13,603 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Handshake and epoch agreement</h3>
+        <p class="scen__proves">The client speaks the companion’s dialect and the epoch is one shared value, not two guesses.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P1</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_connect succeeded</td>
+          <td class="val"><div class="valwrap">ok</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">site_url</td>
+          <td class="val"><div class="valwrap">http://127.0.0.1:9460</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_version</td>
+          <td class="val"><div class="valwrap">7.1</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">posture</td>
+          <td class="val"><div class="valwrap">toolchain</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">agent fingerprint === companion GET /fingerprint</td>
+          <td class="val"><div class="valwrap">3dfb9d3876c486b31f2b55f52e505d72fca6297df8f89842202f8e0966867e12</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">posture agrees</td>
+          <td class="val"><div class="valwrap">toolchain</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">interfaces_version is 1</td>
+          <td class="val"><div class="valwrap">1</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">blocks_count === manifest counts.blocks</td>
+          <td class="val"><div class="valwrap">116</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">manifest block count tracks the live WP registry</td>
+          <td class="val"><div class="valwrap">manifest=116 wp/v2/block-types=116</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">suites detected</td>
+          <td class="val"><div class="valwrap">[]</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p2">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P2</span>
+            <span class="scen__seq">run 2 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">1,813 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Auth and capability gating are real</h3>
+        <p class="scen__proves">Tiering is enforced in code by the permission callback, not hidden in a UI.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P2</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">anonymous GET /manifest is 401</td>
+          <td class="val"><div class="valwrap">401</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  with the pinned error envelope code</td>
+          <td class="val"><div class="valwrap">rest_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the x_agent role reads the manifest</td>
+          <td class="val"><div class="valwrap">200</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x_agent identity</td>
+          <td class="val"><div class="valwrap">x_agent_user / role=x_agent</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">even the cheap epoch route requires auth</td>
+          <td class="val"><div class="valwrap">401</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">extend tier is reachable for admin on toolchain</td>
+          <td class="val"><div class="valwrap">HTTP 200</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p3">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P3</span>
+            <span class="scen__seq">run 3 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">3,611 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Tree → validate → compile → parse round trip</h3>
+        <p class="scen__proves">The core loop is closed and idempotent; the markup came from WordPress’s own save(), not a model.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P3</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">tree block names</td>
+          <td class="val"><div class="valwrap">[&quot;core/heading&quot;,&quot;core/paragraph&quot;,&quot;core/group&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_validate reports valid</td>
+          <td class="val"><div class="valwrap">[{&quot;code&quot;:&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;severity&quot;:&quot;warning&quot;,&quot;path&quot;:&quot;/blocks/1&quot;,&quot;message&quot;:&quot;Block \&quot;core/paragraph\&quot; is static: its markup is defined by its JavaScript save() output.&quot;,&quot;fix_hint&quot;:&quot;canonical markup must come from harness compile, do not hand-serialize&quot;},{&quot;code&quot;:&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;seve …</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">epoch_ok</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_compile succeeded</td>
+          <td class="val"><div class="valwrap">ok</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">all_valid</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">markup carries block delimiters</td>
+          <td class="val"><div class="valwrap">&lt;!-- wp:heading --&gt;
+&lt;h2 class=&quot;wp-block-heading&quot;&gt;Proof heading&lt;/h2&gt;
+&lt;!-- /wp:heading --&gt;
+
+&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;Compi</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">artifact written</td>
+          <td class="val"><div class="valwrap">proof/artifacts/p3-compiled.html (315 B)</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">parse-back yields the same block names</td>
+          <td class="val"><div class="valwrap">[&quot;core/heading&quot;,&quot;core/paragraph&quot;,&quot;core/group&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">and the same nesting shape</td>
+          <td class="val"><div class="valwrap">[{&quot;n&quot;:&quot;core/heading&quot;,&quot;c&quot;:[]},{&quot;n&quot;:&quot;core/paragraph&quot;,&quot;c&quot;:[]},{&quot;n&quot;:&quot;core/group&quot;,&quot;c&quot;:[{&quot;n&quot;:&quot;core/paragraph&quot;,&quot;c&quot;:[]}]}]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">recompile succeeded</td>
+          <td class="val"><div class="valwrap">ok</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">round trip is structurally idempotent</td>
+          <td class="val"><div class="valwrap">[&quot;&lt;!-- wp:heading&quot;,&quot;&lt;!-- /wp:heading&quot;,&quot;&lt;!-- wp:paragraph&quot;,&quot;&lt;!-- /wp:paragraph&quot;,&quot;&lt;!-- wp:group&quot;,&quot;&lt;!-- wp:paragraph&quot;,&quot;&lt;!-- /wp:paragraph&quot;,&quot;&lt;!-- /wp:group&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the compiled markup contained the paragraph text</td>
+          <td class="val"><div class="valwrap">Compiled by the instance, not by a model.</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the RAW parse output preserves it (this is the lifting path)</td>
+          <td class="val"><div class="valwrap">raw parse_blocks() innerHTML retains html-sourced content</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the STRIPPED tree does NOT — html-sourced attributes are not in attrs</td>
+          <td class="val"><div class="valwrap">stripped TreeIR carries structure + attrs-sourced attributes only</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p4">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P4</span>
+            <span class="scen__seq">run 4 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">7,054 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">The validator is grounded in this instance’s registry</h3>
+        <p class="scen__proves">Validation catches, before a round trip, what the compiler would mishandle.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P4</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the x_companion_agent_hints filter reaches the manifest</td>
+          <td class="val"><div class="valwrap">{&quot;allowed_blocks&quot;:[&quot;core/heading&quot;,&quot;core/paragraph&quot;],&quot;template_lock&quot;:null,&quot;usage_notes&quot;:&quot;proof-suite hint fixture&quot;,&quot;example_attributes&quot;:{}}</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">companion fixture trees exercised</td>
+          <td class="val"><div class="valwrap">12</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-attr-enum → E_ATTR_ENUM</td>
+          <td class="val"><div class="valwrap">E_ATTR_ENUM at /blocks/0/innerBlocks/0/attributes/tagName</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-attr-enum is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-attr-type → E_ATTR_TYPE</td>
+          <td class="val"><div class="valwrap">E_ATTR_TYPE at /blocks/0/attributes/level</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-attr-type is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-epoch-mismatch → E_EPOCH_MISMATCH</td>
+          <td class="val"><div class="valwrap">E_EPOCH_MISMATCH at /epoch</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-epoch-mismatch is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-nest-ancestor → E_NEST_ANCESTOR</td>
+          <td class="val"><div class="valwrap">E_NEST_ANCESTOR at /blocks/0/innerBlocks/0</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-nest-ancestor is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-nest-parent → E_NEST_PARENT</td>
+          <td class="val"><div class="valwrap">E_NEST_PARENT at /blocks/0/innerBlocks/0</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-nest-parent is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-tree-schema → E_TREE_SCHEMA</td>
+          <td class="val"><div class="valwrap">E_TREE_SCHEMA at /blocks/0/innerHTML</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-tree-schema is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">err-unknown-block → E_UNKNOWN_BLOCK</td>
+          <td class="val"><div class="valwrap">E_UNKNOWN_BLOCK at /blocks/0/innerBlocks/0</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  err-unknown-block is invalid</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">valid-core validates clean</td>
+          <td class="val"><div class="valwrap">[&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">warn-attr-unknown → W_ATTR_UNKNOWN</td>
+          <td class="val"><div class="valwrap">W_ATTR_UNKNOWN at /blocks/0/attributes/bogusAttr</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  warn-attr-unknown stays valid (warnings do not invalidate)</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">warn-hint-allowed-blocks → W_HINT_ALLOWED_BLOCKS</td>
+          <td class="val"><div class="valwrap">W_HINT_ALLOWED_BLOCKS at /blocks/0/innerBlocks/1</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  warn-hint-allowed-blocks stays valid (warnings do not invalidate)</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">warn-hint-template-lock → W_HINT_TEMPLATE_LOCK</td>
+          <td class="val"><div class="valwrap">W_HINT_TEMPLATE_LOCK at /blocks/0</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  warn-hint-template-lock stays valid (warnings do not invalidate)</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">warn-static-needs-harness → W_STATIC_NEEDS_HARNESS</td>
+          <td class="val"><div class="valwrap">W_STATIC_NEEDS_HARNESS at /blocks/0</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  warn-static-needs-harness stays valid (warnings do not invalidate)</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">fixtures whose live diagnostics differ from the offline snapshot</td>
+          <td class="val"><div class="valwrap">[&quot;err-attr-enum: snapshot=[E_ATTR_ENUM,W_STATIC_NEEDS_HARNESS,W_STATIC_NEEDS_HARNESS] live=[E_ATTR_ENUM,W_STATIC_NEEDS_HARNESS]&quot;,&quot;err-attr-type: snapshot=[E_ATTR_TYPE,W_STATIC_NEEDS_HARNESS] live=[E_ATTR_TYPE]&quot;,&quot;valid-core: snapshot=[W_STATIC_NEEDS_HARNESS,W_STATIC_NEEDS_HARNESS,W_STATIC_NEEDS_HARNE …</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">why</td>
+          <td class="val"><div class="valwrap">the offline snapshot is WP 6.5-era; on this WP many core blocks are now dynamic, so W_STATIC_NEEDS_HARNESS fires less often. The PHP unit tests assert the snapshot; this suite asserts the live registry.</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">every diagnostic code in the contract was produced by the LIVE validator</td>
+          <td class="val"><div class="valwrap">covered 11/11, missing: none</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p5">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P5</span>
+            <span class="scen__seq">run 5 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">4,503 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Epoch invalidation is live, not cached optimism</h3>
+        <p class="scen__proves">Ground truth moves and both sides notice — the whole reason epochs exist.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P5</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">compiles at epoch E1</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">E1</td>
+          <td class="val"><div class="valwrap">3dfb9d3876c486b3…</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">fingerprint moved after a registry change</td>
+          <td class="val"><div class="valwrap">E1=3dfb9d3876c4… E2=3f0cde9f360f…</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">stale epoch produces E_EPOCH_MISMATCH</td>
+          <td class="val"><div class="valwrap">[&quot;E_EPOCH_MISMATCH&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;E_UNKNOWN_BLOCK&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">epoch_ok is false</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">valid is false</td>
+          <td class="val"><div class="valwrap">false</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">other diagnostics still ran in the SAME response</td>
+          <td class="val"><div class="valwrap">[&quot;E_EPOCH_MISMATCH&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;W_STATIC_NEEDS_HARNESS&quot;,&quot;E_UNKNOWN_BLOCK&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">agent manifest adopted E2</td>
+          <td class="val"><div class="valwrap">3f0cde9f360faa6d3f80df757fe8941c901ba0978bc88e5849ca910e5bcd5f60</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">new block is in the manifest vocabulary</td>
+          <td class="val"><div class="valwrap">117 blocks</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">session auto-reloaded and compiles at E2</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p6">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P6</span>
+            <span class="scen__seq">run 6 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">5,358 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Vocabulary gap ladder, end to end</h3>
+        <p class="scen__proves">The agent can grow the instance’s block vocabulary and immediately use it. The headline claim of both specs.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P6</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">package</td>
+          <td class="val"><div class="valwrap">agent-testimonial.zip (1.3 KB)</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">POST /blocks/install succeeded</td>
+          <td class="val"><div class="valwrap">200</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">installed</td>
+          <td class="val"><div class="valwrap">{&quot;slug&quot;:&quot;testimonial&quot;,&quot;name&quot;:&quot;agent/testimonial&quot;,&quot;version&quot;:&quot;1.0.0&quot;}</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">install returned a NEW epoch</td>
+          <td class="val"><div class="valwrap">3f0cde9f360f… → 2c254df08ec0…</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">agent/testimonial is in the manifest</td>
+          <td class="val"><div class="valwrap">[&quot;agent/testimonial&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">manifest epoch === install epoch</td>
+          <td class="val"><div class="valwrap">2c254df08ec07e910814d292b19fe029447a2acd6e5397444ec97f0d55567eb1</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">agent/testimonial is in window.__registry()</td>
+          <td class="val"><div class="valwrap">114 client-registered blocks</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">tree using the new block validates</td>
+          <td class="val"><div class="valwrap">[{&quot;code&quot;:&quot;W_ATTR_UNKNOWN&quot;,&quot;severity&quot;:&quot;warning&quot;,&quot;path&quot;:&quot;/blocks/0/attributes/author&quot;,&quot;message&quot;:&quot;Attribute \&quot;author\&quot; is not declared by \&quot;agent/testimonial\&quot;.&quot;,&quot;fix_hint&quot;:&quot;drop it, or check GET /manifest for the block's declared attributes&quot;}]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">and compiles all_valid</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">compiled markup</td>
+          <td class="val"><div class="valwrap">&lt;!-- wp:agent/testimonial {&quot;quote&quot;:&quot;It compiled.&quot;} /--&gt;</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">artifact written</td>
+          <td class="val"><div class="valwrap">proof/artifacts/p6-agent-block.html (55 B)</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">POST /render is 200</td>
+          <td class="val"><div class="valwrap">200</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">rendered HTML carries the attribute value</td>
+          <td class="val"><div class="valwrap">&lt;figure class=&quot;agent-testimonial is-tone-plain wp-block-agent-testimonial&quot; data-agent=&quot;testimonial-v1&quot;&gt;
+	&lt;blockquote class=&quot;agent-testimonial__quote&quot;&gt;It compiled.&lt;/blockquote&gt;
+	&lt;/figure&gt;
+</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p7">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P7</span>
+            <span class="scen__seq">run 7 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">11,920 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">The local safety gate is the gate</h3>
+        <p class="scen__proves">The division of labour is honoured: the agent stops bad packages, the companion does no PHP linting.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P7</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">scaffolded at</td>
+          <td class="val"><div class="valwrap">proof/artifacts/sabotage-7097wv/proof-broken</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">render.php sabotaged</td>
+          <td class="val"><div class="valwrap">syntax error injected</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">build_test did NOT succeed</td>
+          <td class="val"><div class="valwrap">{&quot;ok&quot;:true,&quot;built&quot;:true,&quot;php_error&quot;:&quot;Parse error: syntax error, unexpected identifier \&quot;is\&quot; in /wordpress/wp-content/plugins/x-agent-smoke/proof-broken/render&quot;}</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">no zip was produced</td>
+          <td class="val"><div class="valwrap">none</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">nothing reached the instance</td>
+          <td class="val"><div class="valwrap">1</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p8">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P8</span>
+            <span class="scen__seq">run 8 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">3,268 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Install policy is enforced server-side</h3>
+        <p class="scen__proves">The companion does not trust the agent, even though the agent is the safety gate.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P8</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">a static block (no render entry) → 422</td>
+          <td class="val"><div class="valwrap">422</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  code</td>
+          <td class="val"><div class="valwrap">block_policy</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  reasons are itemised</td>
+          <td class="val"><div class="valwrap">[&quot;block.json has no \&quot;render\&quot; entry; static blocks are refused unless X_COMPANION_ALLOW_STATIC_BLOCKS is defined true&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">a zip containing a ../ path traversal entry → 422</td>
+          <td class="val"><div class="valwrap">422</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  code</td>
+          <td class="val"><div class="valwrap">block_policy</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  reasons are itemised</td>
+          <td class="val"><div class="valwrap">[&quot;unsafe zip entries (path traversal or absolute path): agent-traversal/../../evil.php&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">a block named outside the agent/ namespace → 422</td>
+          <td class="val"><div class="valwrap">422</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  code</td>
+          <td class="val"><div class="valwrap">block_policy</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  reasons are itemised</td>
+          <td class="val"><div class="valwrap">[&quot;block.json name \&quot;evil/testimonial\&quot; must match agent/[a-z0-9-]+&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">re-installing a slug reports replaced_previous</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">library reports has_prev</td>
+          <td class="val"><div class="valwrap">{&quot;slug&quot;:&quot;testimonial&quot;,&quot;name&quot;:&quot;agent/testimonial&quot;,&quot;version&quot;:&quot;2.0.0&quot;,&quot;installed_at&quot;:&quot;2026-08-21T13:56:56+00:00&quot;,&quot;has_prev&quot;:true}</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">rollback is 200</td>
+          <td class="val"><div class="valwrap">200</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">rollback returns a fingerprint</td>
+          <td class="val"><div class="valwrap">2c254df08ec07e91…</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p9">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P9</span>
+            <span class="scen__seq">run 9 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">4,188 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Numeric oracle, not screenshot squinting</h3>
+        <p class="scen__proves">The oracle is sensitive and specific: it catches a one-step change and reports nothing else.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P9</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">golden tree compiles</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_verify ran</td>
+          <td class="val"><div class="valwrap">ok</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">box_tree nodes measured</td>
+          <td class="val"><div class="valwrap">26</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">baseline verify passes</td>
+          <td class="val"><div class="valwrap">0 diffs outside tolerance: []</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">mutation</td>
+          <td class="val"><div class="valwrap">heading fontSize xx-large → large</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the one-step mutation is detected</td>
+          <td class="val"><div class="valwrap">[&quot;hero-1:font_size&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">and it is reported as a font_size diff</td>
+          <td class="val"><div class="valwrap">[&quot;font_size&quot;]</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p11">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P11</span>
+            <span class="scen__seq">run 10 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">production</span>
+            <span class="scen__ms">14,376 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Posture wall holds from the agent side</h3>
+        <p class="scen__proves">R8: the agent surfaces the constraint instead of routing around it, and sends nothing that would mutate.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P11</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">instance reports production posture</td>
+          <td class="val"><div class="valwrap">production</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">/x-companion/v1/blocks/install → 403</td>
+          <td class="val"><div class="valwrap">403</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  code</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">/x-companion/v1/theme/tokens → 403</td>
+          <td class="val"><div class="valwrap">403</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  code</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">/x-companion/v1/snapshot/export → 403</td>
+          <td class="val"><div class="valwrap">403</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  code</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_tokens_apply refuses</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  with the exact structured code</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  and a hint naming the sandbox path</td>
+          <td class="val"><div class="valwrap">clone to sandbox via wp_snapshot then apply there</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_block_install refuses</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  with the exact structured code</td>
+          <td class="val"><div class="valwrap">posture_forbidden</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  and the library route stays gated too</td>
+          <td class="val"><div class="valwrap">403</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p12">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P12</span>
+            <span class="scen__seq">run 11 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">3,085 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Snapshot is a promotion gate</h3>
+        <p class="scen__proves">The “production receives artifacts, not the toolchain” pipeline has a real wire format.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P12</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">snapshot written</td>
+          <td class="val"><div class="valwrap">../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-2c254df08ec0-1787320637592.zip (8075.0 KB)</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">snapshot contains theme/</td>
+          <td class="val"><div class="valwrap">[&quot;theme/&quot;,&quot;theme/assets/&quot;,&quot;theme/assets/css/&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">snapshot contains agent-blocks/</td>
+          <td class="val"><div class="valwrap">[&quot;agent-blocks/&quot;,&quot;agent-blocks/testimonial/&quot;,&quot;agent-blocks/testimonial/block.json&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">snapshot contains patterns.json</td>
+          <td class="val"><div class="valwrap">[&quot;patterns.json&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">snapshot contains content.xml</td>
+          <td class="val"><div class="valwrap">[&quot;content.xml&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">snapshot contains manifest.json</td>
+          <td class="val"><div class="valwrap">[&quot;manifest.json&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">manifest.json fingerprint === live /fingerprint</td>
+          <td class="val"><div class="valwrap">2c254df08ec07e910814d292b19fe029447a2acd6e5397444ec97f0d55567eb1</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p13">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P13</span>
+            <span class="scen__seq">run 12 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">none</span>
+            <span class="scen__ms">3 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Schema drift tripwire</h3>
+        <p class="scen__proves">The two codebases cannot silently diverge on the shared types.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P13</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">shared schemas</td>
+          <td class="val"><div class="valwrap">[&quot;design-spec.schema.json&quot;,&quot;design-tokens.schema.json&quot;,&quot;diagnostics.schema.json&quot;,&quot;manifest.schema.json&quot;,&quot;tree-ir.schema.json&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-agent/schemas/design-spec.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">design-spec.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">050709b7e984</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-companion/fixtures/schemas/design-spec.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">design-spec.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">050709b7e984</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-agent/schemas/design-tokens.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">design-tokens.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">dee5890d8edb</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-companion/fixtures/schemas/design-tokens.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">design-tokens.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">dee5890d8edb</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-agent/schemas/diagnostics.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">diagnostics.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">8ef2d82be8b1</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-companion/fixtures/schemas/diagnostics.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">diagnostics.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">8ef2d82be8b1</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-agent/schemas/manifest.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">manifest.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">7c9dea6300b9</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-companion/fixtures/schemas/manifest.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">manifest.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">7c9dea6300b9</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-agent/schemas/tree-ir.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">tree-ir.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">7b70164aa81b</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">x-companion/fixtures/schemas/tree-ir.schema.json exists</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">tree-ir.schema.json identical in schemas</td>
+          <td class="val"><div class="valwrap">7b70164aa81b</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p14">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P14</span>
+            <span class="scen__seq">run 13 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">4,170 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">End-to-end from-prompt demo (the R5 loop)</h3>
+        <p class="scen__proves">The skill’s prescribed loop runs start to finish, and the screenshot is terminal evidence — taken exactly once, never inside the loop.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P14</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">vocabulary at this epoch</td>
+          <td class="val"><div class="valwrap">118 blocks, 109 patterns</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_patterns returns the retrieval corpus</td>
+          <td class="val"><div class="valwrap">7 matched</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the page has three sections</td>
+          <td class="val"><div class="valwrap">3</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">validate: zero errors</td>
+          <td class="val"><div class="valwrap">[]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">compile: all_valid</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">registry gaps on this instance (server-only shims)</td>
+          <td class="val"><div class="valwrap">[&quot;core/legacy-widget&quot;,&quot;core/post-comments&quot;,&quot;core/widget-group&quot;,&quot;proof/epoch-marker&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">none of them are used by this tree</td>
+          <td class="val"><div class="valwrap">[]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">artifact written</td>
+          <td class="val"><div class="valwrap">proof/artifacts/p14-from-prompt.html (922 B)</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">verify passes</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">measured nodes / with a resolved block_name</td>
+          <td class="val"><div class="valwrap">9 / 9</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the three sections are present in the measured tree</td>
+          <td class="val"><div class="valwrap">[0,105,210]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_screenshot produced a PNG</td>
+          <td class="val"><div class="valwrap">/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787320642134.png</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  and it is a real PNG</td>
+          <td class="val"><div class="valwrap">40.2 KB</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">artifact written</td>
+          <td class="val"><div class="valwrap">proof/artifacts/p14-acceptance.png (40.2 KB)</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">exactly one screenshot in the whole run</td>
+          <td class="val"><div class="valwrap">1</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p15">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P15</span>
+            <span class="scen__seq">run 14 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">2,080 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">End-to-end from-design demo (lift → implement → attribute the delta)</h3>
+        <p class="scen__proves">A design spec is validated before any tree is generated, and every residual difference is an itemised decision rather than a vibe.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P15</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the lifted spec validates clean</td>
+          <td class="val"><div class="valwrap">[]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">every observed value was quantised onto the token scale</td>
+          <td class="val"><div class="valwrap">13 snap-to-token entries logged</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">synthesized (human-vetoable) responsive assumptions</td>
+          <td class="val"><div class="valwrap">2</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">invalid-box-overlap.json</td>
+          <td class="val"><div class="valwrap">[&quot;E_BOX_OVERLAP&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">invalid-orphan-content.json</td>
+          <td class="val"><div class="valwrap">[&quot;E_ORPHAN_CONTENT&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">invalid-spec-schema.json</td>
+          <td class="val"><div class="valwrap">[&quot;E_SPEC_SCHEMA&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">warn-no-responsive.json</td>
+          <td class="val"><div class="valwrap">[&quot;W_NO_RESPONSIVE&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">warn-unquantized.json</td>
+          <td class="val"><div class="valwrap">[&quot;W_UNQUANTIZED&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">every wp_spec_validate code is reachable from a fixture</td>
+          <td class="val"><div class="valwrap">[&quot;E_BOX_OVERLAP&quot;,&quot;E_ORPHAN_CONTENT&quot;,&quot;E_SPEC_SCHEMA&quot;,&quot;W_NO_RESPONSIVE&quot;,&quot;W_UNQUANTIZED&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the implementation target spec also validates</td>
+          <td class="val"><div class="valwrap">[]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">the implementing tree compiles</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">regions diffed</td>
+          <td class="val"><div class="valwrap">30</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">every residual difference is within tolerance or attributable to a logged token snap</td>
+          <td class="val"><div class="valwrap">none outside tolerance</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">verify passes</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="scen" id="p10">
+        <header class="scen__head">
+          <div class="scen__id">
+            <span class="scen__num">P10</span>
+            <span class="scen__seq">run 15 of 15</span>
+          </div>
+          <div class="scen__meta">
+            <span class="chip chip--pass">pass</span>
+            <span class="scen__inst">toolchain</span>
+            <span class="scen__ms">4,502 ms</span>
+          </div>
+        </header>
+        <h3 class="scen__title">Tokens flow through both sides to computed pixels</h3>
+        <p class="scen__proves">The design-token system is one system across both plugins, all the way to rendered CSS.</p>
+        
+        <div class="tablewrap">
+          <table class="obs">
+            <caption class="sr-only">Observations recorded by P10</caption>
+            <tbody>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">token palette slugs</td>
+          <td class="val"><div class="valwrap">[&quot;canvas&quot;,&quot;shelf&quot;,&quot;ink&quot;,&quot;graphite&quot;,&quot;cobalt&quot;,&quot;clay&quot;,&quot;citron&quot;,&quot;hairline&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">wp_tokens_apply succeeded</td>
+          <td class="val"><div class="valwrap">ok</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">adapters_applied</td>
+          <td class="val"><div class="valwrap">[]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">token slugs appear in the manifest theme_tokens</td>
+          <td class="val"><div class="valwrap">8/8: canvas,shelf,ink,graphite,cobalt,clay,citron,hairline</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">local emitter produces the same palette slugs as the server wrote</td>
+          <td class="val"><div class="valwrap">[&quot;canvas&quot;,&quot;citron&quot;,&quot;clay&quot;,&quot;cobalt&quot;,&quot;graphite&quot;,&quot;hairline&quot;,&quot;ink&quot;,&quot;shelf&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">and the same spacing step slugs</td>
+          <td class="val"><div class="valwrap">[&quot;20&quot;,&quot;30&quot;,&quot;40&quot;,&quot;50&quot;,&quot;60&quot;,&quot;70&quot;]</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">a tree styled with the token compiles</td>
+          <td class="val"><div class="valwrap">true</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">compiled markup carries the preset class for &quot;canvas&quot;</td>
+          <td class="val"><div class="valwrap">&lt;!-- wp:paragraph {&quot;backgroundColor&quot;:&quot;canvas&quot;} --&gt;
+&lt;p class=&quot;has-canvas-background-color has-background&quot;&gt;token colour probe&lt;/p&gt;
+&lt;!-- /wp:paragraph --&gt;</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">WordPress serves --wp--preset--color--canvas</td>
+          <td class="val"><div class="valwrap">#fdfaf4</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">  and its value is the token hex</td>
+          <td class="val"><div class="valwrap">#fdfaf4</div></td>
+        </tr>
+        <tr class="">
+          <td class="mark" aria-hidden="true">✓</td>
+          <td class="what">a measured element computes to the token colour #fdfaf4</td>
+          <td class="val"><div class="valwrap">looking for rgb(253,250,244) in [&quot;rgb(253, 250, 244)&quot;]</div></td>
+        </tr></tbody>
+          </table>
+        </div>
+      </article>
+
+  <footer>
+    <p>
+      Regenerate with <code>bash proof/run-all.sh</code>, then <code>node proof/report-html.mjs</code>.
+      This page is rendered from <code>proof/results.json</code> — the suite's structured output — so it
+      cannot drift from what was actually observed. Slowest scenario this run:
+      <code>P11</code> at 14,376 ms.
+    </p>
+  </footer>
+</div>

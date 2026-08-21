@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/cover",
+      "attributes": { "url": "https://example.com/hero.jpg", "dimRatio": 50 },
+      "innerBlocks": [
+        { "name": "core/heading", "attributes": { "level": 1, "content": "Hero" } },
+        { "name": "core/image", "attributes": { "url": "https://example.com/logo.png" } }
+      ]
+    }
+  ]
+}

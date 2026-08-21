@@ -1,0 +1,6 @@
+{
+  "name": "x-proof",
+  "private": true,
+  "type": "module",
+  "description": "Interop proof suite. Run with proof/run-all.sh; deps come from x-agent/mcp."
+}

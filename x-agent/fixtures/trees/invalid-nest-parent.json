@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/button",
+      "attributes": {
+        "text": "Orphaned button"
+      }
+    }
+  ]
+}

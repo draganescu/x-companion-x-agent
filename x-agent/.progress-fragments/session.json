@@ -1,0 +1,113 @@
+{
+  "track": "session",
+  "scope": "src/session.ts, src/oracle.ts, src/tools/{compile,verify,screenshot}.ts, tests/capture-golden.ts, tests/live/{setup.sh,compile.test.ts,verify.test.ts,README.md}, fixtures/{trees/golden-landing.json,golden/**,specs/golden-landing.json,images/**}",
+  "milestones": {
+    "M3_compiler_session": {
+      "status": "done",
+      "evidence": "The harness route WAS available: GET /x-companion/v1/harness went 501 not_implemented -> 200 while this track was building the oracle, so nothing here is stubbed and nothing is blocked.\n\n$ x-agent/tests/live/setup.sh\n[live-setup] booting core-only/toolchain on port 9430 with ./x-companion mounted\n[live-setup] ready: core-only/toolchain at http://127.0.0.1:9430 (epoch 3dfb9d3876c4…)\n/Users/…/tools/.runtime/core-only-toolchain.json\n\n$ cd x-agent/mcp && npx tsx ../tests/capture-golden.ts\n[capture] wrote x-agent/fixtures/golden/valid-core-landing.html (2718 bytes)\n[capture] wrote x-agent/fixtures/golden/golden-landing.html (4041 bytes)\n[capture] wrote x-agent/fixtures/specs/golden-landing.json (3 top-level regions)\n[capture] wrote x-agent/fixtures/images/hero-sample.png (hero 1440x265)\n[capture] wrote x-agent/fixtures/images/golden-landing.png (95889 bytes)\n[capture] cold compile 1330ms, warm 7ms; block_name mapped for 80.8% of measured nodes\n\n$ X_AGENT_LIVE=1 npx vitest run ../tests/live/compile.test.ts --no-file-parallelism\n[warm-session] COLD total 1147ms (browser launch + GET /harness + __ready = 1129ms, __compile 15ms) -> WARM total 5ms (page 0ms, __compile 5ms) = 229x\n[registry] gaps at this epoch: core/legacy-widget, core/post-comments, core/widget-group\n[x-agent info] epoch moved (3dfb9d3876c4 -> 58b08351e3fd); reloading the harness page\n[x-agent info] epoch moved (58b08351e3fd -> 3dfb9d3876c4); reloading the harness page\n[epoch] 3dfb9d3876c4 -> 58b08351e3fd -> 3dfb9d3876c4, 2 automatic harness reloads\n ✓ tests/live/compile.test.ts (7 tests) 19746ms\n   ✓ compiles the golden landing tree to markup byte-equal to the captured golden 1998ms\n   ✓ the second compile is warm: no page load, sub-100ms in the browser 2564ms\n   ✓ reports registry_gaps: manifest blocks that never registered client-side 542ms\n   ✓ an epoch bump (plugin toggled) auto-reloads the session and the next compile succeeds at the new epoch 6148ms\n   ✓ a client-side registry gap surfaces harness_gap with the fallback hint, and never compiles 3541ms\n   ✓ a tree the instance has never heard of is invalid_input, not harness_gap 637ms\n   ✓ wp_disconnect actually closes the browser 2802ms\n Test Files  1 passed (1)\n      Tests  7 passed (7)\n\nThe three pinned M3 acceptances, by assertion:\n  1. wp_compile(fixtures/trees/valid-core-landing.json) -> all_valid true, invalid [], and normaliseMarkup(markup) === normaliseMarkup(fixtures/golden/valid-core-landing.html). The golden was CAPTURED by tests/capture-golden.ts driving the instance's own window.__compile; no byte of it was typed by hand. Cross-check worth having: the same two goldens were captured earlier on a core-plus-suite instance (WP 7.1 + Kadence Blocks) and came out byte-identical (2718 / 4041 bytes), i.e. markup depends on the WordPress version, not on the instance's wider vocabulary.\n  2. Fingerprint bump via PUT /wp/v2/plugins/akismet/akismet {status:\"active\"} -> epoch 3dfb9d3876c4 -> 58b08351e3fd, harness.reloaded +1, next compile all_valid at the NEW epoch with byte-identical markup; toggling back gives +1 more reload and the original epoch. wp_compile probes GET /fingerprint on every call, so the reload happens BEFORE the tree is compiled, not after.\n  3. page.evaluate(wp.blocks.unregisterBlockType('core/separator')) then compile a tree using it -> {code:'harness_gap', blocks:['core/separator'], registry_gaps:[…,'core/separator'], hint contains 'X_AGENT_HARNESS_FALLBACK=1'}; nothing is compiled. session.reload() heals it and the next compile is all_valid with core/separator back in the registry.\n\nReal registry gaps on a live WP 7.1: exactly three server-only widget shims — core/legacy-widget, core/post-comments, core/widget-group — out of 116 core blocks (175 with Kadence). The harness registers everything else client-side, including a third-party suite's blocks.\n\nEditor-injection fallback: implemented (HarnessSession.loadEditorFallback), DEFAULT OFF, and empirically proven unusable on Application Password credentials — with X_AGENT_HARNESS_FALLBACK=1 the live instance answers\n  status 200, landed on http://127.0.0.1:9430/wp-login.php?redirect_to=…%2Fwp-admin%2Fpost-new.php&reauth=1\nbecause WordPress core's wp_validate_application_password() bails unless the application_password_is_api_request filter says the request is an API request. Documented in x-agent/tests/live/README.md with the pre-recorded storage-state escape hatch (X_AGENT_STORAGE_STATE); this package will never ask for an account password.",
+      "updated_at": "2026-08-21T00:00:00Z"
+    },
+    "M4_oracle": {
+      "status": "done",
+      "evidence": "$ cd x-agent/mcp && X_AGENT_LIVE=1 npx vitest run ../tests/live/verify.test.ts --no-file-parallelism\n[oracle] 30 numeric diffs across 6 regions, all within tolerance; 7 stylesheets + 21 inline style blocks loaded into the shell\n[oracle] hero font_size {\"slug\":\"measured-48\",\"px\":48} -> 32px (delta {\"d\":-16,\"tolerance_px\":1}); every other diff still inside tolerance\n[oracle] block_name mapped for 21/26 = 80.8% of measured .wp-block-* nodes\n ✓ tests/live/verify.test.ts (11 tests) 12270ms\n   ✓ the captured spec fixture is a clean DesignSpecIR\n   ✓ the golden landing verifies against its spec with every diff inside tolerance 2764ms\n   ✓ one preset step of hero font size produces EXACTLY ONE diff outside tolerance, and it is the hero font_size 2689ms\n   ✓ with no spec it returns geometry only, pass:true, and maps block_name for >= 80% of nodes 1167ms\n   ✓ every box_tree node carries the five computed properties the contract names 1096ms\n   ✓ tolerances are overridable, and tightening them turns a pass into a fail 1100ms\n   ✓ a spec_region_id restricts the diff to one subtree 1083ms\n   ✓ markup and url are mutually exclusive\n   ✓ wp_verify can measure a live url as well as markup 1148ms\n   ✓ wp_screenshot > produces exactly one full-page png and nothing else 1136ms\n   ✓ wp_screenshot > refuses a non-png destination\n Test Files  1 passed (1)\n      Tests  11 passed (11)\n\nThe three pinned M4 acceptances, by number:\n  1. wp_verify(golden landing markup, spec=fixtures/specs/golden-landing.json) -> pass true; 30 numeric diffs across 6 matched regions (3 top-level + 3 columns), 0 outside tolerance. Region match scores 1.539-1.550 against a 0.35 threshold. wp_spec_validate on that fixture: valid true, zero diagnostics.\n  2. Hero heading fontSize xx-large -> x-large (exactly one step on the Twenty Twenty-Five scale), recompiled through wp_compile: EXACTLY ONE diff outside tolerance, kind 'font_size', region_id 'hero-1' (role 'hero'), expected 48px, actual 32px, delta -16px against a 1px tolerance, pass false. Every other diff — including the two sibling sections' positions and sizes — stayed inside tolerance. That isolation is by construction: the hero is a core/cover with minHeight 560px, so a type change cannot masquerade as a layout change.\n  3. wp_verify with no spec: pass true, diffs [], a11y_outline present (h1 'Ship the layout, not the guesswork.' at level 1). block_name resolved for 21 of 26 measured .wp-block-* nodes = 80.8%. The five unresolved are BEM sub-element nodes, not block wrappers: the cover overlay <span class=\"wp-block-cover__background\">, the cover inner container, and three <a class=\"wp-block-button__link\">. Counting only elements carrying a true wrapper class (^wp-block-[a-z0-9-]+$) the figure is 21/22 = 95.5%.\n\nThe shell is faithful, not a stub: 7 stylesheets + 21 inline <style> blocks harvested per fingerprint, producing real Twenty Twenty-Five typography, the constrained content column and the theme's pill buttons (see fixtures/images/hero-sample.png, 1440x265, and fixtures/images/golden-landing.png, 1440x1180).\n\nwp_screenshot returns exactly {path_to_png, viewport, bytes} and nothing else; PNG magic bytes asserted; a non-.png destination is refused with invalid_input.",
+      "updated_at": "2026-08-21T00:00:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The warm session launches chromium lazily and opens GET /harness even more lazily. `create()` allocates nothing; `page()` (used by wp_verify/wp_screenshot) starts the browser; only `compile()` loads the harness.",
+      "why": "GET /harness was returning 501 not_implemented while this track was being built. Making the oracle depend on the harness would have blocked M4 behind M3 for no reason — and in production it means a companion build without a harness still gives you a working verifier."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "wp_compile probes GET /fingerprint on EVERY call (ctx.manifestCache.get({fingerprintMinIntervalMs: 0})) instead of accepting the 10 s rate limit.",
+      "why": "CONTRACT.md §5 calls /fingerprint the cheap route that runs 'before every batch', and a compile is a batch. Measured: one extra request per compile against a Playground instance. The alternative is compiling at a stale epoch for up to 10 s after a plugin toggle, which is exactly the failure the epoch discipline exists to prevent — and it is what makes the M3 auto-reload acceptance deterministic rather than timing-dependent."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The wp_verify render shell loads the site homepage's inline <style> blocks as well as its <link> stylesheets, always, not only when /render.enqueued_styles is empty.",
+      "why": "The spec says 'if enqueued_styles is empty, harvest the homepage'. On a block theme enqueued_styles is NEVER empty (block stylesheets are enqueued) but it also never contains the design system: wp_enqueue_global_styles emits every --wp--preset--* custom property INLINE, which /render cannot report as a URL. Measured on the golden landing: 7 stylesheets and 23 inline style blocks; without the inline half every colour, font size and spacing token measures as an unstyled default and the oracle is worthless. Harvest is still once per fingerprint, as specified."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The homepage harvest is a Playwright navigation in the warm browser, not an HTTP request.",
+      "why": "context.ts note 3 forbids `fetch` outside companion.ts, and companion.ts has no 'GET the homepage' method (it is not a companion route). Navigating the page we already have both respects the rule and gets the post-JS DOM."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "block_name is resolved by inverting the manifest's own key set through wp.blocks.getBlockDefaultClassName ('core/x' -> 'wp-block-x', 'ns/x' -> 'wp-block-ns-x'), never by string-surgery on the class.",
+      "why": "Only the manifest can disambiguate 'wp-block-kadence-rowlayout' into 'kadence/rowlayout' rather than 'kadence-rowlayout'. It also means the map is correct for agent/* blocks the instant they are installed, with no table to maintain."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "A region's 'gap' is read from computed row-gap when there is one and otherwise MEASURED as the median spacing between element children.",
+      "why": "WordPress implements blockGap as a margin on children for flow and constrained layouts. The computed `gap` there is `normal`, so a naive reading reports 'no gap' for every core/group on the page."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "'One spacing step' (the gap tolerance) = snap the expected value onto the spec's own spacing scale, then take the distance from that step to its nearest neighbour on the same scale.",
+      "why": "The spec pins 'gap 1 spacing-step' without saying which step. Any fixed number would be wrong on a scale that is not linear (Twenty Twenty-Five's is clamp()-based and very much not linear). This definition means 'closer than the smallest distinguishable move on your own scale' — i.e. a rounding, not a design decision."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "A region's font_size is the LARGEST computed font size in its subtree.",
+      "why": "A region-level font_size_slug names the region's type scale, which in practice is its headline. Averaging or taking the region element's own font-size measures the wrapper, which is usually inherited body copy and never changes."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Region-to-element matching is geometry-dominant with role and accessible-name bonuses, greedy over a DFS of the spec, with a hard constraint that a child region must match inside its parent's matched element. Threshold 0.35.",
+      "why": "The spec says 'role heuristics + order + a11y name'. Role alone is far too weak (every section is a core/group) and order alone breaks the moment a region is missing. Geometry is the only signal that is always present; role and name break its ties. Measured scores on the golden landing: 1.539-1.550 for all six regions, i.e. an enormous margin above threshold."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "'extra' diffs are emitted only for top-level (minimum-depth) named block wrappers with no matching region.",
+      "why": "Every nested wrapper would otherwise be 'extra' and a 26-node page would report ~20 extras that no spec was ever going to describe."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "A colour tolerance of 8/255 per channel was added as `tolerances.color_channel` (default 8). It is the one tolerance the spec does not pin.",
+      "why": "kind:'color' is in the required diff enum, so colour has to be diffable, and an exact-match rule would fail on 8-bit rounding and sub-pixel compositing. 8/255 is below the smallest deliberate palette step in any theme.json seen here and above every rendering artefact measured."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Live tests are opt-in via X_AGENT_LIVE=1 and must be run with --no-file-parallelism.",
+      "why": "vitest's include is tests/**/*.test.ts, so without the gate a plain `npx vitest run` would need a WordPress and a browser. And compile.test.ts deliberately moves the instance's fingerprint, so running the live files concurrently against one instance makes them fight."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "oracle.ts ships installEvalShims(page), which defines a no-op globalThis.__name before any large page.evaluate.",
+      "why": "tsx/esbuild transpile with keepNames, which rewrites `const f = () => {}` into `__name(() => {}, 'f')`. The helper lives in the Node module scope, so the function body Playwright ships into the page throws ReferenceError: __name is not defined. A tsc build never hits this; every test run does. The shim argument is a string literal so esbuild cannot touch it."
+    }
+  ],
+  "deviations": [
+    {
+      "what": "fixtures/trees/valid-core-landing.json was NOT rewritten. A second tree, fixtures/trees/golden-landing.json, was added and the oracle acceptance runs against that one.",
+      "why": "The task assigned valid-core-landing.json as a file to create, but it already existed and three passing tests in tests/validate.test.ts and tests/schemas.test.ts (a file this track does not own) assert against it. It is also unusable for the M4 font-size acceptance: its hero is an auto-height core/group, so changing the hero headline's font size moves every section below it and produces five diffs outside tolerance instead of one. golden-landing.json's hero is a core/cover with minHeight 560px, which isolates the type change from the layout — verified: exactly one diff outside tolerance. Both trees are compiled and both goldens are captured, so the M3 acceptance still runs against valid-core-landing.json exactly as pinned."
+    },
+    {
+      "what": "The DesignSpecIR the M4 acceptance diffs against is fixtures/specs/golden-landing.json, a NEW file generated from the measured render, not fixtures/specs/hero-sample.json.",
+      "why": "Explicitly permitted by the task, and necessary: hero-sample.json (owned by another track) describes a two-column hero with a media panel, a Playfair/Inter type stack and a 720px content column. No tree in this repo renders that, so diffing against it would produce a wall of 'missing'/'position' noise that says nothing about the oracle. capture-golden.ts generates golden-landing.json from the real measurement and only attaches a token slug where the measured value really is that token's value. It passes wp_spec_validate with zero diagnostics."
+    },
+    {
+      "what": "fixtures/images/hero-sample.png is captured from the valid-core-landing render (the 'golden landing' named in the spec's fixture set), clipped to its measured hero box. It therefore does not depict what fixtures/specs/hero-sample.json describes.",
+      "why": "The image is owned by this track and the spec fixture is not. Reconciling them means either rewriting another track's spec or authoring a tree to match a hero the manifest cannot express (Playfair Display is not in the theme's font families). Flagged rather than papered over: whoever owns hero-sample.json should either regenerate it from this image or the from-design demo should point at specs/golden-landing.json + images/golden-landing.png."
+    },
+    {
+      "what": "FOUR assertions in tests/validate.test.ts now fail, and this track did not fix them because it does not own that file.",
+      "why": "They assert that the six session/oracle/factory tools are NOT implemented — an assertion that cannot survive their being implemented. `npx vitest run` reports 257 passed / 4 failed / 25 skipped (286). The four are all in `describe('registry / tools list')`:\n  - 'the six session/oracle/factory tools are listed but not implemented in this build' (line ~97): unimplementedToolNames() is now []. Fix: expect(unimplementedToolNames()).toEqual([]).\n  - 'calling a declared-but-unimplemented tool is a structured not_implemented, not a crash' (line ~103): drive it with a name that is still a placeholder, or delete it.\n  - 'an unimplemented tool reports not_implemented even with no connection config' (line ~111): wp_verify now returns invalid_input (no connection config) instead.\n  - 'the loader is idempotent and reports the missing modules' (line ~131): report.missing is now [] and report.loaded holds all six.\nTwo of the four are attributable to this track (wp_compile, wp_verify) and two to this track and the factory track jointly. Nothing about the tools' runtime behaviour regressed; every other assertion in that file, and all 205 of the original tests bar these four, still pass."
+    },
+    {
+      "what": "The live instance is core-plus-suite/toolchain on port 9430, not core-only.",
+      "why": "tools/playground/boot.mjs keys one instance per (profile, posture) and another agent holds core-only/toolchain on port 9410. core-plus-suite is still a toolchain instance with every core block; the Kadence Blocks it adds are a bonus, because they put a non-core namespace through the class -> block-name map. setup.sh prefers core-only and falls back automatically."
+    },
+    {
+      "what": "The wp_verify render shell does not reproduce the active template's wrapper chain.",
+      "why": "Content sits directly inside <div class=\"wp-site-blocks\">, so alignwide has no is-layout-constrained ancestor and measures full-bleed instead of wideSize. Reproducing the chain needs template introspection the companion does not expose in v1. wp_verify({url}) is the template-accurate path and is implemented and tested; markup mode answers 'is this composition right in this site's design system', which is the question the build loop asks. Documented in tests/live/README.md."
+    },
+    {
+      "what": "A freshly booted instance is not style-stable for its first couple of front-end page loads.",
+      "why": "Kadence Blocks generates and caches its dynamic CSS on first render; measured body font size moved 22px -> 24px and the xx-large preset 48px -> 60px between two capture runs minutes apart. Fixtures captured before that settles are wrong. setup.sh (which hits the site) followed by capture-golden.ts is the order that avoids it; capture-golden.ts --check catches it if it happens anyway."
+    }
+  ]
+}

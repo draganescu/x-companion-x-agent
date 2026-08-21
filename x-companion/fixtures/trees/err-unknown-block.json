@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/group",
+      "innerBlocks": [
+        {
+          "name": "acme/testimonial",
+          "attributes": { "quote": "It shipped." },
+          "innerBlocks": [
+            { "name": "core/paragraph", "attributes": { "content": "Not checked: the parent is unknown." } }
+          ]
+        }
+      ]
+    }
+  ]
+}

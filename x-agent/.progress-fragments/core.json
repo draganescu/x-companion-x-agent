@@ -1,0 +1,111 @@
+{
+  "track": "core",
+  "scope": "M1_scaffold, M2_client_and_validate, plus the two pure-local tools (wp_spec_validate, templates/theme-json/emitter.ts)",
+  "milestones": {
+    "M1_scaffold": {
+      "status": "done",
+      "evidence": "$ cd x-agent/mcp && npx tsx ../tests/list-tools.ts\nx-agent MCP tools: 16\n...\nwp_connect / wp_disconnect / wp_manifest / wp_patterns / wp_validate / wp_render / wp_parse / wp_spec_validate / wp_tokens_apply / wp_snapshot\nwp_compile  [handler pending: returns {code:\"not_implemented\"}]\nwp_verify  [handler pending: returns {code:\"not_implemented\"}]\nwp_screenshot  [handler pending: returns {code:\"not_implemented\"}]\nwp_block_scaffold  [handler pending: returns {code:\"not_implemented\"}]\nwp_block_build_test  [handler pending: returns {code:\"not_implemented\"}]\nwp_block_install  [handler pending: returns {code:\"not_implemented\"}]\n------------------------------------------------------------------------------\ndeclared: 16  expected: 16\nhandlers loaded from external modules: (none)\nhandlers pending: wp_compile, wp_verify, wp_screenshot, wp_block_scaffold, wp_block_build_test, wp_block_install\nOK: all 16 tools listed with input schemas.\n(each of the 16 prints its full draft-07 input schema; 739 lines total)\n\n$ npx tsc --noEmit\n(no output = clean)\n\n$ npx vitest run tests/config.test.ts\n ✓ tests/config.test.ts (30 tests) 21ms\n Test Files  1 passed (1)\n      Tests  30 passed (30)\n\nReal MCP stdio handshake against the compiled server (node dist/mcp/src/server.js, SDK StdioClientTransport):\n  tools/list returned 16 tools\n  every tool has an inputSchema: true\n  wp_spec_validate(bad input) isError: false -> E_SPEC_SCHEMA\n\nmock-companion serves /fingerprint, /manifest, /patterns, /validate, /parse, /render, /harness and the extend-tier stubs on both URL forms (asserted in tests/client.test.ts).",
+      "updated_at": "2026-08-21T00:00:00Z"
+    },
+    "M2_client_and_validate": {
+      "status": "done",
+      "evidence": "$ cd x-agent/mcp && npx vitest run\n RUN  v2.1.9 /Users/andreidraganescu/Sites/block-design/x-agent\n ✓ tests/config.test.ts (30 tests) 21ms\n ✓ tests/schemas.test.ts (75 tests) 55ms\n ✓ tests/client.test.ts (20 tests) 160ms\n ✓ tests/specvalidate.test.ts (38 tests) 31ms\n ✓ tests/validate.test.ts (42 tests) 161ms\n Test Files  5 passed (5)\n      Tests  205 passed (205)\n\nThe two milestone-specific acceptances, by test name:\n  client.test.ts > 'a mid-run epoch bump triggers exactly ONE refresh and ONE retry, then succeeds'\n    asserts stats.epochRefreshes===1, stats.epochRetries===1, stats.epochSurfaced===0,\n    exactly two /validate hits on the mock (first carrying the stale epoch, second the new one),\n    exactly one /fingerprint + one /manifest hit for the refresh, and the event sequence\n    ['detected','refreshed','retried'].\n  client.test.ts > 'a permanent mismatch surfaces epoch_mismatch after exactly one retry — it never loops'\n    asserts code==='epoch_mismatch' with still exactly two /validate hits.\n  validate.test.ts > 'catches a schema error WITHOUT any network call — zero /validate hits'\n    asserts mock.countHits('/validate')===0 AND mock.log.length===0 (the mock logged no request at all).",
+      "updated_at": "2026-08-21T00:00:00Z"
+    },
+    "M6_spec_and_tokens": {
+      "status": "in_progress",
+      "note": "The wp_spec_validate half and the theme.json emitter half are done and tested. The live half of M6 (wp_tokens_apply against a real instance, wp_snapshot fingerprint comparison) and the skills/wp-blocks/references/*.md writing are outside this track's scope.",
+      "evidence": "$ npx vitest run tests/specvalidate.test.ts\n ✓ tests/specvalidate.test.ts (38 tests) 31ms\n Test Files  1 passed (1)\n      Tests  38 passed (38)\n\nfixtures/specs/hero-sample.json passes clean (0 diagnostics). Each crafted fixture triggers\nEXACTLY ONE code and nothing else, asserted with toEqual on the full code list:\n  invalid-spec-schema.json     -> ['E_SPEC_SCHEMA']      @ /regions/0/role\n  invalid-box-overlap.json     -> ['E_BOX_OVERLAP']      @ /regions/0/children/1/box\n  invalid-orphan-content.json  -> ['E_ORPHAN_CONTENT']   @ /content/3/region_id\n  warn-unquantized.json        -> ['W_UNQUANTIZED']      @ /tokens_candidates/typography/sizes/2/size\n  warn-no-responsive.json      -> ['W_NO_RESPONSIVE']    @ /regions/0\n\nfixtures/design-tokens.sample.json validates against the vendored design-tokens.schema.json\nAND against the zod mirror (tests/schemas.test.ts, DesignTokens group).\ntemplates/theme-json/emitter.ts is unit-tested for purity, the four emitted groups, fluid\npass-through in both shapes, name derivation, and the diff against manifest.theme_tokens.",
+      "updated_at": "2026-08-21T00:00:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "VERIFIED the current Claude Code plugin packaging format from the live docs before scaffolding, per operating_rules_for_implementing_agent. Fetched https://docs.claude.com/en/docs/claude-code/plugins-reference and https://docs.claude.com/en/docs/claude-code/plugins; BOTH now 301-redirect to code.claude.com, so the authoritative pages actually read were https://code.claude.com/docs/en/plugins-reference and https://code.claude.com/docs/en/plugins. Verified, verbatim from those pages: (1) the plugin manifest is `plugin.json` inside a `.claude-plugin/` directory at the plugin root; it is OPTIONAL, and if present only `name` is required (kebab-case, used as the skill namespace); common optional fields are displayName, version, description, author{name,email,url}, homepage, repository, license, keywords, plus component-path overrides skills/commands/agents/hooks/mcpServers/lspServers/outputStyles. (2) Skills are auto-discovered from a `skills/` directory at the PLUGIN ROOT as `skills/<name>/SKILL.md`, each with YAML frontmatter whose keys include name, description, model, disable-model-invocation; the docs explicitly warn that skills/, commands/, agents/ and hooks/ must NOT be placed inside `.claude-plugin/` — only plugin.json goes there. (3) MCP servers are declared in `.mcp.json` at the plugin root (or inline under an `mcpServers` key in plugin.json) with the shape {\"mcpServers\":{\"<id>\":{\"command\":..., \"args\":[...], \"env\":{...}}}}, and the substitutions ${CLAUDE_PLUGIN_ROOT}, ${CLAUDE_PLUGIN_DATA}, ${CLAUDE_PROJECT_DIR} are available inside it. (4) `claude --plugin-dir ./x-agent` loads a plugin for local testing and `claude plugin validate ./x-agent` checks it. The scaffold matches this exactly: x-agent/.claude-plugin/plugin.json + x-agent/.mcp.json + x-agent/skills/wp-blocks/ (skill authored by the M7 track).",
+      "why": "The spec forbids trusting memory for packaging. Recording the redirect chain matters: the docs.claude.com URLs named in the spec are no longer canonical."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The 16-tool table is declared in mcp/src/registry.ts and the six session/oracle/factory tools are loaded through a dynamic, failure-tolerant loader (loadExternalHandlers). The loader probes src/tools/<base>.{ts,js,mjs,mts} on disk with fs.existsSync and imports via pathToFileURL, so tsc never resolves a file that does not exist yet, and ERR_MODULE_NOT_FOUND / a syntax error / a module exporting no ToolDef all degrade to 'keep the not_implemented placeholder'.",
+      "why": "Two agents implement tools in one package without editing each other's files, and `tools/list` must be complete (all 16, with schemas) before the second track's modules exist."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "Every companion request carries the expected fingerprint in an `X-Expected-Fingerprint` request header, in addition to TreeIR.epoch on POST /validate.",
+      "why": "CONTRACT.md §8 says 'every companion call carries the expected fingerprint' but only pins a mechanism for /validate (the tree's own epoch field). A request header is additive, ignored by any companion build that does not read it, and gives the mock a way to exercise the HTTP-409 epoch-conflict branch."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "wp_validate and wp_spec_validate declare deliberately permissive MCP input schemas (z.looseObject with z.unknown().optional() fields carrying rich descriptions) and re-parse strictly inside the handler.",
+      "why": "Both tools exist to REPORT schema violations as Diagnostics. A strict MCP input guard would turn every E_TREE_SCHEMA / E_SPEC_SCHEMA case into {code:'invalid_input'} and the tool would never be able to do its job. Handlers receive the original, unstripped arguments for the same reason."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "W_UNQUANTIZED checks palette colours, spacing step sizes, typography sizes and layout.contentSize/wideSize against quantization_log[].snapped_to, compared as strings. Font FAMILIES are deliberately excluded.",
+      "why": "The agent spec says 'tokens_candidates values all appear in quantization_log'. A font family is a chosen identifier, not a measured value snapped onto a scale, so requiring a quantization entry for it would be noise. Exported as quantizableValues() and asserted in tests."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "E_BOX_OVERLAP slack is 2% of the PARENT box's width (for x/left-right) and height (for y/top-bottom), applied outward on all four edges. One diagnostic per offending child, listing every breached edge.",
+      "why": "The spec says '2% slack' without naming the reference dimension; the parent is the only stable one (a zero-height child would otherwise get zero slack). Boundary behaviour is pinned by tests at slack+1 and slack-1."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "wp_connect returns `suites` as plain slug strings (manifest.suites[].slug), dropping the version.",
+      "why": "The spec pins the output type as `suites: string[]`. The versions remain available in full via wp_manifest."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "wp_tokens_apply additionally returns `theme_json_preview` (the local emitter output) and `diff_against_instance`, and accepts `dry_run: true`.",
+      "why": "The spec places templates/theme-json/emitter.ts on this side specifically 'for local preview/diff'. Surfacing it on the tool makes the extend-tier write rehearsable at zero cost and zero risk, which matters because the write is posture-gated and irreversible."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The build emits to mcp/dist/ with rootDir = the plugin root, so the server entry point is mcp/dist/mcp/src/server.js (referenced from .mcp.json). A `prepare` script runs the build on npm install, and no dist/ is left checked in.",
+      "why": "templates/theme-json/emitter.ts lives outside mcp/ by spec, so rootDir must cover both; nesting is the honest consequence. A committed dist would silently go stale as the second track adds tool modules."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "The vitest root is x-agent/ while the package is x-agent/mcp/; tsconfig maps the bare `vitest` specifier via compilerOptions.paths.",
+      "why": "file_layout pins tests at x-agent/tests/ and the package at x-agent/mcp/. Node resolution cannot walk from x-agent/tests/ into x-agent/mcp/node_modules; Vitest self-aliases at runtime but tsc needs the explicit path mapping to type-check the suite."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "what": "tests/schemas.test.ts ships an inline JSON-Schema validator (no ajv) covering type/type-arrays, required, properties, additionalProperties, items, enum, const, pattern, minimum, exclusiveMinimum, oneOf and $ref (both #/definitions/... and the cross-file x-contract/<file>#/... form). It also asserts the vendored schemas use NO keyword outside that set.",
+      "why": "The task pinned a smaller subset, but the vendored schemas actually use minimum/exclusiveMinimum/oneOf and a cross-file $ref (design-spec -> design-tokens). The keyword-coverage assertion means a future schema edit that introduces an unenforced keyword fails the suite instead of silently weakening the drift check."
+    }
+  ],
+  "deviations": [
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "agent-plugin.spec.json milestones.M1_scaffold ('all 16 tools') vs mcp_tools[] (15 entries)",
+      "what": "mcp_tools[] enumerates 15 tools: wp_connect, wp_manifest, wp_patterns, wp_validate, wp_compile, wp_render, wp_verify, wp_screenshot, wp_spec_validate, wp_tokens_apply, wp_block_scaffold, wp_block_build_test, wp_block_install, wp_parse, wp_snapshot. Registered a 16th, `wp_disconnect`, to reconcile the count: it closes the warm Playwright session, drops the block factory, clears the manifest/pattern/fingerprint caches and forgets the pinned connection overrides.",
+      "why": "M1's acceptance says 'shows all 16 tools with input schemas'. wp_disconnect is the natural missing counterpart to wp_connect — without it there is no way to switch instances or recover from an instance rebuilt underneath a warm session. It is also the disposal hook the session track needs (registerSessionProvider().dispose)."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "CONTRACT.md §7 error code list",
+      "what": "Added two agent-local error codes beyond the nine pinned ones: `not_implemented` (a tool is declared in the registry but its handler module is absent from this build) and `internal` (an unexpected agent-side throw, wrapped rather than leaked).",
+      "why": "§7's list covers failures of the agent<->companion interaction; neither of these is one. They never travel to the companion and never appear in a companion request. `not_implemented` is required by the parallel-track seam: a missing handler must be a structured call-time error, not a missing tool at list time. `internal` is required by the 'never a bare throw to the client' rule — something has to catch a TypeError."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "agent-plugin.spec.json fixtures.authoring_rule ('ground-truth markup fixtures are CAPTURED, not hand-written')",
+      "what": "fixtures/trees/*.json are hand-authored; NO golden markup was authored. fixtures/golden/*.html and fixtures/images/hero-sample.png do not exist yet.",
+      "why": "The authoring rule forbids hand-written expected MARKUP, which is exactly what was avoided — there is no expected-markup fixture anywhere in this track. Input trees and Design Spec IRs are agent inputs, not compiler ground truth, so they are legitimately authored. Capturing the golden markup requires a real Playground editor (tests/capture-golden.ts, M3) and belongs to the session track."
+    },
+    {
+      "when": "2026-08-21T00:00:00Z",
+      "spec_ref": "agent-plugin.spec.json mcp_tools[wp_manifest].output ('Manifest')",
+      "what": "wp_manifest's output schema is the Manifest shape with `blocks` widened to a record of unknown, plus the added fields summary, filtered, blocks_returned, blocks_total, served_from_cache.",
+      "why": "The same spec entry mandates a summary mode returning 'names+parents only', which by construction cannot satisfy manifest.schema.json's per-block required[] (title, category, api_version, attributes, is_dynamic). The widening is confined to the blocks map; every other Manifest field is still validated strictly. The added booleans make the cache and filter behaviour observable to the calling agent."
+    }
+  ],
+  "seams_exposed_for_the_session_track": {
+    "context": "mcp/src/context.ts — exports `interface Ctx {config, companion, manifestCache, logger, runtime, session?: unknown, factory?: unknown}`, `class Runtime`, `registerSessionProvider(p)`, `registerFactoryProvider(p)`, `getSession(ctx)`, `getFactory(ctx)`, `interface Provider {create, dispose?, onEpochChange?}`. Full contract in a comment block at the top of the file. Both declaration merging (`declare module './context.js' { interface Ctx { session?: HarnessSession } }`) and the provider hooks are supported.",
+    "registry": "mcp/src/registry.ts — exports `type ToolDef`, `const TOOLS: ToolDef[]` (stable array identity; mutated in place by the loader), `loadExternalHandlers()`, `findTool()`, `unimplementedToolNames()`, `isUnimplemented()`. Session-track modules export `tools: ToolDef[]` (or any named ToolDef export, or a default export) from src/tools/{compile,verify,screenshot,blockScaffold,blockBuildTest,blockInstall}.ts; a matching `name` replaces the declared entry wholesale, an unknown `name` is appended.",
+    "companion": "mcp/src/companion.ts — the ONLY HTTP surface. fetchFingerprint, fetchManifest, validate, parse, render, patterns, harnessHtml, harnessUrl, harnessUrlAlternate, basicCredentials, authHeader, installBlockFromFile, installBlockBytes, blocksLibrary, rollbackBlock, deleteBlock, themeTokens, snapshotExport, reset; plus `stats` and `onEpochEvent` for observability and `class ManifestCache`.",
+    "local_flag": "A ToolDef that needs no connection must set `local: true` (wp_block_scaffold and wp_block_build_test should). Without it a call with no resolvable config fails with invalid_input before the handler runs."
+  }
+}

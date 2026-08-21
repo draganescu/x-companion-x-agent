@@ -1,0 +1,34 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"description": "x test matrix profile `core-plus-suite`: WordPress latest + Twenty Twenty-Five + Kadence Blocks (free, wordpress.org) active. Blueprint v1. Kadence is installed with onError=throw so a failed download aborts the boot instead of silently degrading to core-only; tools/playground/boot.mjs additionally asserts the plugin is active after boot.",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"steps": [
+		{
+			"step": "activateTheme",
+			"themeFolderName": "twentytwentyfive",
+			"progress": { "caption": "Activating Twenty Twenty-Five" }
+		},
+		{
+			"step": "setSiteOptions",
+			"options": {
+				"blogname": "x-companion core-plus-suite"
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "kadence-blocks"
+			},
+			"options": {
+				"activate": true,
+				"onError": "throw",
+				"humanReadableName": "Kadence Blocks"
+			},
+			"progress": { "caption": "Installing Kadence Blocks from wordpress.org" }
+		}
+	]
+}

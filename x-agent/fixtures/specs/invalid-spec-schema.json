@@ -1,0 +1,310 @@
+{
+  "version": 1,
+  "source": {
+    "kind": "image",
+    "files": [
+      "fixtures/images/hero-sample.png"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "tokens_candidates": {
+    "palette": [
+      {
+        "slug": "base",
+        "name": "Base",
+        "color": "#ffffff",
+        "role": "background"
+      },
+      {
+        "slug": "contrast",
+        "name": "Contrast",
+        "color": "#111111",
+        "role": "text"
+      },
+      {
+        "slug": "primary",
+        "name": "Primary",
+        "color": "#1a4fd6",
+        "role": "primary"
+      },
+      {
+        "slug": "accent",
+        "name": "Accent",
+        "color": "#f5b301",
+        "role": "accent"
+      }
+    ],
+    "spacing": {
+      "scale_unit": "rem",
+      "steps": [
+        {
+          "slug": "30",
+          "size": "1rem"
+        },
+        {
+          "slug": "40",
+          "size": "1.5rem"
+        },
+        {
+          "slug": "50",
+          "size": "3rem"
+        },
+        {
+          "slug": "60",
+          "size": "4.5rem"
+        }
+      ]
+    },
+    "typography": {
+      "families": [
+        {
+          "slug": "heading",
+          "name": "Heading",
+          "fontFamily": "\"Playfair Display\", Georgia, serif"
+        },
+        {
+          "slug": "body",
+          "name": "Body",
+          "fontFamily": "\"Inter\", system-ui, sans-serif"
+        }
+      ],
+      "sizes": [
+        {
+          "slug": "medium",
+          "size": "1rem"
+        },
+        {
+          "slug": "large",
+          "size": "1.5rem"
+        },
+        {
+          "slug": "xx-large",
+          "size": "3.5rem",
+          "fluid": {
+            "min": "2.5rem",
+            "max": "3.5rem"
+          }
+        }
+      ]
+    },
+    "layout": {
+      "contentSize": "720px",
+      "wideSize": "1200px"
+    },
+    "quantization_log": [
+      {
+        "observed": "#fefefe",
+        "snapped_to": "#ffffff",
+        "delta": "+2/255 on each channel",
+        "note": "screenshot antialiasing on the page ground"
+      },
+      {
+        "observed": "#131313",
+        "snapped_to": "#111111",
+        "delta": "-2/255 on each channel"
+      },
+      {
+        "observed": "#1b4ed4",
+        "snapped_to": "#1a4fd6",
+        "delta": "dE 0.9",
+        "note": "brand blue"
+      },
+      {
+        "observed": "#f6b200",
+        "snapped_to": "#f5b301",
+        "delta": "dE 0.7"
+      },
+      {
+        "observed": "15px",
+        "snapped_to": "1rem",
+        "delta": "+1px"
+      },
+      {
+        "observed": "25px",
+        "snapped_to": "1.5rem",
+        "delta": "-1px"
+      },
+      {
+        "observed": "46px",
+        "snapped_to": "3rem",
+        "delta": "+2px"
+      },
+      {
+        "observed": "70px",
+        "snapped_to": "4.5rem",
+        "delta": "+2px"
+      },
+      {
+        "observed": "16.2px",
+        "snapped_to": "1rem",
+        "delta": "-0.2px",
+        "note": "body copy"
+      },
+      {
+        "observed": "23px",
+        "snapped_to": "1.5rem",
+        "delta": "+1px",
+        "note": "lede"
+      },
+      {
+        "observed": "54px",
+        "snapped_to": "3.5rem",
+        "delta": "+2px",
+        "note": "hero headline; the single deliberate fidelity delta"
+      },
+      {
+        "observed": "716px",
+        "snapped_to": "720px",
+        "delta": "+4px",
+        "note": "measured text column"
+      },
+      {
+        "observed": "1196px",
+        "snapped_to": "1200px",
+        "delta": "+4px"
+      }
+    ]
+  },
+  "content": [
+    {
+      "id": "c-eyebrow",
+      "kind": "other",
+      "text": "New in 2026",
+      "region_id": "hero-copy"
+    },
+    {
+      "id": "c-headline",
+      "kind": "heading",
+      "text": "Ship the layout, not the guesswork.",
+      "region_id": "hero-copy"
+    },
+    {
+      "id": "c-lede",
+      "kind": "paragraph",
+      "text": "Generate trees, compile them in the real editor, verify the geometry numerically.",
+      "region_id": "hero-copy"
+    },
+    {
+      "id": "c-cta",
+      "kind": "button",
+      "text": "Start building",
+      "region_id": "hero-actions"
+    },
+    {
+      "id": "c-cta-alt",
+      "kind": "button",
+      "text": "Read the contract",
+      "region_id": "hero-actions"
+    },
+    {
+      "id": "c-shot",
+      "kind": "image",
+      "image_ref": "fixtures/images/hero-sample.png#media",
+      "region_id": "hero-media"
+    }
+  ],
+  "regions": [
+    {
+      "id": "hero",
+      "role": "banner",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 720
+      },
+      "layout": {
+        "direction": "row",
+        "gap_px": 48,
+        "align": "center",
+        "justify": "space-between",
+        "columns": 2
+      },
+      "style_refs": {
+        "background_palette_slug": "base",
+        "palette_slug": "contrast",
+        "spacing_slugs": [
+          "60",
+          "50"
+        ]
+      },
+      "responsive_assumptions": [
+        {
+          "breakpoint": "<=781px",
+          "change": "the two columns stack; media follows copy",
+          "confidence": "synthesized"
+        },
+        {
+          "breakpoint": "<=1200px",
+          "change": "outer padding drops from spacing 60 to spacing 50",
+          "confidence": "synthesized"
+        }
+      ],
+      "children": [
+        {
+          "id": "hero-copy",
+          "role": "column",
+          "box": {
+            "x": 120,
+            "y": 144,
+            "w": 600,
+            "h": 432
+          },
+          "layout": {
+            "direction": "column",
+            "gap_px": 24,
+            "align": "flex-start"
+          },
+          "style_refs": {
+            "font_size_slug": "xx-large",
+            "spacing_slugs": [
+              "40"
+            ]
+          },
+          "children": [
+            {
+              "id": "hero-actions",
+              "role": "item",
+              "box": {
+                "x": 120,
+                "y": 496,
+                "w": 420,
+                "h": 56
+              },
+              "layout": {
+                "direction": "row",
+                "gap_px": 16
+              },
+              "style_refs": {
+                "palette_slug": "primary",
+                "spacing_slugs": [
+                  "30"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "hero-media",
+          "role": "item",
+          "box": {
+            "x": 768,
+            "y": 120,
+            "w": 552,
+            "h": 480
+          },
+          "layout": {
+            "direction": "column",
+            "gap_px": 0
+          },
+          "style_refs": {
+            "background_palette_slug": "accent"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/paragraph",
+      "attributes": { "content": "Hand-serialized markup does not belong in a tree." },
+      "innerHTML": "<p>Hand-serialized markup does not belong in a tree.</p>"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "milestones": {
+    "M1_skeleton": {
+      "status": "done",
+      "evidence": "Verified live by the interop suite (bash proof/run-all.sh) against Playground WP 7.1 with x-companion mounted and activated by tools/playground/boot.mjs (activation also proven by the x_agent role existing in the booted instance).\nP2 'Auth and capability gating are real' \u2014 PASS (6 observations):\n  anonymous GET /manifest is 401  ->  401\n  with the pinned error envelope code  ->  rest_forbidden\n  the x_agent role reads the manifest  ->  200\n  even the cheap epoch route requires auth  ->  401\n  extend tier is reachable for admin on toolchain  ->  HTTP 200\nP11 'Posture wall holds from the agent side' \u2014 PASS, on a production-posture instance:\n  /x-companion/v1/blocks/install -> 403, code -> posture_forbidden\n  /x-companion/v1/theme/tokens   -> 403, code -> posture_forbidden\n  /x-companion/v1/snapshot/export-> 403, code -> posture_forbidden\nDeviation from the literal wording: routes return 200, not 501, because they are now implemented; the 501 in the original acceptance described the scaffold-only state.",
+      "updated_at": "2026-08-21T14:05:00Z"
+    },
+    "M2_manifest": {
+      "status": "done",
+      "evidence": "php x-companion/tests/test-manifest.php -> exit 0, PASS 186/186 assertions.\nLive corroboration from bash proof/run-all.sh (WP 7.1):\nP1 \u2014 agent fingerprint === companion GET /fingerprint -> 3dfb9d38...e12; blocks_count === manifest counts.blocks -> 116; manifest block count tracks the live WP registry -> manifest=116 wp/v2/block-types=116.\nP5 \u2014 fingerprint moved after a registry change -> E1=3dfb9d3876c4... E2=3f0cde9f360f...; the newly registered block appears in the manifest -> 117 blocks.\nP4 \u2014 a mu-plugin registering x_companion_agent_hints for core/cover is reflected in the manifest: 'the x_companion_agent_hints filter reaches the manifest' -> allowed_blocks present, and the live validator then emits W_HINT_ALLOWED_BLOCKS at /blocks/0/innerBlocks/1.\nP10 \u2014 theme_tokens carries the written palette: 8/8 slugs (canvas, shelf, ink, graphite, cobalt, clay, citron, hairline).",
+      "updated_at": "2026-08-21T14:05:00Z"
+    },
+    "M7_hardening_and_docs": {
+      "status": "done",
+      "evidence": "$ bash x-companion/bin/plugin-check.sh\n  plugin-check: 0 error(s), 6 warning(s) for 'x-companion'.\n  (warnings: 4x direct-DB in uninstall.php for the prefix transient sweep; 2x deliberate in   class-harness.php \u2014 the WP_ADMIN define and the dynamic hook name.)\nREADME.md required sections verified present by grep: Postures, Auth, Contract v1, Harness fallback, Uninstall.\n$ bash x-companion/tests/run-all.sh -> EXIT=0 on both envs in one command:\n  PASS manifest 186/186; PASS validator 140/140; PASS block library (live core-only) 62/62;\n  PASS theme tokens + snapshot (live core-only) 35/35; PASS (live core-plus-suite) 46/46;\n  KADENCE PATH: REGISTERED - 59/59 kadence/* blocks reached wp.blocks; tests 16 / pass 16 / fail 0.",
+      "updated_at": "2026-08-21T14:05:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-21",
+      "what": "Shared wire contract authored up front in contract/CONTRACT.md + contract/schemas/, vendored byte-identically into both plugins.",
+      "why": "Two independent implementation tracks cannot converge on TreeIR/Diagnostics/Manifest/fingerprint by coincidence. Pinning canonical-JSON rules and the diagnostic path/severity table before any code meant neither side had to guess."
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Parallel tracks coordinate through per-track .progress-fragments/*.json merged by tools/merge-progress.py, never by editing a shared PROGRESS.json.",
+      "why": "Concurrent writers to one ledger file lose data. The merger also filters each spec's own milestone ids into its own ledger."
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Cross-track seams were published as code, not prose: the x_companion_route_{id} filter dispatch on the PHP side, and registerSessionProvider/registerFactoryProvider + a 16-entry registry table on the TypeScript side.",
+      "why": "Lets a track ship while its counterpart is unbuilt: routes 501 and tools report not_implemented instead of the package failing to boot. Verified empirically in both directions."
+    },
+    {
+      "when": "2026-08-21",
+      "what": "Rewrote 4 assertions in x-agent/tests/validate.test.ts that asserted the six session/oracle/factory tools were NOT implemented.",
+      "why": "They encoded build order, not behaviour, and had to fail the moment the work they were waiting for landed. Replaced with the end-state invariant (all 16 declared tools resolve to real handlers) plus a synthetic-placeholder test that keeps covering the not_implemented degradation path, and a note documenting that config resolution precedes the handler for connection-requiring tools."
+    },
+    {
+      "when": "2026-08-21T14:05:00Z",
+      "what": "M1_skeleton, M2_manifest and M7_hardening_and_docs were closed out from live proof-suite and plugin-check evidence gathered by the orchestrator, not by the track that wrote the code.",
+      "why": "The core track could only verify against a stubbed WP surface and honestly left them in_progress; M7 spanned two tracks so neither owned it. The acceptance criteria are now met by observed output, which is what the ledger rule actually requires."
+    }
+  ],
+  "deviations": [
+    {
+      "when": "2026-08-21",
+      "spec_ref": "companion progress_protocol",
+      "what": "M4_harness / M5_block_library / M6_tokens_and_export read 'pending' in x-companion/PROGRESS.json although their implementation files exist and the harness is demonstrably working live.",
+      "why": "The track implementing them was terminated by a session limit during its test run, before it wrote its progress fragment. The ledger correctly refuses to claim a milestone without pasted acceptance output. Independent corroboration that the harness works: the session/oracle track compiled fixture trees through GET /harness end to end (cold 1147ms -> warm 5ms), and the docs track drove the same page with Playwright to capture real markup. The library and tokens routes have NOT been independently verified and their tests have not been run."
+    },
+    {
+      "when": "2026-08-21T14:05:00Z",
+      "spec_ref": "companion M1_skeleton acceptance",
+      "what": "The acceptance line 'authenticated as x_agent role -> 501' is satisfied as 200, not 501.",
+      "why": "501 described the scaffold-only milestone state, before the routes were implemented. Every route is now implemented, so the meaningful assertion is the auth/tier/posture matrix, which P2 and P11 verify in full."
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/{{slug}}",
+	"version": "{{version}}",
+	"title": "{{title}}",
+	"category": "design",
+	"icon": "layout",
+	"description": "{{description}}",
+	"textdomain": "{{textdomain}}",
+	"keywords": ["agent", "{{slug}}"],
+	"supports": {
+		"html": false,
+		"anchor": true,
+		"align": ["wide", "full"],
+		"spacing": { "margin": true, "padding": true },
+		"typography": { "fontSize": true, "lineHeight": true },
+		"color": { "background": true, "text": true }
+	},
+	"attributes": {{attributes_json}},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php"
+}

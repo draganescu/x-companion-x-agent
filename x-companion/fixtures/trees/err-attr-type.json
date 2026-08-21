@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/heading",
+      "attributes": { "level": "two", "content": "Levels are numbers" }
+    }
+  ]
+}

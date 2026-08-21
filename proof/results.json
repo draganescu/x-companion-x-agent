@@ -1,0 +1,1101 @@
+{
+  "env": {
+    "generated": "2026-08-21T13:57:30.015Z",
+    "WordPress": "7.1",
+    "instances": "toolchain, production",
+    "duration": "83.7s"
+  },
+  "totals": {
+    "pass": 15,
+    "fail": 0,
+    "skip": 0,
+    "total": 15
+  },
+  "results": [
+    {
+      "id": "P1",
+      "title": "Handshake and epoch agreement",
+      "proves": "The client speaks the companion’s dialect and the epoch is one shared value, not two guesses.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "wp_connect succeeded",
+          "observed": "ok",
+          "ok": true
+        },
+        {
+          "what": "site_url",
+          "observed": "http://127.0.0.1:9460",
+          "ok": true
+        },
+        {
+          "what": "wp_version",
+          "observed": "7.1",
+          "ok": true
+        },
+        {
+          "what": "posture",
+          "observed": "toolchain",
+          "ok": true
+        },
+        {
+          "what": "agent fingerprint === companion GET /fingerprint",
+          "observed": "3dfb9d3876c486b31f2b55f52e505d72fca6297df8f89842202f8e0966867e12",
+          "ok": true
+        },
+        {
+          "what": "posture agrees",
+          "observed": "toolchain",
+          "ok": true
+        },
+        {
+          "what": "interfaces_version is 1",
+          "observed": "1",
+          "ok": true
+        },
+        {
+          "what": "blocks_count === manifest counts.blocks",
+          "observed": "116",
+          "ok": true
+        },
+        {
+          "what": "manifest block count tracks the live WP registry",
+          "observed": "manifest=116 wp/v2/block-types=116",
+          "ok": true
+        },
+        {
+          "what": "suites detected",
+          "observed": "[]",
+          "ok": true
+        }
+      ],
+      "ms": 13603
+    },
+    {
+      "id": "P2",
+      "title": "Auth and capability gating are real",
+      "proves": "Tiering is enforced in code by the permission callback, not hidden in a UI.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "anonymous GET /manifest is 401",
+          "observed": "401",
+          "ok": true
+        },
+        {
+          "what": "  with the pinned error envelope code",
+          "observed": "rest_forbidden",
+          "ok": true
+        },
+        {
+          "what": "the x_agent role reads the manifest",
+          "observed": "200",
+          "ok": true
+        },
+        {
+          "what": "x_agent identity",
+          "observed": "x_agent_user / role=x_agent",
+          "ok": true
+        },
+        {
+          "what": "even the cheap epoch route requires auth",
+          "observed": "401",
+          "ok": true
+        },
+        {
+          "what": "extend tier is reachable for admin on toolchain",
+          "observed": "HTTP 200",
+          "ok": true
+        }
+      ],
+      "ms": 1813
+    },
+    {
+      "id": "P3",
+      "title": "Tree → validate → compile → parse round trip",
+      "proves": "The core loop is closed and idempotent; the markup came from WordPress’s own save(), not a model.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "tree block names",
+          "observed": "[\"core/heading\",\"core/paragraph\",\"core/group\"]",
+          "ok": true
+        },
+        {
+          "what": "wp_validate reports valid",
+          "observed": "[{\"code\":\"W_STATIC_NEEDS_HARNESS\",\"severity\":\"warning\",\"path\":\"/blocks/1\",\"message\":\"Block \\\"core/paragraph\\\" is static: its markup is defined by its JavaScript save() output.\",\"fix_hint\":\"canonical markup must come from harness compile, do not hand-serialize\"},{\"code\":\"W_STATIC_NEEDS_HARNESS\",\"seve …",
+          "ok": true
+        },
+        {
+          "what": "epoch_ok",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "wp_compile succeeded",
+          "observed": "ok",
+          "ok": true
+        },
+        {
+          "what": "all_valid",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "markup carries block delimiters",
+          "observed": "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Proof heading</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Compi",
+          "ok": true
+        },
+        {
+          "what": "artifact written",
+          "observed": "proof/artifacts/p3-compiled.html (315 B)",
+          "ok": true
+        },
+        {
+          "what": "parse-back yields the same block names",
+          "observed": "[\"core/heading\",\"core/paragraph\",\"core/group\"]",
+          "ok": true
+        },
+        {
+          "what": "and the same nesting shape",
+          "observed": "[{\"n\":\"core/heading\",\"c\":[]},{\"n\":\"core/paragraph\",\"c\":[]},{\"n\":\"core/group\",\"c\":[{\"n\":\"core/paragraph\",\"c\":[]}]}]",
+          "ok": true
+        },
+        {
+          "what": "recompile succeeded",
+          "observed": "ok",
+          "ok": true
+        },
+        {
+          "what": "round trip is structurally idempotent",
+          "observed": "[\"<!-- wp:heading\",\"<!-- /wp:heading\",\"<!-- wp:paragraph\",\"<!-- /wp:paragraph\",\"<!-- wp:group\",\"<!-- wp:paragraph\",\"<!-- /wp:paragraph\",\"<!-- /wp:group\"]",
+          "ok": true
+        },
+        {
+          "what": "the compiled markup contained the paragraph text",
+          "observed": "Compiled by the instance, not by a model.",
+          "ok": true
+        },
+        {
+          "what": "the RAW parse output preserves it (this is the lifting path)",
+          "observed": "raw parse_blocks() innerHTML retains html-sourced content",
+          "ok": true
+        },
+        {
+          "what": "the STRIPPED tree does NOT — html-sourced attributes are not in attrs",
+          "observed": "stripped TreeIR carries structure + attrs-sourced attributes only",
+          "ok": true
+        }
+      ],
+      "ms": 3611
+    },
+    {
+      "id": "P4",
+      "title": "The validator is grounded in this instance’s registry",
+      "proves": "Validation catches, before a round trip, what the compiler would mishandle.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "the x_companion_agent_hints filter reaches the manifest",
+          "observed": "{\"allowed_blocks\":[\"core/heading\",\"core/paragraph\"],\"template_lock\":null,\"usage_notes\":\"proof-suite hint fixture\",\"example_attributes\":{}}",
+          "ok": true
+        },
+        {
+          "what": "companion fixture trees exercised",
+          "observed": "12",
+          "ok": true
+        },
+        {
+          "what": "err-attr-enum → E_ATTR_ENUM",
+          "observed": "E_ATTR_ENUM at /blocks/0/innerBlocks/0/attributes/tagName",
+          "ok": true
+        },
+        {
+          "what": "  err-attr-enum is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "err-attr-type → E_ATTR_TYPE",
+          "observed": "E_ATTR_TYPE at /blocks/0/attributes/level",
+          "ok": true
+        },
+        {
+          "what": "  err-attr-type is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "err-epoch-mismatch → E_EPOCH_MISMATCH",
+          "observed": "E_EPOCH_MISMATCH at /epoch",
+          "ok": true
+        },
+        {
+          "what": "  err-epoch-mismatch is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "err-nest-ancestor → E_NEST_ANCESTOR",
+          "observed": "E_NEST_ANCESTOR at /blocks/0/innerBlocks/0",
+          "ok": true
+        },
+        {
+          "what": "  err-nest-ancestor is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "err-nest-parent → E_NEST_PARENT",
+          "observed": "E_NEST_PARENT at /blocks/0/innerBlocks/0",
+          "ok": true
+        },
+        {
+          "what": "  err-nest-parent is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "err-tree-schema → E_TREE_SCHEMA",
+          "observed": "E_TREE_SCHEMA at /blocks/0/innerHTML",
+          "ok": true
+        },
+        {
+          "what": "  err-tree-schema is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "err-unknown-block → E_UNKNOWN_BLOCK",
+          "observed": "E_UNKNOWN_BLOCK at /blocks/0/innerBlocks/0",
+          "ok": true
+        },
+        {
+          "what": "  err-unknown-block is invalid",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "valid-core validates clean",
+          "observed": "[\"W_STATIC_NEEDS_HARNESS\",\"W_STATIC_NEEDS_HARNESS\",\"W_STATIC_NEEDS_HARNESS\",\"W_STATIC_NEEDS_HARNESS\",\"W_STATIC_NEEDS_HARNESS\"]",
+          "ok": true
+        },
+        {
+          "what": "warn-attr-unknown → W_ATTR_UNKNOWN",
+          "observed": "W_ATTR_UNKNOWN at /blocks/0/attributes/bogusAttr",
+          "ok": true
+        },
+        {
+          "what": "  warn-attr-unknown stays valid (warnings do not invalidate)",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "warn-hint-allowed-blocks → W_HINT_ALLOWED_BLOCKS",
+          "observed": "W_HINT_ALLOWED_BLOCKS at /blocks/0/innerBlocks/1",
+          "ok": true
+        },
+        {
+          "what": "  warn-hint-allowed-blocks stays valid (warnings do not invalidate)",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "warn-hint-template-lock → W_HINT_TEMPLATE_LOCK",
+          "observed": "W_HINT_TEMPLATE_LOCK at /blocks/0",
+          "ok": true
+        },
+        {
+          "what": "  warn-hint-template-lock stays valid (warnings do not invalidate)",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "warn-static-needs-harness → W_STATIC_NEEDS_HARNESS",
+          "observed": "W_STATIC_NEEDS_HARNESS at /blocks/0",
+          "ok": true
+        },
+        {
+          "what": "  warn-static-needs-harness stays valid (warnings do not invalidate)",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "fixtures whose live diagnostics differ from the offline snapshot",
+          "observed": "[\"err-attr-enum: snapshot=[E_ATTR_ENUM,W_STATIC_NEEDS_HARNESS,W_STATIC_NEEDS_HARNESS] live=[E_ATTR_ENUM,W_STATIC_NEEDS_HARNESS]\",\"err-attr-type: snapshot=[E_ATTR_TYPE,W_STATIC_NEEDS_HARNESS] live=[E_ATTR_TYPE]\",\"valid-core: snapshot=[W_STATIC_NEEDS_HARNESS,W_STATIC_NEEDS_HARNESS,W_STATIC_NEEDS_HARNE …",
+          "ok": true
+        },
+        {
+          "what": "why",
+          "observed": "the offline snapshot is WP 6.5-era; on this WP many core blocks are now dynamic, so W_STATIC_NEEDS_HARNESS fires less often. The PHP unit tests assert the snapshot; this suite asserts the live registry.",
+          "ok": true
+        },
+        {
+          "what": "every diagnostic code in the contract was produced by the LIVE validator",
+          "observed": "covered 11/11, missing: none",
+          "ok": true
+        }
+      ],
+      "ms": 7054
+    },
+    {
+      "id": "P5",
+      "title": "Epoch invalidation is live, not cached optimism",
+      "proves": "Ground truth moves and both sides notice — the whole reason epochs exist.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "compiles at epoch E1",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "E1",
+          "observed": "3dfb9d3876c486b3…",
+          "ok": true
+        },
+        {
+          "what": "fingerprint moved after a registry change",
+          "observed": "E1=3dfb9d3876c4… E2=3f0cde9f360f…",
+          "ok": true
+        },
+        {
+          "what": "stale epoch produces E_EPOCH_MISMATCH",
+          "observed": "[\"E_EPOCH_MISMATCH\",\"W_STATIC_NEEDS_HARNESS\",\"W_STATIC_NEEDS_HARNESS\",\"E_UNKNOWN_BLOCK\"]",
+          "ok": true
+        },
+        {
+          "what": "epoch_ok is false",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "valid is false",
+          "observed": "false",
+          "ok": true
+        },
+        {
+          "what": "other diagnostics still ran in the SAME response",
+          "observed": "[\"E_EPOCH_MISMATCH\",\"W_STATIC_NEEDS_HARNESS\",\"W_STATIC_NEEDS_HARNESS\",\"E_UNKNOWN_BLOCK\"]",
+          "ok": true
+        },
+        {
+          "what": "agent manifest adopted E2",
+          "observed": "3f0cde9f360faa6d3f80df757fe8941c901ba0978bc88e5849ca910e5bcd5f60",
+          "ok": true
+        },
+        {
+          "what": "new block is in the manifest vocabulary",
+          "observed": "117 blocks",
+          "ok": true
+        },
+        {
+          "what": "session auto-reloaded and compiles at E2",
+          "observed": "true",
+          "ok": true
+        }
+      ],
+      "ms": 4503
+    },
+    {
+      "id": "P6",
+      "title": "Vocabulary gap ladder, end to end",
+      "proves": "The agent can grow the instance’s block vocabulary and immediately use it. The headline claim of both specs.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "package",
+          "observed": "agent-testimonial.zip (1.3 KB)",
+          "ok": true
+        },
+        {
+          "what": "POST /blocks/install succeeded",
+          "observed": "200",
+          "ok": true
+        },
+        {
+          "what": "installed",
+          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"1.0.0\"}",
+          "ok": true
+        },
+        {
+          "what": "install returned a NEW epoch",
+          "observed": "3f0cde9f360f… → 2c254df08ec0…",
+          "ok": true
+        },
+        {
+          "what": "agent/testimonial is in the manifest",
+          "observed": "[\"agent/testimonial\"]",
+          "ok": true
+        },
+        {
+          "what": "manifest epoch === install epoch",
+          "observed": "2c254df08ec07e910814d292b19fe029447a2acd6e5397444ec97f0d55567eb1",
+          "ok": true
+        },
+        {
+          "what": "agent/testimonial is in window.__registry()",
+          "observed": "114 client-registered blocks",
+          "ok": true
+        },
+        {
+          "what": "tree using the new block validates",
+          "observed": "[{\"code\":\"W_ATTR_UNKNOWN\",\"severity\":\"warning\",\"path\":\"/blocks/0/attributes/author\",\"message\":\"Attribute \\\"author\\\" is not declared by \\\"agent/testimonial\\\".\",\"fix_hint\":\"drop it, or check GET /manifest for the block's declared attributes\"}]",
+          "ok": true
+        },
+        {
+          "what": "and compiles all_valid",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "compiled markup",
+          "observed": "<!-- wp:agent/testimonial {\"quote\":\"It compiled.\"} /-->",
+          "ok": true
+        },
+        {
+          "what": "artifact written",
+          "observed": "proof/artifacts/p6-agent-block.html (55 B)",
+          "ok": true
+        },
+        {
+          "what": "POST /render is 200",
+          "observed": "200",
+          "ok": true
+        },
+        {
+          "what": "rendered HTML carries the attribute value",
+          "observed": "<figure class=\"agent-testimonial is-tone-plain wp-block-agent-testimonial\" data-agent=\"testimonial-v1\">\n\t<blockquote class=\"agent-testimonial__quote\">It compiled.</blockquote>\n\t</figure>\n",
+          "ok": true
+        }
+      ],
+      "ms": 5358
+    },
+    {
+      "id": "P7",
+      "title": "The local safety gate is the gate",
+      "proves": "The division of labour is honoured: the agent stops bad packages, the companion does no PHP linting.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "scaffolded at",
+          "observed": "proof/artifacts/sabotage-7097wv/proof-broken",
+          "ok": true
+        },
+        {
+          "what": "render.php sabotaged",
+          "observed": "syntax error injected",
+          "ok": true
+        },
+        {
+          "what": "build_test did NOT succeed",
+          "observed": "{\"ok\":true,\"built\":true,\"php_error\":\"Parse error: syntax error, unexpected identifier \\\"is\\\" in /wordpress/wp-content/plugins/x-agent-smoke/proof-broken/render\"}",
+          "ok": "Parse error: syntax error, unexpected identifier \"is\" in /wordpress/wp-content/plugins/x-agent-smoke/proof-broken/render.php on line 2"
+        },
+        {
+          "what": "no zip was produced",
+          "observed": "none",
+          "ok": true
+        },
+        {
+          "what": "nothing reached the instance",
+          "observed": "1",
+          "ok": true
+        }
+      ],
+      "ms": 11920
+    },
+    {
+      "id": "P8",
+      "title": "Install policy is enforced server-side",
+      "proves": "The companion does not trust the agent, even though the agent is the safety gate.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "a static block (no render entry) → 422",
+          "observed": "422",
+          "ok": true
+        },
+        {
+          "what": "  code",
+          "observed": "block_policy",
+          "ok": true
+        },
+        {
+          "what": "  reasons are itemised",
+          "observed": "[\"block.json has no \\\"render\\\" entry; static blocks are refused unless X_COMPANION_ALLOW_STATIC_BLOCKS is defined true\"]",
+          "ok": true
+        },
+        {
+          "what": "a zip containing a ../ path traversal entry → 422",
+          "observed": "422",
+          "ok": true
+        },
+        {
+          "what": "  code",
+          "observed": "block_policy",
+          "ok": true
+        },
+        {
+          "what": "  reasons are itemised",
+          "observed": "[\"unsafe zip entries (path traversal or absolute path): agent-traversal/../../evil.php\"]",
+          "ok": true
+        },
+        {
+          "what": "a block named outside the agent/ namespace → 422",
+          "observed": "422",
+          "ok": true
+        },
+        {
+          "what": "  code",
+          "observed": "block_policy",
+          "ok": true
+        },
+        {
+          "what": "  reasons are itemised",
+          "observed": "[\"block.json name \\\"evil/testimonial\\\" must match agent/[a-z0-9-]+\"]",
+          "ok": true
+        },
+        {
+          "what": "re-installing a slug reports replaced_previous",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "library reports has_prev",
+          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-21T13:56:56+00:00\",\"has_prev\":true}",
+          "ok": true
+        },
+        {
+          "what": "rollback is 200",
+          "observed": "200",
+          "ok": true
+        },
+        {
+          "what": "rollback returns a fingerprint",
+          "observed": "2c254df08ec07e91…",
+          "ok": true
+        }
+      ],
+      "ms": 3268
+    },
+    {
+      "id": "P9",
+      "title": "Numeric oracle, not screenshot squinting",
+      "proves": "The oracle is sensitive and specific: it catches a one-step change and reports nothing else.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "golden tree compiles",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "wp_verify ran",
+          "observed": "ok",
+          "ok": true
+        },
+        {
+          "what": "box_tree nodes measured",
+          "observed": "26",
+          "ok": true
+        },
+        {
+          "what": "baseline verify passes",
+          "observed": "0 diffs outside tolerance: []",
+          "ok": true
+        },
+        {
+          "what": "mutation",
+          "observed": "heading fontSize xx-large → large",
+          "ok": true
+        },
+        {
+          "what": "the one-step mutation is detected",
+          "observed": "[\"hero-1:font_size\"]",
+          "ok": true
+        },
+        {
+          "what": "and it is reported as a font_size diff",
+          "observed": "[\"font_size\"]",
+          "ok": true
+        }
+      ],
+      "ms": 4188
+    },
+    {
+      "id": "P11",
+      "title": "Posture wall holds from the agent side",
+      "proves": "R8: the agent surfaces the constraint instead of routing around it, and sends nothing that would mutate.",
+      "needs": "production",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "instance reports production posture",
+          "observed": "production",
+          "ok": true
+        },
+        {
+          "what": "/x-companion/v1/blocks/install → 403",
+          "observed": "403",
+          "ok": true
+        },
+        {
+          "what": "  code",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "/x-companion/v1/theme/tokens → 403",
+          "observed": "403",
+          "ok": true
+        },
+        {
+          "what": "  code",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "/x-companion/v1/snapshot/export → 403",
+          "observed": "403",
+          "ok": true
+        },
+        {
+          "what": "  code",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "wp_tokens_apply refuses",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "  with the exact structured code",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "  and a hint naming the sandbox path",
+          "observed": "clone to sandbox via wp_snapshot then apply there",
+          "ok": true
+        },
+        {
+          "what": "wp_block_install refuses",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "  with the exact structured code",
+          "observed": "posture_forbidden",
+          "ok": true
+        },
+        {
+          "what": "  and the library route stays gated too",
+          "observed": "403",
+          "ok": true
+        }
+      ],
+      "ms": 14376
+    },
+    {
+      "id": "P12",
+      "title": "Snapshot is a promotion gate",
+      "proves": "The “production receives artifacts, not the toolchain” pipeline has a real wire format.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "snapshot written",
+          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-2c254df08ec0-1787320637592.zip (8075.0 KB)",
+          "ok": true
+        },
+        {
+          "what": "snapshot contains theme/",
+          "observed": "[\"theme/\",\"theme/assets/\",\"theme/assets/css/\"]",
+          "ok": true
+        },
+        {
+          "what": "snapshot contains agent-blocks/",
+          "observed": "[\"agent-blocks/\",\"agent-blocks/testimonial/\",\"agent-blocks/testimonial/block.json\"]",
+          "ok": true
+        },
+        {
+          "what": "snapshot contains patterns.json",
+          "observed": "[\"patterns.json\"]",
+          "ok": true
+        },
+        {
+          "what": "snapshot contains content.xml",
+          "observed": "[\"content.xml\"]",
+          "ok": true
+        },
+        {
+          "what": "snapshot contains manifest.json",
+          "observed": "[\"manifest.json\"]",
+          "ok": true
+        },
+        {
+          "what": "manifest.json fingerprint === live /fingerprint",
+          "observed": "2c254df08ec07e910814d292b19fe029447a2acd6e5397444ec97f0d55567eb1",
+          "ok": true
+        }
+      ],
+      "ms": 3085
+    },
+    {
+      "id": "P13",
+      "title": "Schema drift tripwire",
+      "proves": "The two codebases cannot silently diverge on the shared types.",
+      "needs": "none",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "shared schemas",
+          "observed": "[\"design-spec.schema.json\",\"design-tokens.schema.json\",\"diagnostics.schema.json\",\"manifest.schema.json\",\"tree-ir.schema.json\"]",
+          "ok": true
+        },
+        {
+          "what": "x-agent/schemas/design-spec.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "design-spec.schema.json identical in schemas",
+          "observed": "050709b7e984",
+          "ok": true
+        },
+        {
+          "what": "x-companion/fixtures/schemas/design-spec.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "design-spec.schema.json identical in schemas",
+          "observed": "050709b7e984",
+          "ok": true
+        },
+        {
+          "what": "x-agent/schemas/design-tokens.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "design-tokens.schema.json identical in schemas",
+          "observed": "dee5890d8edb",
+          "ok": true
+        },
+        {
+          "what": "x-companion/fixtures/schemas/design-tokens.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "design-tokens.schema.json identical in schemas",
+          "observed": "dee5890d8edb",
+          "ok": true
+        },
+        {
+          "what": "x-agent/schemas/diagnostics.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "diagnostics.schema.json identical in schemas",
+          "observed": "8ef2d82be8b1",
+          "ok": true
+        },
+        {
+          "what": "x-companion/fixtures/schemas/diagnostics.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "diagnostics.schema.json identical in schemas",
+          "observed": "8ef2d82be8b1",
+          "ok": true
+        },
+        {
+          "what": "x-agent/schemas/manifest.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "manifest.schema.json identical in schemas",
+          "observed": "7c9dea6300b9",
+          "ok": true
+        },
+        {
+          "what": "x-companion/fixtures/schemas/manifest.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "manifest.schema.json identical in schemas",
+          "observed": "7c9dea6300b9",
+          "ok": true
+        },
+        {
+          "what": "x-agent/schemas/tree-ir.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "tree-ir.schema.json identical in schemas",
+          "observed": "7b70164aa81b",
+          "ok": true
+        },
+        {
+          "what": "x-companion/fixtures/schemas/tree-ir.schema.json exists",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "tree-ir.schema.json identical in schemas",
+          "observed": "7b70164aa81b",
+          "ok": true
+        }
+      ],
+      "ms": 3
+    },
+    {
+      "id": "P14",
+      "title": "End-to-end from-prompt demo (the R5 loop)",
+      "proves": "The skill’s prescribed loop runs start to finish, and the screenshot is terminal evidence — taken exactly once, never inside the loop.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "vocabulary at this epoch",
+          "observed": "118 blocks, 109 patterns",
+          "ok": true
+        },
+        {
+          "what": "wp_patterns returns the retrieval corpus",
+          "observed": "7 matched",
+          "ok": true
+        },
+        {
+          "what": "the page has three sections",
+          "observed": "3",
+          "ok": true
+        },
+        {
+          "what": "validate: zero errors",
+          "observed": "[]",
+          "ok": true
+        },
+        {
+          "what": "compile: all_valid",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "registry gaps on this instance (server-only shims)",
+          "observed": "[\"core/legacy-widget\",\"core/post-comments\",\"core/widget-group\",\"proof/epoch-marker\"]",
+          "ok": true
+        },
+        {
+          "what": "none of them are used by this tree",
+          "observed": "[]",
+          "ok": true
+        },
+        {
+          "what": "artifact written",
+          "observed": "proof/artifacts/p14-from-prompt.html (922 B)",
+          "ok": true
+        },
+        {
+          "what": "verify passes",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "measured nodes / with a resolved block_name",
+          "observed": "9 / 9",
+          "ok": true
+        },
+        {
+          "what": "the three sections are present in the measured tree",
+          "observed": "[0,105,210]",
+          "ok": true
+        },
+        {
+          "what": "wp_screenshot produced a PNG",
+          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787320642134.png",
+          "ok": true
+        },
+        {
+          "what": "  and it is a real PNG",
+          "observed": "40.2 KB",
+          "ok": true
+        },
+        {
+          "what": "artifact written",
+          "observed": "proof/artifacts/p14-acceptance.png (40.2 KB)",
+          "ok": true
+        },
+        {
+          "what": "exactly one screenshot in the whole run",
+          "observed": "1",
+          "ok": true
+        }
+      ],
+      "ms": 4170
+    },
+    {
+      "id": "P15",
+      "title": "End-to-end from-design demo (lift → implement → attribute the delta)",
+      "proves": "A design spec is validated before any tree is generated, and every residual difference is an itemised decision rather than a vibe.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "the lifted spec validates clean",
+          "observed": "[]",
+          "ok": true
+        },
+        {
+          "what": "every observed value was quantised onto the token scale",
+          "observed": "13 snap-to-token entries logged",
+          "ok": true
+        },
+        {
+          "what": "synthesized (human-vetoable) responsive assumptions",
+          "observed": "2",
+          "ok": true
+        },
+        {
+          "what": "invalid-box-overlap.json",
+          "observed": "[\"E_BOX_OVERLAP\"]",
+          "ok": true
+        },
+        {
+          "what": "invalid-orphan-content.json",
+          "observed": "[\"E_ORPHAN_CONTENT\"]",
+          "ok": true
+        },
+        {
+          "what": "invalid-spec-schema.json",
+          "observed": "[\"E_SPEC_SCHEMA\"]",
+          "ok": true
+        },
+        {
+          "what": "warn-no-responsive.json",
+          "observed": "[\"W_NO_RESPONSIVE\"]",
+          "ok": true
+        },
+        {
+          "what": "warn-unquantized.json",
+          "observed": "[\"W_UNQUANTIZED\"]",
+          "ok": true
+        },
+        {
+          "what": "every wp_spec_validate code is reachable from a fixture",
+          "observed": "[\"E_BOX_OVERLAP\",\"E_ORPHAN_CONTENT\",\"E_SPEC_SCHEMA\",\"W_NO_RESPONSIVE\",\"W_UNQUANTIZED\"]",
+          "ok": true
+        },
+        {
+          "what": "the implementation target spec also validates",
+          "observed": "[]",
+          "ok": true
+        },
+        {
+          "what": "the implementing tree compiles",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "regions diffed",
+          "observed": "30",
+          "ok": true
+        },
+        {
+          "what": "every residual difference is within tolerance or attributable to a logged token snap",
+          "observed": "none outside tolerance",
+          "ok": true
+        },
+        {
+          "what": "verify passes",
+          "observed": "true",
+          "ok": true
+        }
+      ],
+      "ms": 2080
+    },
+    {
+      "id": "P10",
+      "title": "Tokens flow through both sides to computed pixels",
+      "proves": "The design-token system is one system across both plugins, all the way to rendered CSS.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "token palette slugs",
+          "observed": "[\"canvas\",\"shelf\",\"ink\",\"graphite\",\"cobalt\",\"clay\",\"citron\",\"hairline\"]",
+          "ok": true
+        },
+        {
+          "what": "wp_tokens_apply succeeded",
+          "observed": "ok",
+          "ok": true
+        },
+        {
+          "what": "adapters_applied",
+          "observed": "[]",
+          "ok": true
+        },
+        {
+          "what": "token slugs appear in the manifest theme_tokens",
+          "observed": "8/8: canvas,shelf,ink,graphite,cobalt,clay,citron,hairline",
+          "ok": true
+        },
+        {
+          "what": "local emitter produces the same palette slugs as the server wrote",
+          "observed": "[\"canvas\",\"citron\",\"clay\",\"cobalt\",\"graphite\",\"hairline\",\"ink\",\"shelf\"]",
+          "ok": true
+        },
+        {
+          "what": "and the same spacing step slugs",
+          "observed": "[\"20\",\"30\",\"40\",\"50\",\"60\",\"70\"]",
+          "ok": true
+        },
+        {
+          "what": "a tree styled with the token compiles",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "compiled markup carries the preset class for \"canvas\"",
+          "observed": "<!-- wp:paragraph {\"backgroundColor\":\"canvas\"} -->\n<p class=\"has-canvas-background-color has-background\">token colour probe</p>\n<!-- /wp:paragraph -->",
+          "ok": true
+        },
+        {
+          "what": "WordPress serves --wp--preset--color--canvas",
+          "observed": "#fdfaf4",
+          "ok": true
+        },
+        {
+          "what": "  and its value is the token hex",
+          "observed": "#fdfaf4",
+          "ok": true
+        },
+        {
+          "what": "a measured element computes to the token colour #fdfaf4",
+          "observed": "looking for rgb(253,250,244) in [\"rgb(253, 250, 244)\"]",
+          "ok": true
+        }
+      ],
+      "ms": 4502
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/heading",
+      "attributes": {
+        "textAlign": "justify",
+        "content": "Bad align"
+      }
+    }
+  ]
+}

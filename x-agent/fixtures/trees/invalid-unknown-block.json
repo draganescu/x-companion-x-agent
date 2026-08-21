@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/group",
+      "innerBlocks": [
+        {
+          "name": "acme/nonexistent",
+          "attributes": {
+            "foo": "bar"
+          }
+        }
+      ]
+    }
+  ]
+}

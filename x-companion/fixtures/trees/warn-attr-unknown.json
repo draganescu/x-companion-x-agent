@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/paragraph",
+      "attributes": {
+        "content": "Supports-generated keys are whitelisted.",
+        "bogusAttr": true,
+        "className": "is-style-lead",
+        "style": { "typography": { "fontStyle": "italic" } }
+      }
+    }
+  ]
+}

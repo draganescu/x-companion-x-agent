@@ -1,0 +1,7 @@
+{
+  "valid": true,
+  "epoch_ok": true,
+  "diagnostics": [
+    { "code": "W_HINT_TEMPLATE_LOCK", "severity": "warning", "path": "/blocks/0" }
+  ]
+}

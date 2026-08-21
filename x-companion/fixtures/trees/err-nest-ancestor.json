@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "epoch": "__CURRENT_FINGERPRINT__",
+  "blocks": [
+    {
+      "name": "core/group",
+      "innerBlocks": [
+        {
+          "name": "core/post-template",
+          "innerBlocks": [
+            { "name": "core/post-title", "attributes": { "level": 3 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

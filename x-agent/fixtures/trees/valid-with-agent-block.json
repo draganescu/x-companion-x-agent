@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "epoch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocks": [
+    {
+      "name": "core/group",
+      "attributes": {
+        "tagName": "section",
+        "layout": {
+          "type": "constrained"
+        }
+      },
+      "innerBlocks": [
+        {
+          "name": "core/heading",
+          "attributes": {
+            "level": 2,
+            "content": "What people say"
+          }
+        },
+        {
+          "name": "agent/testimonial",
+          "attributes": {
+            "quote": "It compiles the first time.",
+            "author": "A. Developer",
+            "rating": 5,
+            "variant": "card"
+          }
+        }
+      ]
+    }
+  ]
+}

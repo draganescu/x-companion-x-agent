@@ -1,0 +1,7 @@
+{
+  "valid": false,
+  "epoch_ok": true,
+  "diagnostics": [
+    { "code": "E_TREE_SCHEMA", "severity": "error", "path": "/blocks/0/innerHTML" }
+  ]
+}

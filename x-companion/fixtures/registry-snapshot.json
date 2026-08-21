@@ -1,0 +1,415 @@
+{
+  "core/paragraph": {
+    "title": "Paragraph",
+    "category": "text",
+    "api_version": 3,
+    "attributes": {
+      "align": { "type": "string" },
+      "content": { "type": "rich-text", "source": "rich-text", "selector": "p", "role": "content" },
+      "dropCap": { "type": "boolean", "default": false },
+      "placeholder": { "type": "string" },
+      "direction": { "type": "string", "enum": [ "ltr", "rtl" ] }
+    },
+    "supports": {
+      "anchor": true,
+      "className": false,
+      "color": { "gradients": true, "link": true },
+      "spacing": { "margin": true, "padding": true },
+      "typography": { "fontSize": true, "lineHeight": true },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0
+  },
+  "core/heading": {
+    "title": "Heading",
+    "category": "text",
+    "api_version": 3,
+    "attributes": {
+      "textAlign": { "type": "string" },
+      "content": { "type": "rich-text", "source": "rich-text", "selector": "h1,h2,h3,h4,h5,h6", "role": "content" },
+      "level": { "type": "number", "default": 2 },
+      "placeholder": { "type": "string" }
+    },
+    "supports": {
+      "anchor": true,
+      "className": false,
+      "color": { "gradients": true, "link": true },
+      "spacing": { "margin": true, "padding": true },
+      "typography": { "fontSize": true, "lineHeight": true },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 6
+  },
+  "core/group": {
+    "title": "Group",
+    "category": "design",
+    "api_version": 3,
+    "attributes": {
+      "tagName": { "type": "string", "default": "div" },
+      "templateLock": { "type": [ "string", "boolean" ], "enum": [ "all", "insert", "contentOnly", false ] },
+      "allowedBlocks": { "type": "array" }
+    },
+    "supports": {
+      "align": [ "wide", "full" ],
+      "anchor": true,
+      "html": false,
+      "layout": { "allowSizingOnChildren": true },
+      "color": { "gradients": true, "heading": true, "button": true, "link": true },
+      "spacing": { "margin": [ "top", "bottom" ], "padding": true, "blockGap": true },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 4
+  },
+  "core/columns": {
+    "title": "Columns",
+    "category": "design",
+    "api_version": 3,
+    "attributes": {
+      "verticalAlignment": { "type": "string" },
+      "isStackedOnMobile": { "type": "boolean", "default": true },
+      "templateLock": { "type": [ "string", "boolean" ], "enum": [ "all", "insert", "contentOnly", false ] }
+    },
+    "supports": {
+      "anchor": true,
+      "align": [ "wide", "full" ],
+      "html": false,
+      "color": { "gradients": true, "link": true, "heading": true, "button": true },
+      "spacing": { "blockGap": { "__experimentalDefault": "2em", "sides": [ "horizontal", "vertical" ] }, "margin": [ "top", "bottom" ], "padding": true },
+      "layout": { "allowSwitching": false, "allowInheriting": false, "allowEditing": false, "default": { "type": "flex", "flexWrap": "nowrap" } },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 5
+  },
+  "core/column": {
+    "title": "Column",
+    "category": "design",
+    "api_version": 3,
+    "attributes": {
+      "verticalAlignment": { "type": "string" },
+      "width": { "type": "string" },
+      "allowedBlocks": { "type": "array" },
+      "templateLock": { "type": [ "string", "boolean" ], "enum": [ "all", "insert", "contentOnly", false ] }
+    },
+    "supports": {
+      "anchor": true,
+      "reusable": false,
+      "html": false,
+      "color": { "gradients": true, "link": true, "heading": true, "button": true },
+      "spacing": { "blockGap": true, "padding": true },
+      "layout": true,
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": [ "core/columns" ],
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0
+  },
+  "core/buttons": {
+    "title": "Buttons",
+    "category": "design",
+    "api_version": 3,
+    "attributes": {},
+    "supports": {
+      "anchor": true,
+      "align": [ "wide", "full" ],
+      "html": false,
+      "spacing": { "blockGap": true, "margin": [ "top", "bottom" ], "padding": true },
+      "layout": { "allowSwitching": false, "allowInheriting": false, "default": { "type": "flex" } },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0
+  },
+  "core/button": {
+    "title": "Button",
+    "category": "design",
+    "api_version": 3,
+    "attributes": {
+      "tagName": { "type": "string", "enum": [ "a", "button" ], "default": "a" },
+      "type": { "type": "string", "default": "button" },
+      "textAlign": { "type": "string" },
+      "url": { "type": "string", "source": "attribute", "selector": "a", "attribute": "href", "role": "content" },
+      "title": { "type": "string", "source": "attribute", "selector": "a,button", "attribute": "title", "role": "content" },
+      "text": { "type": "rich-text", "source": "rich-text", "selector": "a,button", "role": "content" },
+      "linkTarget": { "type": "string", "source": "attribute", "selector": "a", "attribute": "target", "role": "content" },
+      "rel": { "type": "string", "source": "attribute", "selector": "a", "attribute": "rel", "role": "content" },
+      "placeholder": { "type": "string" },
+      "backgroundColor": { "type": "string" },
+      "textColor": { "type": "string" },
+      "gradient": { "type": "string" },
+      "width": { "type": "number" }
+    },
+    "supports": {
+      "anchor": true,
+      "align": false,
+      "alignWide": false,
+      "color": { "__experimentalSkipSerialization": true, "gradients": true },
+      "spacing": { "padding": true },
+      "typography": { "fontSize": true, "lineHeight": true },
+      "reusable": false,
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": [ "core/buttons" ],
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0
+  },
+  "core/image": {
+    "title": "Image",
+    "category": "media",
+    "api_version": 3,
+    "attributes": {
+      "url": { "type": "string", "source": "attribute", "selector": "img", "attribute": "src", "role": "content" },
+      "alt": { "type": "string", "source": "attribute", "selector": "img", "attribute": "alt", "default": "", "role": "content" },
+      "caption": { "type": "rich-text", "source": "rich-text", "selector": "figcaption", "role": "content" },
+      "lightbox": { "type": "object" },
+      "title": { "type": "string", "source": "attribute", "selector": "img", "attribute": "title", "role": "content" },
+      "href": { "type": "string", "source": "attribute", "selector": "figure > a", "attribute": "href", "role": "content" },
+      "rel": { "type": "string", "source": "attribute", "selector": "figure > a", "attribute": "rel" },
+      "linkClass": { "type": "string", "source": "attribute", "selector": "figure > a", "attribute": "class" },
+      "id": { "type": "number", "role": "content" },
+      "width": { "type": "string" },
+      "height": { "type": "string" },
+      "aspectRatio": { "type": "string" },
+      "scale": { "type": "string" },
+      "sizeSlug": { "type": "string" },
+      "linkDestination": { "type": "string" },
+      "linkTarget": { "type": "string", "source": "attribute", "selector": "figure > a", "attribute": "target" }
+    },
+    "supports": {
+      "anchor": true,
+      "align": [ "left", "center", "right", "wide", "full" ],
+      "color": { "text": false, "background": false },
+      "filter": { "duotone": true },
+      "spacing": { "margin": true },
+      "interactivity": true
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [ "allowResize", "imageCrop", "fixedHeight", "postId", "postType", "queryId" ],
+    "is_dynamic": true,
+    "variations_count": 0
+  },
+  "core/list": {
+    "title": "List",
+    "category": "text",
+    "api_version": 3,
+    "attributes": {
+      "ordered": { "type": "boolean", "default": false, "role": "content" },
+      "values": { "type": "string", "source": "html", "selector": "ol,ul", "multiline": "li", "default": "", "role": "content" },
+      "type": { "type": "string" },
+      "start": { "type": "number" },
+      "reversed": { "type": "boolean" },
+      "placeholder": { "type": "string" }
+    },
+    "supports": {
+      "anchor": true,
+      "html": false,
+      "className": false,
+      "color": { "gradients": true, "link": true },
+      "spacing": { "margin": true, "padding": true },
+      "typography": { "fontSize": true, "lineHeight": true },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 2
+  },
+  "core/list-item": {
+    "title": "List item",
+    "category": "text",
+    "api_version": 3,
+    "attributes": {
+      "placeholder": { "type": "string" },
+      "content": { "type": "rich-text", "source": "rich-text", "selector": "li", "role": "content" }
+    },
+    "supports": {
+      "anchor": true,
+      "className": false,
+      "splitting": true,
+      "spacing": { "margin": true, "padding": true },
+      "typography": { "fontSize": true, "lineHeight": true },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": [ "core/list" ],
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0
+  },
+  "core/cover": {
+    "title": "Cover",
+    "category": "media",
+    "api_version": 3,
+    "attributes": {
+      "url": { "type": "string" },
+      "useFeaturedImage": { "type": "boolean", "default": false },
+      "id": { "type": "number" },
+      "alt": { "type": "string", "source": "attribute", "selector": "img", "attribute": "alt", "default": "" },
+      "hasParallax": { "type": "boolean", "default": false },
+      "isRepeated": { "type": "boolean", "default": false },
+      "dimRatio": { "type": "number", "default": 100 },
+      "overlayColor": { "type": "string" },
+      "customOverlayColor": { "type": "string" },
+      "isUserOverlayColor": { "type": "boolean" },
+      "backgroundType": { "type": "string", "default": "image" },
+      "focalPoint": { "type": "object" },
+      "minHeight": { "type": "number" },
+      "minHeightUnit": { "type": "string" },
+      "gradient": { "type": "string" },
+      "customGradient": { "type": "string" },
+      "contentPosition": { "type": "string" },
+      "isDark": { "type": "boolean", "default": true },
+      "allowedBlocks": { "type": "array" },
+      "templateLock": { "type": [ "string", "boolean" ], "enum": [ "all", "insert", "contentOnly", false ] },
+      "tagName": { "type": "string", "default": "div" }
+    },
+    "supports": {
+      "anchor": true,
+      "align": true,
+      "html": false,
+      "spacing": { "padding": true, "margin": [ "top", "bottom" ], "blockGap": true },
+      "color": { "__experimentalDuotone": "> .wp-block-cover__image-background, > .wp-block-cover__video-background", "heading": true, "text": true, "background": false, "enableContrastChecker": false },
+      "dimensions": { "aspectRatio": true },
+      "layout": { "allowJustification": false },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0,
+    "agent_hints": {
+      "allowed_blocks": [ "core/heading", "core/paragraph", "core/buttons" ],
+      "usage_notes": "Cover is a hero container. Keep its inner blocks to a heading, supporting copy and a call to action.",
+      "example_attributes": { "url": "https://example.com/hero.jpg", "dimRatio": 50, "isDark": true }
+    }
+  },
+  "core/spacer": {
+    "title": "Spacer",
+    "category": "design",
+    "api_version": 3,
+    "attributes": {
+      "height": { "type": "string", "default": "100px" },
+      "width": { "type": "string" }
+    },
+    "supports": {
+      "anchor": true,
+      "spacing": { "margin": [ "top", "bottom" ] },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [],
+    "is_dynamic": false,
+    "variations_count": 0
+  },
+  "core/query": {
+    "title": "Query Loop",
+    "category": "theme",
+    "api_version": 3,
+    "attributes": {
+      "queryId": { "type": "number" },
+      "query": { "type": "object", "default": { "perPage": null, "pages": 0, "offset": 0, "postType": "post", "order": "desc", "orderBy": "date", "author": "", "search": "", "exclude": [], "sticky": "", "inherit": true, "taxQuery": null, "parents": [], "format": [] } },
+      "tagName": { "type": "string", "default": "div" },
+      "namespace": { "type": "string" },
+      "enhancedPagination": { "type": "boolean", "default": false }
+    },
+    "supports": {
+      "align": [ "wide", "full" ],
+      "html": false,
+      "layout": true,
+      "interactivity": true
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": { "queryId": "queryId", "query": "query", "displayLayout": "displayLayout", "enhancedPagination": "enhancedPagination" },
+    "uses_context": [ "postId", "templateSlug" ],
+    "is_dynamic": true,
+    "variations_count": 1,
+    "agent_hints": {
+      "template_lock": "all",
+      "usage_notes": "The inner template of a Query Loop is fixed on this instance. Do not add blocks to it."
+    }
+  },
+  "core/post-template": {
+    "title": "Post Template",
+    "category": "theme",
+    "api_version": 3,
+    "attributes": {},
+    "supports": {
+      "reusable": false,
+      "html": false,
+      "align": [ "wide", "full" ],
+      "layout": true,
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": [ "core/query" ],
+    "provides_context": {},
+    "uses_context": [ "queryId", "query", "displayLayout", "templateSlug", "previewPostType", "enhancedPagination", "postType" ],
+    "is_dynamic": true,
+    "variations_count": 0
+  },
+  "core/post-title": {
+    "title": "Title",
+    "category": "theme",
+    "api_version": 3,
+    "attributes": {
+      "textAlign": { "type": "string" },
+      "level": { "type": "number", "default": 2 },
+      "isLink": { "type": "boolean", "default": false },
+      "rel": { "type": "string", "attribute": "rel", "default": "" },
+      "linkTarget": { "type": "string", "default": "_self" }
+    },
+    "supports": {
+      "align": [ "wide", "full" ],
+      "html": false,
+      "color": { "gradients": true, "link": true },
+      "spacing": { "margin": true, "padding": true },
+      "typography": { "fontSize": true, "lineHeight": true },
+      "interactivity": { "clientNavigation": true }
+    },
+    "parent": null,
+    "ancestor": null,
+    "provides_context": {},
+    "uses_context": [ "postId", "postType", "queryId" ],
+    "is_dynamic": true,
+    "variations_count": 0
+  }
+}

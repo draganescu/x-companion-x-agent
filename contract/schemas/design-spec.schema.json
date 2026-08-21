@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "x-contract/design-spec.schema.json",
+  "title": "DesignSpecIR",
+  "description": "The pivot type that makes from-design use the same back half as from-prompt.",
+  "type": "object",
+  "required": ["version", "source", "tokens_candidates", "content", "regions"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "source": {
+      "type": "object",
+      "required": ["kind", "files", "viewport"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["image", "figma", "synthesized"] },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "viewport": {
+          "type": "object",
+          "required": ["width", "height"],
+          "additionalProperties": false,
+          "properties": {
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "tokens_candidates": {
+      "type": "object",
+      "required": ["palette", "spacing", "typography", "layout", "quantization_log"],
+      "additionalProperties": false,
+      "properties": {
+        "palette": { "$ref": "x-contract/design-tokens.schema.json#/properties/palette" },
+        "spacing": { "$ref": "x-contract/design-tokens.schema.json#/properties/spacing" },
+        "typography": { "$ref": "x-contract/design-tokens.schema.json#/properties/typography" },
+        "layout": { "$ref": "x-contract/design-tokens.schema.json#/properties/layout" },
+        "quantization_log": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["observed", "snapped_to", "delta"],
+            "additionalProperties": false,
+            "properties": {
+              "observed": { "type": ["string", "number"] },
+              "snapped_to": { "type": "string" },
+              "delta": { "type": ["string", "number"] },
+              "note": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "content": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "region_id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["heading", "paragraph", "image", "button", "list", "other"] },
+          "text": { "type": "string" },
+          "image_ref": { "type": "string" },
+          "region_id": { "type": "string" }
+        }
+      }
+    },
+    "regions": { "type": "array", "items": { "$ref": "#/definitions/Region" } }
+  },
+  "definitions": {
+    "Region": {
+      "type": "object",
+      "required": ["id", "role", "box"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "role": {
+          "enum": ["header", "hero", "features", "gallery", "testimonial", "cta", "footer", "section", "column", "item"]
+        },
+        "box": {
+          "type": "object",
+          "required": ["x", "y", "w", "h"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "w": { "type": "number", "minimum": 0 },
+            "h": { "type": "number", "minimum": 0 }
+          }
+        },
+        "layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "direction": { "enum": ["row", "column", "grid"] },
+            "gap_px": { "type": "number", "minimum": 0 },
+            "align": { "type": "string" },
+            "justify": { "type": "string" },
+            "columns": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "style_refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "palette_slug": { "type": "string" },
+            "background_palette_slug": { "type": "string" },
+            "font_size_slug": { "type": "string" },
+            "spacing_slugs": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "children": { "type": "array", "items": { "$ref": "#/definitions/Region" } },
+        "responsive_assumptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["breakpoint", "change", "confidence"],
+            "additionalProperties": false,
+            "properties": {
+              "breakpoint": { "type": "string" },
+              "change": { "type": "string" },
+              "confidence": { "enum": ["observed", "synthesized"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

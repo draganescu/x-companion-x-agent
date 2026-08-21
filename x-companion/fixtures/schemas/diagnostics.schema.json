@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "x-contract/diagnostics.schema.json",
+  "title": "Diagnostics",
+  "type": "object",
+  "required": ["valid", "epoch_ok", "diagnostics"],
+  "properties": {
+    "valid": {
+      "type": "boolean",
+      "description": "true iff zero severity=error diagnostics"
+    },
+    "epoch_ok": { "type": "boolean" },
+    "server_fingerprint": { "type": "string" },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "path", "message"],
+        "properties": {
+          "code": {
+            "enum": [
+              "E_TREE_SCHEMA",
+              "E_UNKNOWN_BLOCK",
+              "E_ATTR_TYPE",
+              "E_ATTR_ENUM",
+              "E_NEST_PARENT",
+              "E_NEST_ANCESTOR",
+              "E_EPOCH_MISMATCH",
+              "W_ATTR_UNKNOWN",
+              "W_STATIC_NEEDS_HARNESS",
+              "W_HINT_ALLOWED_BLOCKS",
+              "W_HINT_TEMPLATE_LOCK"
+            ]
+          },
+          "severity": { "enum": ["error", "warning"] },
+          "path": {
+            "type": "string",
+            "description": "JSON pointer into the tree, e.g. /blocks/0/innerBlocks/2"
+          },
+          "message": { "type": "string" },
+          "fix_hint": { "type": "string" }
+        }
+      }
+    }
+  }
+}
