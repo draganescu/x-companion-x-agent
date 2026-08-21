@@ -74,6 +74,7 @@ final class X_Companion_Rest {
 		'theme_tokens',
 		'snapshot_export',
 		'placeholder',
+		'patterns_save',
 	);
 
 	/**
@@ -185,7 +186,7 @@ final class X_Companion_Rest {
 	 */
 
 	/**
-	 * Register all fourteen v1 routes (thirteen from the contract, plus /placeholder).
+	 * Register all fifteen v1 routes (thirteen from the contract, plus /placeholder and POST /patterns).
 	 *
 	 * @return void
 	 */
@@ -394,6 +395,45 @@ final class X_Companion_Rest {
 						'minimum'     => 1,
 						'maximum'     => 4000,
 						'description' => __( 'Pixel height.', 'x-companion' ),
+					),
+				),
+			)
+		);
+
+		// 15. POST /patterns  -> dispatched (X_Companion_Pattern_Library)
+		register_rest_route(
+			$ns,
+			'/patterns',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'route_patterns_save' ),
+				'permission_callback' => $ext,
+				'args'                => array(
+					'slug'        => array(
+						'type'        => 'string',
+						'required'    => true,
+						'description' => __( 'Pattern slug in the agent/ namespace.', 'x-companion' ),
+					),
+					'title'       => array(
+						'type'        => 'string',
+						'required'    => true,
+						'description' => __( 'Human-readable pattern title.', 'x-companion' ),
+					),
+					'content'     => array(
+						'type'        => 'string',
+						'required'    => true,
+						'description' => __( 'Serialized block markup, produced by the harness compile.', 'x-companion' ),
+					),
+					'categories'  => array(
+						'type'        => 'array',
+						'items'       => array( 'type' => 'string' ),
+						'default'     => array(),
+						'description' => __( 'Extra pattern categories; x-agent is always added.', 'x-companion' ),
+					),
+					'description' => array(
+						'type'        => 'string',
+						'default'     => '',
+						'description' => __( 'Optional pattern description.', 'x-companion' ),
 					),
 				),
 			)
@@ -665,6 +705,16 @@ final class X_Companion_Rest {
 	 */
 	public static function route_placeholder( WP_REST_Request $request ) {
 		return self::dispatch( 'placeholder', $request );
+	}
+
+	/**
+	 * POST /patterns -> dispatched.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return mixed|WP_Error
+	 */
+	public static function route_patterns_save( WP_REST_Request $request ) {
+		return self::dispatch( 'patterns_save', $request );
 	}
 
 	/*

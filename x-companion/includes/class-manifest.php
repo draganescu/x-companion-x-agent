@@ -133,7 +133,8 @@ final class X_Companion_Manifest {
 			self::snapshot_registry(),
 			self::active_theme(),
 			self::active_plugins(),
-			self::global_styles_stamp()
+			self::global_styles_stamp(),
+			class_exists( 'X_Companion_Pattern_Library' ) ? X_Companion_Pattern_Library::stamp() : ''
 		);
 
 		self::$fingerprint = self::compute_fingerprint( $inputs );
@@ -280,7 +281,7 @@ final class X_Companion_Manifest {
 	 * @param array $plugins  List of { slug, version }.
 	 * @return array
 	 */
-	public static function fingerprint_inputs( array $snapshot, array $theme, array $plugins, string $global_styles = '' ): array {
+	public static function fingerprint_inputs( array $snapshot, array $theme, array $plugins, string $global_styles = '', string $agent_patterns = '' ): array {
 		$names = array_keys( $snapshot );
 		usort( $names, 'strcmp' );
 
@@ -320,6 +321,7 @@ final class X_Companion_Manifest {
 			),
 			'plugins'            => $plugin_list,
 			'global_styles'      => $global_styles,
+			'agent_patterns'     => $agent_patterns,
 		);
 	}
 

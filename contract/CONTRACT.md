@@ -58,7 +58,7 @@ Pinned codes (status in parentheses):
 |---|---|---|
 | introspect | `x_companion_read` | `GET /manifest`, `GET /fingerprint`, `GET /patterns`, `GET /harness`, `POST /validate`, `POST /parse`, `POST /render` |
 | author | `x_companion_author` | (reserved — no v1 routes) |
-| extend | `x_companion_extend` | `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`, `DELETE /blocks/library/{slug}`, `POST /theme/tokens`, `POST /snapshot/export`, `POST /placeholder` |
+| extend | `x_companion_extend` | `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`, `DELETE /blocks/library/{slug}`, `POST /theme/tokens`, `POST /snapshot/export`, `POST /placeholder`, `POST /patterns` |
 
 Order inside every handler, no exceptions: **capability check → input schema validation → work.**
 Posture gate is part of the capability check (`permission_callback`) for extend-tier routes, so
@@ -84,7 +84,8 @@ fingerprint = sha256( canonical_json( fingerprint_inputs ) )
   ],
   "theme": { "slug": "twentytwentyfive", "version": "1.3" },
   "plugins": [ { "slug": "x-companion", "version": "1.0.0" } ],
-  "global_styles": "<sha256 of the user-origin global styles post content, or ''>"
+  "global_styles": "<sha256 of the user-origin global styles post content, or ''>",
+  "agent_patterns": "<sha256 of the agent-saved pattern corpus, or ''>"
 }
 ```
 
@@ -201,6 +202,17 @@ on read-only theme dirs and survives theme updates.
 ### `POST /snapshot/export` — extend
 `application/zip` stream containing exactly: `theme/`, `agent-blocks/`, `patterns.json`,
 `content.xml` (WXR), `manifest.json`.
+
+### `POST /patterns` — extend
+
+Body `{ "slug": "agent/...", "title", "content", "categories"?, "description"? }`. Saves a
+composed section as a registered block pattern: stored in an option, registered on every init
+in the `x-agent` category (plus any given), listed by `GET /patterns` and the manifest like any
+theme pattern, and idempotent per slug (same slug replaces). `content` must be serialized
+markup produced by the harness compile; content that parses to zero blocks answers 422
+`{ code: "pattern_policy" }`, as does a slug outside the `agent/` namespace. Answers
+`{ saved, replaced, total, fingerprint }` — the fingerprint is NEW (see §4): saving a pattern
+moves the epoch.
 
 ### `POST /placeholder` — extend
 
