@@ -60,6 +60,22 @@ export interface CallResult {
  * standing up a transport.
  */
 export async function callTool(name: string, args: unknown, runtime: Runtime): Promise<CallResult> {
+  const t0 = performance.now();
+  const res = await callToolInner(name, args, runtime);
+  try {
+    let code: string | undefined;
+    if (res.isError) {
+      const parsed = JSON.parse(res.content?.[0]?.text ?? '{}') as { code?: string };
+      if (typeof parsed.code === 'string') code = parsed.code;
+    }
+    runtime.profiler.record(name, performance.now() - t0, !res.isError, code);
+  } catch {
+    // Profiling must never affect the call result.
+  }
+  return res;
+}
+
+async function callToolInner(name: string, args: unknown, runtime: Runtime): Promise<CallResult> {
   const tool = findTool(name);
   if (!tool) {
     return errorResult(

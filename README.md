@@ -83,7 +83,8 @@ you run Claude Code:
 ```
 
 You can use the environment variables `X_WP_URL`, `X_WP_USER` and
-`X_WP_APP_PASSWORD` instead if you prefer.
+`X_WP_APP_PASSWORD` instead if you prefer. Add `"profile": true` to the same file to get a
+report of how long every tool call takes (`x-agent-profile.md`, updated live).
 
 Add `.x-agent.json` to your `.gitignore`. It contains a password.
 

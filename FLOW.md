@@ -29,6 +29,10 @@ flowchart LR
     REST --> DB
 ```
 
+With `"profile": true` in `.x-agent.json`, every tool call's duration is recorded and a live
+report (`x-agent-profile.md`) is rewritten beside the config — names, durations and error codes
+only, never arguments.
+
 The **epoch** (the instance fingerprint) is the consistency mechanism: every tree the agent
 sends carries it, and the companion refuses trees generated against a stale world
 (`E_EPOCH_MISMATCH`). The agent's own actions — installing a block, writing tokens — move it.

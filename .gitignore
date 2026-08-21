@@ -5,3 +5,5 @@ proof/artifacts/
 .x-agent.json
 x-agent/mcp/dist/
 .DS_Store
+x-agent-profile.jsonl
+x-agent-profile.md

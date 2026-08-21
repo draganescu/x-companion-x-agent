@@ -78,6 +78,7 @@ import {
   type Logger,
 } from './companion.js';
 import { resolveConfig, configIdentity, type ConnectionArgs, type XConfig } from './config.js';
+import { Profiler } from './profiler.js';
 
 export interface Ctx {
   config: XConfig;
@@ -146,10 +147,17 @@ export class Runtime {
   private sessionInstance?: unknown;
   private factoryInstance?: unknown;
   private lastEpochSeenBySession?: string;
+  private profilerInstance?: Profiler;
 
   constructor(opts: RuntimeOptions = {}) {
     this.opts = opts;
     this.logger = opts.logger ?? stderrLogger(process.env.X_AGENT_DEBUG === '1');
+  }
+
+  /** Per-tool-call durations, when `.x-agent.json` sets `"profile": true` (or X_AGENT_PROFILE=1). */
+  get profiler(): Profiler {
+    this.profilerInstance ??= new Profiler(this.opts.cwd ?? process.cwd(), this.opts.env ?? process.env);
+    return this.profilerInstance;
   }
 
   /** Pin connection arguments for subsequent tool calls (wp_connect). */

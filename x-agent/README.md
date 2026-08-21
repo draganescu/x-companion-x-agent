@@ -138,10 +138,21 @@ export X_WP_USER=x_agent
 export X_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx'
 ```
 
+### Profiling
+
+Set `"profile": true` in `.x-agent.json` (or `X_AGENT_PROFILE=1`) and every tool call's duration
+is recorded: raw events append to `x-agent-profile.jsonl` in the working directory, and
+`x-agent-profile.md` beside it is rewritten after each call — per-tool counts, total/avg/max
+durations, error codes, and the slowest individual calls. Only tool names, durations and error
+codes are recorded — never arguments or results — so nothing sensitive can reach the report.
+Delete the `.jsonl` to start a fresh report; profiling is off by default and costs nothing when
+off.
+
 Other environment variables:
 
 | var | default | effect |
 |---|---|---|
+| `X_AGENT_PROFILE` | off | `1` enables per-tool-call profiling (same as `"profile": true` in `.x-agent.json`). |
 | `X_AGENT_HARNESS_FALLBACK` | off | `1` enables the documented editor-injection fallback for blocks that will not register on the harness page. Also needs `X_AGENT_STORAGE_STATE`. See the companion README's *Harness fallback*. |
 | `X_AGENT_STORAGE_STATE` | — | Path to a pre-recorded Playwright storage state (a logged-in browser profile) for that fallback. |
 | `X_AGENT_DEBUG` | off | `1` adds stack traces to unexpected agent-side failures. |
