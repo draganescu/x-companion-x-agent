@@ -1070,6 +1070,63 @@ export async function prepareTarget(ctx: Ctx, input: TargetInput): Promise<Prepa
   };
 }
 
+export interface ImageNode {
+  selector_path: string;
+  box: { x: number; y: number; w: number; h: number };
+  natural_w: number;
+  natural_h: number;
+  loaded: boolean;
+  lazy: boolean;
+  src: string;
+}
+
+/**
+ * Every <img> on the page, wherever it hides.
+ *
+ * The box tree walks block-classed elements, which misses images nested in
+ * composite blocks (media-text's figure) and cannot notice an image that is
+ * broken, still lazy-pending, or intrinsically 1×1 (a placeholder used where
+ * sized media was needed). This list is the oracle's dedicated image check:
+ * `loaded:false` or a 1×1 natural size on a large rendered box are findings.
+ */
+export async function collectImages(page: Page): Promise<ImageNode[]> {
+  return page.evaluate(() => {
+    const pathOf = (el: Element): string => {
+      const parts: string[] = [];
+      let cur: Element | null = el;
+      while (cur && cur.tagName !== 'HTML' && parts.length < 6) {
+        const tag = cur.tagName.toLowerCase();
+        const parent: Element | null = cur.parentElement;
+        let nth = 1;
+        if (parent) {
+          const same = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
+          nth = same.indexOf(cur) + 1;
+        }
+        parts.unshift(`${tag}:nth-of-type(${nth})`);
+        cur = parent;
+      }
+      return parts.join(' > ');
+    };
+    return Array.from(document.images).map((img) => {
+      const r = img.getBoundingClientRect();
+      return {
+        selector_path: pathOf(img),
+        box: {
+          x: Math.round(r.x * 100) / 100,
+          y: Math.round(r.y * 100) / 100,
+          w: Math.round(r.width * 100) / 100,
+          h: Math.round(r.height * 100) / 100,
+        },
+        natural_w: img.naturalWidth,
+        natural_h: img.naturalHeight,
+        loaded: img.complete && img.naturalWidth > 0,
+        lazy: img.loading === 'lazy',
+        src: img.currentSrc || img.src,
+      };
+    });
+  });
+}
+
 /**
  * Force every image on the page to load before capture.
  *

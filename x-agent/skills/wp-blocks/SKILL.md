@@ -162,7 +162,11 @@ The order is load-bearing:
    `save()` cannot express. Fix the tree; do not fix the markup.
 4. **`wp_verify` is the oracle.** With a spec it returns `diffs[]` and `pass`. Without a spec it
    returns `box_tree` and `a11y_outline` — still useful: check the heading levels are a sane
-   outline and that the geometry matches what you claimed you were building.
+   outline and that the geometry matches what you claimed you were building. It also returns
+   `images[]` — every `<img>` on the page with its rendered box, natural size and loaded state,
+   including images nested inside composite blocks the box tree cannot see. Read it: a
+   `loaded: false`, or a 1×1 natural size under a large box (an unsized placeholder where the
+   markup needed real dimensions), is a defect the numbers just handed you.
 5. **One screenshot.** At the end. `wp_screenshot` is for a human to nod at.
 
 If you find yourself calling `wp_screenshot` twice, you have replaced engineering with squinting.

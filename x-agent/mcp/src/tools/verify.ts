@@ -21,6 +21,7 @@ import { DesignSpecIRSchema, type DesignSpecIR } from '../schemas.js';
 import {
   DEFAULT_VIEWPORT,
   classNameMap,
+  collectImages,
   diffAgainstSpec,
   extractLayout,
   prepareTarget,
@@ -70,6 +71,19 @@ const OutputSchema = z.object({
     }),
   ),
   a11y_outline: z.array(z.object({ role: z.string(), name: z.string(), level: z.number().optional() })),
+  images: z
+    .array(
+      z.object({
+        selector_path: z.string(),
+        box: BoxSchema,
+        natural_w: z.number(),
+        natural_h: z.number(),
+        loaded: z.boolean(),
+        lazy: z.boolean(),
+        src: z.string(),
+      }),
+    )
+    .describe('Every <img> on the page, including inside composite blocks (media-text). loaded:false, or a tiny natural size under a large rendered box, is a finding.'),
   diffs: z.array(
     z.object({
       region_id: z.string(),
@@ -136,6 +150,7 @@ export const wpVerify = defineTool({
       const manifest = await ctx.manifestCache.get();
       const lookup = classNameMap(Object.keys(manifest.blocks));
       const extracted = await extractLayout(target.page, lookup);
+      const images = await collectImages(target.page);
 
       let diffs: Diff[] = [];
       let pass = true;
@@ -157,6 +172,7 @@ export const wpVerify = defineTool({
       return {
         box_tree: toBoxTree(extracted.nodes),
         a11y_outline: extracted.a11y_outline,
+        images,
         diffs,
         pass,
         measured: {

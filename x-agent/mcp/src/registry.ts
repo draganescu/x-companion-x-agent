@@ -162,6 +162,17 @@ const EXTERNAL_TOOLS: Omit<ToolDef, 'handler'>[] = [
         }),
       ),
       a11y_outline: z.array(z.object({ role: z.string(), name: z.string(), level: z.number().optional() })),
+      images: z.array(
+        z.object({
+          selector_path: z.string(),
+          box: BoxSchema,
+          natural_w: z.number(),
+          natural_h: z.number(),
+          loaded: z.boolean(),
+          lazy: z.boolean(),
+          src: z.string(),
+        }),
+      ),
       diffs: z.array(
         z.object({
           region_id: z.string(),
