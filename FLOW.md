@@ -66,13 +66,13 @@ sequenceDiagram
     participant C as Companion REST
 
     A->>L: wp_block_scaffold → block.json + render.php + edit.js
-    Note over A,L: agent implements render.php;<br/>edit.js is an inline-editable 1:1 mirror<br/>(RichText for text, MediaPlaceholder for images)
+    Note over A,L: agent implements render.php.<br/>edit.js is an inline-editable 1:1 mirror<br/>(RichText for text, MediaPlaceholder for images)
     A->>L: wp_block_build_test
     Note over L: wp-scripts build → throwaway Playground →<br/>register, render sample attrs, zip.<br/>THE safety gate — nothing ships without it
     L-->>A: built ✓ registered ✓ zip
     A->>C: POST /blocks/install (zip)
     C-->>A: NEW fingerprint — the epoch moved
-    Note over A: every subsequent tree carries the new epoch;<br/>the block is now vocabulary like any core block
+    Note over A: every subsequent tree carries the new epoch.<br/>The block is now vocabulary like any core block
 ```
 
 ## Images before assets exist: placeholder + intent
@@ -85,7 +85,7 @@ sequenceDiagram
 
     A->>C: POST /placeholder {color: "accent-2"}
     C-->>A: {id, url} — idempotent 1×1 GIF on the palette
-    Note over A: image node: url + width/aspectRatio/scale<br/>+ metadata.imageIntent = "what belongs here"<br/>Geometry is final; pixels are provisional
+    Note over A: image node carries url + width/aspectRatio/scale<br/>and metadata.imageIntent ("what belongs here").<br/>Geometry is final — pixels are provisional
     A->>C: validate → compile → publish (intent rides in the block delimiter)
     G->>C: POST /parse (published content)
     C-->>G: tree with metadata.imageIntent leaves
