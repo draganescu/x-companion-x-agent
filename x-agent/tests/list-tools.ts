@@ -26,6 +26,7 @@ const EXPECTED = [
   'wp_parse',
   'wp_snapshot',
   'wp_placeholder',
+  'wp_pattern_save',
 ];
 
 async function main(): Promise<void> {

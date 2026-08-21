@@ -502,6 +502,24 @@ export class CompanionClient {
     };
   }
 
+  /** `POST /patterns` — extend tier; saving moves the epoch. */
+  async patternSave(input: {
+    slug: string;
+    title: string;
+    content: string;
+    categories?: string[];
+    description?: string;
+  }): Promise<{ saved: string; replaced: boolean; total: number; fingerprint: string }> {
+    const res = await this.request('POST', '/patterns', { json: input });
+    const body = res.json as { saved?: string; replaced?: boolean; total?: number; fingerprint?: string } | undefined;
+    if (!body || typeof body.saved !== 'string' || typeof body.fingerprint !== 'string') {
+      throw new XError('companion_error', 'POST /patterns did not return {saved, replaced, total, fingerprint}.', 'Check the companion version.', {
+        route: '/patterns',
+      });
+    }
+    return { saved: body.saved, replaced: Boolean(body.replaced), total: Number(body.total ?? 0), fingerprint: body.fingerprint };
+  }
+
   /** `GET /patterns` */
   async patterns(): Promise<PatternEntry[]> {
     const res = await this.request('GET', '/patterns');

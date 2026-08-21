@@ -89,7 +89,7 @@ report of how long every tool call takes (`x-agent-profile.md`, updated live).
 Add `.x-agent.json` to your `.gitignore`. It contains a password.
 
 Finally, add the `x-agent/` folder as a plugin in Claude Code. It provides one skill
-(`wp-blocks`) and one MCP server with 17 tools.
+(`wp-blocks`) and one MCP server with 18 tools.
 
 ## Usage
 
@@ -128,6 +128,7 @@ You can also call the tools directly. The main ones:
 | `wp_tokens_apply` | Writes colours, spacing and fonts to your theme |
 | `wp_snapshot` | Exports the site as a zip |
 | `wp_placeholder` | Makes a solid-colour placeholder image for layouts built before real photos exist |
+| `wp_pattern_save` | Saves a section you built as a reusable pattern on the site |
 
 The full list is in `x-agent/README.md`.
 

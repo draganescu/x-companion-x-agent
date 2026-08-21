@@ -147,8 +147,8 @@ The client refreshes and retries **once**, automatically. If it still mismatches
 regenerate the tree with the new epoch. Never loop on it, and never invent an epoch value — it is
 an opaque string from `wp_connect`/`wp_manifest`, not something you compute.
 
-Your own actions move the epoch. `wp_tokens_apply` and `wp_block_install` both return a **new**
-`fingerprint`; adopt it in the very next tree.
+Your own actions move the epoch. `wp_tokens_apply`, `wp_block_install` and `wp_pattern_save`
+all return a **new** `fingerprint`; adopt it in the very next tree.
 
 ### R4 — Styling ONLY via theme tokens (preset slugs / supports attributes: `backgroundColor`, `fontSize`, spacing presets, `layout`). Raw CSS/HTML styling is forbidden; if tokens can't express it, that is a vocabulary gap → R7 ladder, not an inline style.
 
@@ -323,7 +323,7 @@ the constant that turns this off.
 | posture | you may | you may not |
 |---|---|---|
 | `toolchain` | everything | — |
-| `production` | `wp_manifest`, `wp_patterns`, `wp_validate`, `wp_parse`, `wp_render`, `wp_compile`, `wp_verify`, `wp_screenshot`, `wp_spec_validate`, `wp_tokens_apply({dry_run: true})` | `wp_tokens_apply`, `wp_block_install`, `wp_snapshot`, `wp_placeholder` — 403 `posture_forbidden` |
+| `production` | `wp_manifest`, `wp_patterns`, `wp_validate`, `wp_parse`, `wp_render`, `wp_compile`, `wp_verify`, `wp_screenshot`, `wp_spec_validate`, `wp_tokens_apply({dry_run: true})` | `wp_tokens_apply`, `wp_block_install`, `wp_snapshot`, `wp_placeholder`, `wp_pattern_save` — 403 `posture_forbidden` |
 
 The refusal happens in the permission callback, **before the request body is parsed**. It is not a
 UI toggle and there is no header that changes it. When you hit it, the correct response is the
@@ -1035,7 +1035,7 @@ promote the artifact. R8.
 
 ## 7. Tool index
 
-Seventeen tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
+Eighteen tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
 may be passed to any connected tool to override the config chain, and are omitted below.
 
 | Tool | Args | Returns |
@@ -1056,7 +1056,8 @@ may be passed to any connected tool to override the config chain, and are omitte
 | `wp_block_build_test` | `dir, sample_attributes?` | `built, smoke{registered, rendered_html, php_error?}, zip_path?, build_log?` |
 | `wp_block_install` | `zip_path` | `installed{slug,name,version}, fingerprint, replaced_previous` |
 | `wp_snapshot` | `out_path?` | `zip_path, bytes, fingerprint, site_url` |
-| `wp_placeholder` | `color` (hex or palette slug) | `id, url, color, slug, reused` |
+| `wp_placeholder` | `color` (hex or palette slug), `width?, height?` | `id, url, color, slug, reused` |
+| `wp_pattern_save` | `slug (agent/…), title, content (compiled markup), categories?, description?` | `saved, replaced, total, fingerprint` (NEW epoch — adopt it) |
 
 `wp_validate`, `wp_compile`, `wp_spec_validate` and `wp_tokens_apply` take their payload
 **flattened into the tool arguments** — send `{version, epoch, blocks}`, not `{tree: {...}}`.

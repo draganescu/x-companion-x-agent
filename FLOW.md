@@ -8,7 +8,7 @@ crosses the wire as authenticated REST; nothing on the instance ever calls out.
 flowchart LR
     subgraph AGENT["Agent machine"]
         LLM["Any MCP client:\nClaude Code (wp-blocks skill),\ntools/mcp-bridge.mjs, CI"]
-        MCP["x-agent MCP server\n17 tools, stdio"]
+        MCP["x-agent MCP server\n18 tools, stdio"]
         BR["Warm Chromium\n(Playwright)"]
         PG["Throwaway Playground\n(wp_block_build_test only)"]
         LLM -- "tool calls" --> MCP

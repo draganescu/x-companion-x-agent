@@ -27,7 +27,7 @@ immediately makes it part of that instance's vocabulary.
 |---|---|
 | `skills/wp-blocks/SKILL.md` | The discipline. Ten rules, three worked examples with literal tool transcripts. This is the file that makes the agent behave. |
 | `skills/wp-blocks/references/` | `tree-ir.md` (Tree IR + every diagnostic code) and `design-spec.md` (lifting an image into the Design Spec IR). Loaded on demand. |
-| `mcp/` | The MCP server: 17 tools over stdio. TypeScript, `@modelcontextprotocol/sdk`, Playwright, zod, adm-zip. Nothing else. |
+| `mcp/` | The MCP server: 18 tools over stdio. TypeScript, `@modelcontextprotocol/sdk`, Playwright, zod, adm-zip. Nothing else. |
 | `templates/dynamic-block/` | The scaffold `wp_block_scaffold` copies: `block.json` (apiVersion 3, `agent/{slug}`, `render`), `render.php`, `src/edit.js`, `package.json`. |
 | `templates/theme-json/` | `DesignTokens` → `theme.json` settings emitter; a local mirror of the companion's server-side compiler, used for previews and diffs. |
 | `schemas/` | Vendored copies of the contract's JSON Schemas, byte-identical to `contract/schemas/`. |
@@ -99,7 +99,7 @@ works from any checkout path.
 The skill fires on requests like *"build me a landing page on my WordPress site"*, *"turn this
 Figma into a WordPress page"*, *"add a testimonial section"*, or anything mentioning Gutenberg
 blocks, block themes, patterns, `theme.json` or X Companion. Check it loaded with `/skills` and
-confirm the server with `/mcp` — you should see 17 tools.
+confirm the server with `/mcp` — you should see 18 tools.
 
 Skills, commands, agents and hooks must **not** live inside `.claude-plugin/`; only `plugin.json`
 does. That is a real constraint of the format, not a stylistic choice.
@@ -189,7 +189,7 @@ Rotate by deleting the application password in **Users → Profile → Applicati
 
 ---
 
-## The 17 tools
+## The 18 tools
 
 | tool | what it does |
 |---|---|
@@ -209,6 +209,7 @@ Rotate by deleting the application password in **Users → Profile → Applicati
 | `wp_block_build_test` | **The safety gate.** `wp-scripts` build, boot `@wp-playground/cli`, register the block, assert it appears in `/wp/v2/block-types`, render sample attributes, emit the install zip. Nothing reaches an instance without passing here. |
 | `wp_block_install` | POST the zip, refresh the manifest, reload the harness onto the new epoch, and return the new fingerprint. Extend tier. |
 | `wp_snapshot` | Stream `POST /snapshot/export` to disk: theme, agent blocks, patterns, WXR content, manifest. The clone-to-sandbox and promotion-gate primitive. Extend tier. |
+| `wp_pattern_save` | `POST /patterns` — saves a composed section as a registered pattern in the `agent/` namespace, so the corpus grows its own idiom and future pages assemble from it. Moves the epoch. Extend tier. |
 | `wp_placeholder` | `POST /placeholder` — an idempotent 1×1 solid-colour GIF attachment per colour (hex or palette slug). The default image source while a layout is fabricated: stretch it with block attributes and record the intended picture in `metadata.imageIntent` for a later image-generation pass. Extend tier. |
 
 Every tool validates input **and** output against its zod schema. Failures are always structured —
@@ -216,7 +217,7 @@ Every tool validates input **and** output against its zod schema. Failures are a
 `harness_gap`, `epoch_mismatch`, `companion_unreachable`, `companion_error`, `invalid_input`,
 `build_failed`, `smoke_failed`, plus the agent-local `not_implemented` and `internal`.
 
-The extend-tier tools (`wp_tokens_apply`, `wp_block_install`, `wp_snapshot`, `wp_placeholder`) refuse with
+The extend-tier tools (`wp_tokens_apply`, `wp_block_install`, `wp_snapshot`, `wp_placeholder`, `wp_pattern_save`) refuse with
 `posture_forbidden` against a `production` instance, by design. The answer is
 `wp_snapshot` → sandbox → promote, never a way around the gate.
 
@@ -282,7 +283,7 @@ cd x-agent/mcp
 npm install
 npm run typecheck
 npm test                 # vitest: units + the mock companion, zero WordPress required
-npm run list-tools       # prints all 17 tools with their full input schemas
+npm run list-tools       # prints all 18 tools with their full input schemas
 npm run build
 ```
 

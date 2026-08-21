@@ -47,6 +47,7 @@ const EXPECTED_TOOLS = [
   'wp_parse',
   'wp_snapshot',
   'wp_placeholder',
+  'wp_pattern_save',
 ];
 
 let mock: MockCompanion;

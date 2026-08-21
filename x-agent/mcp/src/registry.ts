@@ -5,7 +5,7 @@
  *
  * WHY THIS FILE LOOKS LIKE THIS
  * -----------------------------
- * Six of the seventeen tools (wp_compile, wp_verify, wp_screenshot,
+ * Six of the eighteen tools (wp_compile, wp_verify, wp_screenshot,
  * wp_block_scaffold, wp_block_build_test, wp_block_install) are implemented by a
  * SECOND agent in `src/tools/{compile,verify,screenshot,blockScaffold,
  * blockBuildTest,blockInstall}.ts`, on top of `src/{session,oracle,factory}.ts`.
@@ -13,7 +13,7 @@
  *
  *   1. ALL SIXTEEN tools — names, titles, descriptions, input schemas and output
  *      schemas — are declared HERE, in `TOOLS`. `tools/list` therefore returns
- *      all seventeen with full schemas whether or not the other track's modules
+ *      all eighteen with full schemas whether or not the other track's modules
  *      exist yet. A tool is never missing at LIST time.
  *
  *   2. The six externally-implemented entries start with a placeholder handler
@@ -37,7 +37,7 @@
  * A `ToolDef` whose `name` matches a declared entry REPLACES that entry
  * wholesale — handler, and also title/description/inputSchema/outputSchema if it
  * supplies them. A ToolDef with an unknown `name` is APPENDED, so the other
- * track can add tools beyond the seventeen without touching this file.
+ * track can add tools beyond the eighteen without touching this file.
  *
  * IMPORTANT FOR THE SESSION/FACTORY TRACK — `ToolDef.local`
  * ---------------------------------------------------------
@@ -87,6 +87,7 @@ import { tools as specValidateTools } from './tools/specValidate.js';
 import { tools as tokensTools } from './tools/tokens.js';
 import { tools as snapshotTools } from './tools/snapshot.js';
 import { tools as pixelPlaceholderTools } from './tools/placeholder.js';
+import { tools as patternSaveTools } from './tools/patternSave.js';
 
 /* -------------------------- externally implemented (session/oracle/factory) */
 
@@ -299,6 +300,7 @@ export const TOOLS: ToolDef[] = [
   ...tokensTools,
   ...snapshotTools,
   ...pixelPlaceholderTools,
+  ...patternSaveTools,
   ...EXTERNAL_TOOLS.map(placeholder),
 ];
 
