@@ -460,11 +460,25 @@ export function renderAttributeOutput(attrs: ScaffoldAttribute[], cssClass: stri
 
 const CTRL_INDENT = '\t\t\t\t\t';
 
+/**
+ * String attributes edited as text (control `text`/`textarea`, or no control)
+ * are edited INLINE on the canvas via RichText — see renderEditorPreview —
+ * so they get no sidebar control. Everything else (number, toggle, select)
+ * stays in the inspector.
+ */
+export function isInlineTextAttribute(a: ScaffoldAttribute): boolean {
+  return a.type === 'string' && (a.control === 'text' || a.control === 'textarea' || a.control === undefined);
+}
+
 export function renderInspectorControls(attrs: ScaffoldAttribute[], textdomain: string): string {
   if (attrs.length === 0) {
     return `${CTRL_INDENT}<p>{ __( 'This block declares no attributes yet.', ${jsString(textdomain)} ) }</p>`;
   }
-  return attrs
+  const sidebar = attrs.filter((a) => !isInlineTextAttribute(a));
+  if (sidebar.length === 0) {
+    return `${CTRL_INDENT}<p>{ __( 'All of this block’s text is edited directly on the canvas.', ${jsString(textdomain)} ) }</p>`;
+  }
+  return sidebar
     .map((a) => {
       const label = jsString(labelFor(a.name));
       const td = jsString(textdomain);
@@ -522,13 +536,28 @@ export function renderInspectorControls(attrs: ScaffoldAttribute[], textdomain: 
 
 const PREVIEW_INDENT = '\t\t\t\t';
 
-export function renderEditorPreview(attrs: ScaffoldAttribute[], cssClass: string, title: string): string {
+export function renderEditorPreview(attrs: ScaffoldAttribute[], cssClass: string, title: string, textdomain = 'x-agent'): string {
   if (attrs.length === 0) {
     return `${PREVIEW_INDENT}<p className="${cssClass}__placeholder">{ ${jsString(title)} }</p>`;
   }
   return attrs
     .map((a) => {
       const cls = `${cssClass}__${kebab(a.name)}`;
+      if (isInlineTextAttribute(a)) {
+        // Inline-editable on the canvas: the block editor contract is that
+        // text is edited where it is seen, not in a sidebar form.
+        return [
+          `${PREVIEW_INDENT}<RichText`,
+          `${PREVIEW_INDENT}\ttagName="div"`,
+          `${PREVIEW_INDENT}\tclassName="${cls}"`,
+          `${PREVIEW_INDENT}\tvalue={ attributes.${a.name} }`,
+          `${PREVIEW_INDENT}\tonChange={ ( value ) => setAttributes( { ${a.name}: value } ) }`,
+          `${PREVIEW_INDENT}\tplaceholder={ __( ${jsString(labelFor(a.name))}, ${jsString(textdomain)} ) }`,
+          `${PREVIEW_INDENT}\tallowedFormats={ [] }`,
+          `${PREVIEW_INDENT}\twithoutInteractiveFormatting`,
+          `${PREVIEW_INDENT}/>`,
+        ].join('\n');
+      }
       let expr: string;
       if (a.control === 'toggle' || a.type === 'boolean') expr = `String( !! attributes.${a.name} )`;
       else if (a.type === 'array' || a.type === 'object') expr = `JSON.stringify( attributes.${a.name} )`;
@@ -599,7 +628,7 @@ export function scaffold(input: ScaffoldInput): ScaffoldResult {
     attribute_locals: renderAttributeLocals(attrs),
     attribute_output: renderAttributeOutput(attrs, cssClass, textdomain),
     inspector_controls: renderInspectorControls(attrs, textdomain),
-    editor_preview: renderEditorPreview(attrs, cssClass, title),
+    editor_preview: renderEditorPreview(attrs, cssClass, title, textdomain),
   };
 
   const tpl = templateDir();

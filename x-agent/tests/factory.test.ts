@@ -225,15 +225,19 @@ describe('wp_block_scaffold — generated files', () => {
     }
   });
 
-  it('src/edit.js uses useBlockProps and InspectorControls with a control per attribute', () => {
+  it('src/edit.js edits text inline via RichText and keeps non-text controls in the sidebar', () => {
     const js = fs.readFileSync(path.join(dir, 'src/edit.js'), 'utf8');
     expect(js).not.toContain('{{');
     expect(js).toContain('useBlockProps');
     expect(js).toContain('<InspectorControls>');
+    // Text attributes are edited INLINE on the canvas, not in the sidebar.
+    expect(js).toContain('<RichText');
     expect(js).toContain('setAttributes( { planName: value } )');
+    expect(js).toContain('allowedFormats={ [] }');
+    expect(js).not.toContain('<TextareaControl');
+    // Non-text attributes keep their sidebar controls.
     expect(js).toContain('type="number"');
     expect(js).toContain('<ToggleControl');
-    expect(js).toContain('<TextareaControl');
     expect(js).toContain('<SelectControl');
     expect(js).toContain("{ label: __( \"Pro\", \"agent-pricing-card\" ), value: \"pro\" }");
   });

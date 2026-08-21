@@ -16,6 +16,9 @@
  * Rules for whatever replaces the body below:
  *   - EVERY attribute value must go through an escaping function on output
  *     (`esc_html`, `esc_attr`, `esc_url`, `wp_kses_post`) — never echo raw.
+ *   - String attributes edited inline via RichText in edit.js arrive
+ *     entity-encoded: output them with `wp_kses( $value, array() )` (or a
+ *     richer whitelist), NOT `esc_html()`, or entities double-escape.
  *   - The outermost element must carry `get_block_wrapper_attributes()` so the
  *     block's own supports (align, spacing, colour, anchor) actually apply.
  *   - Return nothing / echo directly: WordPress buffers this file's output.
