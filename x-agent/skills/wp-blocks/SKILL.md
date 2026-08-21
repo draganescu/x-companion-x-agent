@@ -52,7 +52,49 @@ Three things that are *not* in the loop, on purpose:
 
 ---
 
-## 2. The ten rules
+## 2. The bar — world-class by default
+
+Correctness is the loop's job. **Ambition is yours, and it is not optional.** Nobody briefs a
+good designer with "make it beautiful" — they don't have to. The same is true here: the user
+should never need to ask for creativity. A prompt with no design direction is not permission to
+be plain; it is a commission to bring one.
+
+**Before the tokens, write the art direction.** Two or three sentences, stated out loud: a
+movement or mood, a color story, a typographic attitude, the one image the site should leave in
+someone's head. Every token and every section decision is then spent against that brief. If you
+cannot say what the site should *feel* like, you are not ready to write `DesignTokens`.
+
+**What separates designed from default.** Template-grade output has a recognizable shape:
+every section a centered stack on a flat band, one heading size doing all the work, tokens
+copied from the theme it replaced. Break it deliberately:
+
+- **Display-scale type.** Give the scale a real top end — a `display` step (fluid, 3rem → 6rem+)
+  for hero statements and giant numerals ("14—01"), not just a slightly bigger `xx-large`.
+- **Asymmetry.** Uneven column splits (58/42, 45/55), left-aligned heroes, staggered card grids
+  (an inner group with a `padding-top` preset drops one column), media-text rows that alternate.
+- **Band rhythm with one bright moment.** Sections alternate ground tones; exactly one band gets
+  the loud color and the page "arrives" there. Two loud bands cancel each other.
+- **Editorial devices.** Uppercase letterspaced kickers, a marquee strip, a serif pullquote on
+  the site's only green band, figure captions that talk — cheap in tokens, loud in character.
+- **One pointing color.** A single accent does every CTA and highlight; the palette tells a
+  story (name the slugs after it) instead of shipping five interchangeable grays.
+- **Negative space as a material.** `spacing|70` and `|80` between bands; content widths chosen
+  (a tight 640px editorial column reads differently from a 720px one).
+
+**Core is the floor; custom blocks + tokens are the ceiling.** `theme.json` through
+`wp_tokens_apply` and dynamic agent blocks through the R7 factory together give you unlimited
+UI expression with none of the discipline given up. When the art direction calls for a
+component core cannot express *well* — meters, tickers, timelines, ratings, schedules,
+diagrams, anything data-shaped — a custom dynamic block is not a failure of composition, it is
+**where signature moments come from**. One signature block elevates a whole site. The ladder
+still holds (rungs 1–2 first, `wp_block_build_test` always, the block is owned code); what R7
+gates is *how* you build one, not whether ambition is allowed.
+
+**The self-check, before you compile:** would a designer put their name on this page? If every
+section is a centered stack on a flat band, the answer is no — go back to the art direction and
+spend it.
+
+## 3. The ten rules
 
 These are the discipline. They are numbered so you can cite them: "R7 step 2" is a complete
 explanation of a decision.
@@ -151,6 +193,15 @@ The order is load-bearing:
    TreeIR-shaped: strip `innerHTML`/`innerContent`, keep `blockName`/`attrs`/`innerBlocks`.
    Inventing a composition that the theme already ships is how you produce something that looks
    subtly off.
+
+   **A page is an assembly of sections, and most sections should begin as patterns** — copied
+   into the page tree, re-skinned with your tokens, their content replaced. That is the default
+   motion, not the exception. But hold both truths: patterns are a *correctness floor*, not a
+   *creativity ceiling*. A corpus can flatten a distinctive brief into a template; deviate
+   deliberately whenever the art direction (§2) demands a shape the corpus does not have —
+   only what makes sense, when it makes sense. And when you compose a section worth keeping,
+   **save it back** with `wp_pattern_save` so the instance's corpus grows its own idiom: the
+   next page assembles from it, and future sessions inherit it as vocabulary.
 2. **`wp_validate` before `wp_compile`.** Validation is cheap and specific; compiling is a browser
    round trip. A local TreeIR schema pre-check runs first and short-circuits without any network
    call, so malformed trees cost nothing. Fix every `severity: "error"`. Read every warning: fix
@@ -318,7 +369,7 @@ all the user needs.
 
 ---
 
-## 3. Worked example — from-prompt: a three-section landing page (core-only)
+## 4. Worked example — from-prompt: a three-section landing page (core-only)
 
 > *"Build me a landing page on my WordPress site: a hero, three feature columns, and a call to
 > action at the bottom."*
@@ -639,7 +690,7 @@ Report the path. Do not take a second one.
 
 ---
 
-## 4. Worked example — from-design: one hero image, with a deliberate token-snap delta
+## 5. Worked example — from-design: one hero image, with a deliberate token-snap delta
 
 > *"Here's the hero from our Figma export — build it."* Input: a single 1440×900 PNG.
 
@@ -805,7 +856,7 @@ Then, and only then, one `wp_screenshot`.
 
 ---
 
-## 5. Worked example — a vocabulary gap, up the whole R7 ladder
+## 6. Worked example — a vocabulary gap, up the whole R7 ladder
 
 > *"Add a testimonial section: a quote, an avatar, the person's name and role, and a star
 > rating."* Instance: core-only, `toolchain` posture.
@@ -982,7 +1033,7 @@ promote the artifact. R8.
 
 ---
 
-## 6. Tool index
+## 7. Tool index
 
 Seventeen tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
 may be passed to any connected tool to override the config chain, and are omitted below.
@@ -1012,7 +1063,7 @@ may be passed to any connected tool to override the config chain, and are omitte
 
 ---
 
-## 7. When something fails
+## 8. When something fails
 
 Every tool failure is `{code, message, hint}` plus code-specific fields. Read the `hint`; it is
 written to be actionable.
@@ -1041,7 +1092,7 @@ of trusting yesterday's result — and note that three core blocks (`core/legacy
 
 ---
 
-## 8. The references
+## 9. The references
 
 Two files sit next to this one. Load them when the task calls for them — not by default.
 
