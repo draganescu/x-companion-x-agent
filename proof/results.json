@@ -1,9 +1,9 @@
 {
   "env": {
-    "generated": "2026-08-21T13:57:30.015Z",
+    "generated": "2026-08-21T21:07:09.282Z",
     "WordPress": "7.1",
     "instances": "toolchain, production",
-    "duration": "83.7s"
+    "duration": "57.8s"
   },
   "totals": {
     "pass": 15,
@@ -41,7 +41,7 @@
         },
         {
           "what": "agent fingerprint === companion GET /fingerprint",
-          "observed": "3dfb9d3876c486b31f2b55f52e505d72fca6297df8f89842202f8e0966867e12",
+          "observed": "2bb27a7df96b59e62b5532476f209f6ff3a195e58e837c746399c651f65e6764",
           "ok": true
         },
         {
@@ -70,7 +70,7 @@
           "ok": true
         }
       ],
-      "ms": 13603
+      "ms": 9695
     },
     {
       "id": "P2",
@@ -110,7 +110,7 @@
           "ok": true
         }
       ],
-      "ms": 1813
+      "ms": 1180
     },
     {
       "id": "P3",
@@ -190,7 +190,7 @@
           "ok": true
         }
       ],
-      "ms": 3611
+      "ms": 2360
     },
     {
       "id": "P4",
@@ -340,7 +340,7 @@
           "ok": true
         }
       ],
-      "ms": 7054
+      "ms": 4652
     },
     {
       "id": "P5",
@@ -356,12 +356,12 @@
         },
         {
           "what": "E1",
-          "observed": "3dfb9d3876c486b3…",
+          "observed": "2bb27a7df96b59e6…",
           "ok": true
         },
         {
           "what": "fingerprint moved after a registry change",
-          "observed": "E1=3dfb9d3876c4… E2=3f0cde9f360f…",
+          "observed": "E1=2bb27a7df96b… E2=d96c5d75a2d2…",
           "ok": true
         },
         {
@@ -386,7 +386,7 @@
         },
         {
           "what": "agent manifest adopted E2",
-          "observed": "3f0cde9f360faa6d3f80df757fe8941c901ba0978bc88e5849ca910e5bcd5f60",
+          "observed": "d96c5d75a2d2a0a6160f31cb31fae47796e3e8a568e542c845c49eae1a467249",
           "ok": true
         },
         {
@@ -400,7 +400,7 @@
           "ok": true
         }
       ],
-      "ms": 4503
+      "ms": 2972
     },
     {
       "id": "P6",
@@ -426,7 +426,12 @@
         },
         {
           "what": "install returned a NEW epoch",
-          "observed": "3f0cde9f360f… → 2c254df08ec0…",
+          "observed": "d96c5d75a2d2… → 2cb0fcb08b3e…",
+          "ok": true
+        },
+        {
+          "what": "wp_manifest answered with a blocks map",
+          "observed": "{\"fingerprint\":\"2cb0fcb08b3e2bf386133aaf86e3fb41e08f6182637577120e6af77c7b8183c7\",\"generated_at\":\"2026-08-21T21:06:33+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
           "ok": true
         },
         {
@@ -436,12 +441,17 @@
         },
         {
           "what": "manifest epoch === install epoch",
-          "observed": "2c254df08ec07e910814d292b19fe029447a2acd6e5397444ec97f0d55567eb1",
+          "observed": "2cb0fcb08b3e2bf386133aaf86e3fb41e08f6182637577120e6af77c7b8183c7",
           "ok": true
         },
         {
           "what": "agent/testimonial is in window.__registry()",
           "observed": "114 client-registered blocks",
+          "ok": true
+        },
+        {
+          "what": "every harness script URL resolves after a warm-session install",
+          "observed": "59 scripts checked",
           "ok": true
         },
         {
@@ -475,7 +485,7 @@
           "ok": true
         }
       ],
-      "ms": 5358
+      "ms": 3857
     },
     {
       "id": "P7",
@@ -486,7 +496,7 @@
       "steps": [
         {
           "what": "scaffolded at",
-          "observed": "proof/artifacts/sabotage-7097wv/proof-broken",
+          "observed": "proof/artifacts/sabotage-T7j1ae/proof-broken",
           "ok": true
         },
         {
@@ -510,7 +520,7 @@
           "ok": true
         }
       ],
-      "ms": 11920
+      "ms": 8921
     },
     {
       "id": "P8",
@@ -571,7 +581,7 @@
         },
         {
           "what": "library reports has_prev",
-          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-21T13:56:56+00:00\",\"has_prev\":true}",
+          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-21T21:06:46+00:00\",\"has_prev\":true}",
           "ok": true
         },
         {
@@ -581,11 +591,11 @@
         },
         {
           "what": "rollback returns a fingerprint",
-          "observed": "2c254df08ec07e91…",
+          "observed": "2cb0fcb08b3e2bf3…",
           "ok": true
         }
       ],
-      "ms": 3268
+      "ms": 2209
     },
     {
       "id": "P9",
@@ -630,7 +640,7 @@
           "ok": true
         }
       ],
-      "ms": 4188
+      "ms": 3106
     },
     {
       "id": "P11",
@@ -705,7 +715,7 @@
           "ok": true
         }
       ],
-      "ms": 14376
+      "ms": 9469
     },
     {
       "id": "P12",
@@ -716,7 +726,7 @@
       "steps": [
         {
           "what": "snapshot written",
-          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-2c254df08ec0-1787320637592.zip (8075.0 KB)",
+          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-2cb0fcb08b3e-1787346420200.zip (8075.0 KB)",
           "ok": true
         },
         {
@@ -746,11 +756,11 @@
         },
         {
           "what": "manifest.json fingerprint === live /fingerprint",
-          "observed": "2c254df08ec07e910814d292b19fe029447a2acd6e5397444ec97f0d55567eb1",
+          "observed": "2cb0fcb08b3e2bf386133aaf86e3fb41e08f6182637577120e6af77c7b8183c7",
           "ok": true
         }
       ],
-      "ms": 3085
+      "ms": 1310
     },
     {
       "id": "P13",
@@ -931,7 +941,7 @@
         },
         {
           "what": "wp_screenshot produced a PNG",
-          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787320642134.png",
+          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787346423345.png",
           "ok": true
         },
         {
@@ -950,7 +960,7 @@
           "ok": true
         }
       ],
-      "ms": 4170
+      "ms": 3066
     },
     {
       "id": "P15",
@@ -1030,7 +1040,7 @@
           "ok": true
         }
       ],
-      "ms": 2080
+      "ms": 1521
     },
     {
       "id": "P10",
@@ -1095,7 +1105,7 @@
           "ok": true
         }
       ],
-      "ms": 4502
+      "ms": 3386
     }
   ]
 }
