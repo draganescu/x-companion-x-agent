@@ -13,7 +13,7 @@ import { z } from 'zod';
 import type { Ctx } from '../context.js';
 import { ConnectionArgsShape, defineTool } from './_shared.js';
 import { XError } from '../errors.js';
-import { DEFAULT_VIEWPORT, prepareTarget } from '../oracle.js';
+import { DEFAULT_VIEWPORT, eagerLoadImages, prepareTarget } from '../oracle.js';
 
 const ViewportSchema = z.object({ width: z.number().gt(0), height: z.number().gt(0) });
 
@@ -65,6 +65,7 @@ export const wpScreenshot = defineTool({
     });
 
     try {
+      await eagerLoadImages(target.page);
       await target.page.screenshot({
         path: outPath,
         ...(args.clip ? { clip: args.clip } : { fullPage: true }),

@@ -1070,6 +1070,34 @@ export async function prepareTarget(ctx: Ctx, input: TargetInput): Promise<Prepa
   };
 }
 
+/**
+ * Force every image on the page to load before capture.
+ *
+ * WordPress adds loading="lazy" below the fold, and a full-page screenshot's
+ * virtual scroll can outrun the lazy loader — the capture then shows empty
+ * slots that a human viewing the page never sees. Flip lazy images to eager,
+ * walk the scroll positions to nudge scroll-keyed loaders, and wait (bounded)
+ * for every image to report complete.
+ */
+export async function eagerLoadImages(page: Page, timeoutMs = 10_000): Promise<void> {
+  await page
+    .evaluate(async () => {
+      document.querySelectorAll('img[loading="lazy"]').forEach((el) => {
+        (el as HTMLImageElement).loading = 'eager';
+      });
+      const step = Math.max(200, window.innerHeight);
+      for (let y = 0; y <= document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      window.scrollTo(0, 0);
+    })
+    .catch(() => {});
+  await page
+    .waitForFunction(() => Array.from(document.images).every((i) => i.complete), undefined, { timeout: timeoutMs })
+    .catch(() => {});
+}
+
 /** Fonts and web-font-driven reflow settle before anything is measured. */
 async function settle(page: Page, navTimeout = 60_000): Promise<void> {
   await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready ?? null).catch(() => null);
