@@ -48,7 +48,9 @@ class X_Companion_Placeholders {
 	 * @return array|WP_Error
 	 */
 	public static function route_placeholder( $result, WP_REST_Request $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		$color = strtolower( trim( (string) $request->get_param( 'color' ) ) );
+		$color  = strtolower( trim( (string) $request->get_param( 'color' ) ) );
+		$width  = max( 1, min( 4000, (int) ( $request->get_param( 'width' ) ?: 1 ) ) );
+		$height = max( 1, min( 4000, (int) ( $request->get_param( 'height' ) ?: 1 ) ) );
 
 		if ( ! preg_match( '/^#[0-9a-f]{6}$/', $color ) ) {
 			$resolved = self::resolve_palette_slug( $color );
@@ -71,8 +73,9 @@ class X_Companion_Placeholders {
 			$color = $resolved;
 		}
 
-		$hex  = ltrim( $color, '#' );
-		$slug = 'x-pixel-' . $hex;
+		$hex   = ltrim( $color, '#' );
+		$sized = $width > 1 || $height > 1;
+		$slug  = $sized ? sprintf( 'x-pixel-%s-%dx%d', $hex, $width, $height ) : 'x-pixel-' . $hex;
 
 		$existing = get_posts(
 			array(
@@ -96,12 +99,16 @@ class X_Companion_Placeholders {
 			);
 		}
 
-		$bytes  = self::gif_bytes(
-			(int) hexdec( substr( $hex, 0, 2 ) ),
-			(int) hexdec( substr( $hex, 2, 2 ) ),
-			(int) hexdec( substr( $hex, 4, 2 ) )
-		);
-		$upload = wp_upload_bits( $slug . '.gif', null, $bytes );
+		$r = (int) hexdec( substr( $hex, 0, 2 ) );
+		$g = (int) hexdec( substr( $hex, 2, 2 ) );
+		$b = (int) hexdec( substr( $hex, 4, 2 ) );
+
+		// Sized placeholders are PNG (built without GD, so it works on any
+		// PHP); the classic stretchable pixel stays a 1×1 GIF. A sized file
+		// matters wherever the markup is not ours to stretch — e.g.
+		// WooCommerce product images, which render at intrinsic size.
+		$bytes  = $sized ? self::png_bytes( $width, $height, $r, $g, $b ) : self::gif_bytes( $r, $g, $b );
+		$upload = wp_upload_bits( $slug . ( $sized ? '.png' : '.gif' ), null, $bytes );
 
 		if ( ! empty( $upload['error'] ) ) {
 			return new WP_Error(
@@ -115,7 +122,7 @@ class X_Companion_Placeholders {
 			array(
 				'post_title'     => $slug,
 				'post_name'      => $slug,
-				'post_mime_type' => 'image/gif',
+				'post_mime_type' => $sized ? 'image/png' : 'image/gif',
 				'post_status'    => 'inherit',
 			),
 			$upload['file']
@@ -176,6 +183,42 @@ class X_Companion_Placeholders {
 		}
 
 		return null;
+	}
+
+	/**
+	 * A solid-colour 8-bit RGB PNG of arbitrary size, built without GD.
+	 *
+	 * PNG needs only zlib (always compiled into PHP) and crc32: signature,
+	 * IHDR, one IDAT holding every row (filter byte 0 + repeated pixel),
+	 * IEND.
+	 *
+	 * @param int $w Width in pixels.
+	 * @param int $h Height in pixels.
+	 * @param int $r Red 0-255.
+	 * @param int $g Green 0-255.
+	 * @param int $b Blue 0-255.
+	 * @return string Binary PNG bytes.
+	 */
+	private static function png_bytes( int $w, int $h, int $r, int $g, int $b ): string {
+		$ihdr = pack( 'N2', $w, $h ) . "\x08\x02\x00\x00\x00";
+		$row  = "\x00" . str_repeat( chr( $r ) . chr( $g ) . chr( $b ), $w );
+		$idat = gzcompress( str_repeat( $row, $h ), 6 );
+
+		return "\x89PNG\r\n\x1a\n"
+			. self::png_chunk( 'IHDR', $ihdr )
+			. self::png_chunk( 'IDAT', $idat )
+			. self::png_chunk( 'IEND', '' );
+	}
+
+	/**
+	 * One PNG chunk: length + type + data + CRC.
+	 *
+	 * @param string $type Four-byte chunk type.
+	 * @param string $data Chunk payload.
+	 * @return string
+	 */
+	private static function png_chunk( string $type, string $data ): string {
+		return pack( 'N', strlen( $data ) ) . $type . $data . pack( 'N', crc32( $type . $data ) );
 	}
 
 	/**

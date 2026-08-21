@@ -7,6 +7,14 @@ const InputSchema = z.object({
   color: z
     .string()
     .describe('A #rrggbb value, or a palette slug from the instance manifest (e.g. "accent-1") so the placeholder lands on the design system.'),
+  width: z
+    .number()
+    .int()
+    .min(1)
+    .max(4000)
+    .optional()
+    .describe('Pixel width. Omit for the stretchable 1×1; set real dimensions when the markup is NOT yours to stretch (e.g. WooCommerce product images render at intrinsic size).'),
+  height: z.number().int().min(1).max(4000).optional().describe('Pixel height.'),
 });
 
 const OutputSchema = z.object({
@@ -21,13 +29,13 @@ export const wpPlaceholder = defineTool({
   name: 'wp_placeholder',
   title: 'Create a solid-colour pixel placeholder image',
   description:
-    'POST /placeholder — creates (idempotently, one per colour) a 1×1 solid-colour GIF attachment in the media library and returns {id, url, color, slug, reused}. This is the DEFAULT image source while a layout is being fabricated and no real asset exists yet: stretch the pixel with the image block\'s width:"100%" + aspectRatio + scale:"cover" (or imageFill:true on core/media-text) so the geometry is final from day one, and record what the real picture should be in that node\'s attributes.metadata.imageIntent — a later image-generation pass reads the intents via wp_parse, produces the assets, and swaps the URLs without moving the layout. Prefer palette slugs over raw hex so placeholders stay on the design system. Extend tier: refused with posture_forbidden on a production instance.',
+    'POST /placeholder — creates (idempotently, one per colour) a 1×1 solid-colour GIF attachment in the media library and returns {id, url, color, slug, reused}. This is the DEFAULT image source while a layout is being fabricated and no real asset exists yet: stretch the pixel with the image block\'s width:"100%" + aspectRatio + scale:"cover" (or imageFill:true on core/media-text) so the geometry is final from day one, and record what the real picture should be in that node\'s attributes.metadata.imageIntent — a later image-generation pass reads the intents via wp_parse, produces the assets, and swaps the URLs without moving the layout. Prefer palette slugs over raw hex so placeholders stay on the design system. Pass width/height to mint a real-sized PNG instead, for contexts whose markup you cannot stretch — WooCommerce product images, avatars, anything that renders at intrinsic size. Extend tier: refused with posture_forbidden on a production instance.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   handler: async (input: unknown, ctx: Ctx) => {
     const args = InputSchema.parse(input ?? {});
     const live = ctx.runtime.ctx(connectionArgs(input));
-    return live.companion.placeholder(args.color);
+    return live.companion.placeholder(args.color, args.width, args.height);
   },
 });
 

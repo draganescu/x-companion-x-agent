@@ -199,11 +199,15 @@ on read-only theme dirs and survives theme updates.
 
 ### `POST /placeholder` — extend
 
-Body `{ "color": "#rrggbb" | "<palette-slug>" }`. Creates — idempotently, one attachment per
-colour — a 1×1 solid-colour GIF in the media library and answers
+Body `{ "color": "#rrggbb" | "<palette-slug>", "width"?: 1-4000, "height"?: 1-4000 }`.
+Creates — idempotently, one attachment per colour and size — a solid-colour image in the
+media library and answers
 `{ id, url, color, slug, reused }`. Palette slugs resolve against the instance's global
 settings (user origin wins over theme, theme over default), so placeholders land on the design
-system. Unknown colours answer 400 `{ code: "invalid_color" }`.
+system. At the default 1×1 the file is a GIF meant to be stretched by block attributes;
+with `width`/`height` it is a real-sized PNG for markup that renders images at intrinsic
+size (e.g. WooCommerce product images). Unknown colours answer 400
+`{ code: "invalid_color" }`.
 
 This is the default image source while a layout is being fabricated: the client stretches the
 pixel with block attributes (`width`/`aspectRatio`/`scale`, or `imageFill` on media-text) and

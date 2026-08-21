@@ -481,9 +481,12 @@ export class CompanionClient {
     return { html: body.html, enqueued_styles: Array.isArray(body.enqueued_styles) ? body.enqueued_styles : [] };
   }
 
-  /** `POST /placeholder` — extend tier; idempotent per colour. */
-  async placeholder(color: string): Promise<{ id: number; url: string; color: string; slug: string; reused: boolean }> {
-    const res = await this.request('POST', '/placeholder', { json: { color } });
+  /** `POST /placeholder` — extend tier; idempotent per colour (and size). */
+  async placeholder(color: string, width?: number, height?: number): Promise<{ id: number; url: string; color: string; slug: string; reused: boolean }> {
+    const json: Record<string, unknown> = { color };
+    if (width !== undefined) json.width = width;
+    if (height !== undefined) json.height = height;
+    const res = await this.request('POST', '/placeholder', { json });
     const body = res.json as { id?: number; url?: string; color?: string; slug?: string; reused?: boolean } | undefined;
     if (!body || typeof body.id !== 'number' || typeof body.url !== 'string') {
       throw new XError('companion_error', 'POST /placeholder did not return {id, url, color, slug, reused}.', 'Check the companion version.', {

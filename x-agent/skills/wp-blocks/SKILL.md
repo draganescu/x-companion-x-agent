@@ -191,6 +191,12 @@ an image and no real asset exists yet:
     "metadata": { "imageIntent": "Wide interior shot of the bar at night: warm amber pendant light on a copper counter, patrons blurred in the background, moody chiaroscuro." } } }
 ```
 
+**When the markup is not yours to stretch** — WooCommerce product images, avatars, any
+third-party template that renders images at intrinsic size — a 1×1 stretched by attributes
+does not apply: mint a real-sized placeholder instead with
+`wp_placeholder({color, width: 900, height: 1200})` (a PNG; WordPress generates its
+thumbnail sizes normally) and attach that.
+
 The intent leaf is the hand-off to a later **image-generation pass**: it runs `wp_parse` on the
 published page, walks the tree for `metadata.imageIntent`, generates or sources each asset,
 uploads it, swaps `url`/`id` on that node, recompiles, and drops or keeps the intent as

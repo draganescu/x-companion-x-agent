@@ -376,10 +376,24 @@ final class X_Companion_Rest {
 				'callback'            => array( __CLASS__, 'route_placeholder' ),
 				'permission_callback' => $ext,
 				'args'                => array(
-					'color' => array(
+					'color'  => array(
 						'type'        => 'string',
 						'required'    => true,
 						'description' => __( 'A #rrggbb value or a palette slug from this instance.', 'x-companion' ),
+					),
+					'width'  => array(
+						'type'        => 'integer',
+						'default'     => 1,
+						'minimum'     => 1,
+						'maximum'     => 4000,
+						'description' => __( 'Pixel width. Above 1×1 the placeholder is a sized PNG for markup that renders images at intrinsic size.', 'x-companion' ),
+					),
+					'height' => array(
+						'type'        => 'integer',
+						'default'     => 1,
+						'minimum'     => 1,
+						'maximum'     => 4000,
+						'description' => __( 'Pixel height.', 'x-companion' ),
 					),
 				),
 			)
