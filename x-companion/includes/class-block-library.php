@@ -61,10 +61,50 @@ final class X_Companion_Block_Library {
 	public static function init(): void {
 		add_action( 'init', array( __CLASS__, 'register_installed_blocks' ), 20 );
 
+		add_filter( 'plugins_url', array( __CLASS__, 'filter_plugins_url' ), 10, 3 );
+
 		add_filter( 'x_companion_route_blocks_install', array( __CLASS__, 'route_install' ), 10, 2 );
 		add_filter( 'x_companion_route_blocks_library', array( __CLASS__, 'route_library' ), 10, 2 );
 		add_filter( 'x_companion_route_blocks_rollback', array( __CLASS__, 'route_rollback' ), 10, 2 );
 		add_filter( 'x_companion_route_blocks_delete', array( __CLASS__, 'route_delete' ), 10, 2 );
+	}
+
+	/**
+	 * Correct asset URLs for blocks installed under uploads/x-agent-blocks/.
+	 *
+	 * `register_block_type()` resolves each script/style handle's URL with
+	 * `plugins_url()` relative to the block.json path. Installed agent blocks
+	 * live inside `wp_upload_dir()`, not a plugin directory, so that fallback
+	 * produces a URL under wp-content/plugins/ that 404s — and the harness
+	 * page then cannot load the block's editor script. Rebuild the URL from
+	 * the uploads baseurl for exactly those files.
+	 *
+	 * @param string $url    URL as computed by plugins_url().
+	 * @param string $path   Path relative to $plugin.
+	 * @param string $plugin File the URL is being computed relative to.
+	 * @return string
+	 */
+	public static function filter_plugins_url( $url, $path, $plugin ) {
+		if ( ! is_string( $plugin ) || '' === $plugin ) {
+			return $url;
+		}
+
+		$base = wp_normalize_path( self::base_dir() );
+		$file = wp_normalize_path( $plugin );
+
+		if ( 0 !== strpos( $file, trailingslashit( $base ) ) ) {
+			return $url;
+		}
+
+		$uploads  = wp_get_upload_dir();
+		$rel_dir  = substr( wp_normalize_path( dirname( $file ) ), strlen( wp_normalize_path( $uploads['basedir'] ) ) );
+		$resolved = $uploads['baseurl'] . $rel_dir;
+
+		if ( is_string( $path ) && '' !== $path ) {
+			$resolved .= '/' . ltrim( $path, '/' );
+		}
+
+		return $resolved;
 	}
 
 	/*
