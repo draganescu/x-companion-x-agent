@@ -239,6 +239,25 @@ hand you a core-only instance wearing a `core-plus-suite` label.
 
 ---
 
+## Driving the MCP server without Claude Code
+
+`tools/mcp-bridge.mjs` spawns the built server over stdio and exposes it on local
+HTTP, so shell scripts, CI jobs and other agents can call the `wp_*` tools with
+nothing but curl — with the same warm browser session and epoch state a real MCP
+client would get:
+
+```bash
+cd x-agent/mcp && npm install && npm run build     # once
+node tools/mcp-bridge.mjs                          # --port 9490, --cwd <dir with .x-agent.json>
+
+curl -s localhost:9490/tools
+curl -s -X POST localhost:9490/call -H 'content-type: application/json' \
+     -d '{"tool":"wp_connect","args":{}}'
+```
+
+Restart the bridge after `npm run build` — the spawned server holds the old code
+in memory.
+
 ## Pointing the `x-agent` MCP server at a booted instance
 
 `x-agent` resolves its connection from, in order: tool arguments, `.x-agent.json` in

@@ -7,7 +7,7 @@ crosses the wire as authenticated REST; nothing on the instance ever calls out.
 ```mermaid
 flowchart LR
     subgraph AGENT["Agent machine"]
-        LLM["Claude Code\n(wp-blocks skill)"]
+        LLM["Any MCP client:\nClaude Code (wp-blocks skill),\ntools/mcp-bridge.mjs, CI"]
         MCP["x-agent MCP server\n17 tools, stdio"]
         BR["Warm Chromium\n(Playwright)"]
         PG["Throwaway Playground\n(wp_block_build_test only)"]
