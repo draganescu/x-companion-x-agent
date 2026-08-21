@@ -993,8 +993,8 @@ may be passed to any connected tool to override the config chain, and are omitte
 | `wp_compile` | `version, epoch, blocks` | `markup, all_valid, invalid[], registry_gaps[], epoch` |
 | `wp_render` | `markup` | `html, enqueued_styles[]` |
 | `wp_parse` | `markup, include_raw?` | `tree{version,epoch,blocks}, blocks?, dropped_freeform` |
-| `wp_verify` | `markup? \| url?, spec?, spec_region_id?, viewport?, tolerances?` | `box_tree[], a11y_outline[], diffs[], pass` |
-| `wp_screenshot` | `markup? \| url?, viewport?, out_path?` | `path_to_png, viewport, bytes` |
+| `wp_verify` | `markup? \| url?, spec?, spec_region_id?, viewport?, tolerances?, nav_timeout_ms?, wait?` | `box_tree[], a11y_outline[], diffs[], pass` |
+| `wp_screenshot` | `markup? \| url?, viewport?, out_path?, nav_timeout_ms?, wait?` | `path_to_png, viewport, bytes` |
 | `wp_spec_validate` | a DesignSpecIR, flattened: `version, source, tokens_candidates, content, regions` | `valid, diagnostics[]` |
 | `wp_tokens_apply` | `palette, spacing, typography, layout, dry_run?` | `applied, dry_run, adapters_applied[], fingerprint, theme_json_written?, theme_json_preview, diff_against_instance[]` |
 | `wp_block_scaffold` | `slug, title, attributes[]?, render_intent, dir?` | `dir, name, files[]` |
@@ -1017,7 +1017,7 @@ written to be actionable.
 |---|---|---|
 | `https_required` | plain `http://` to a non-local host | Use `https://`. Only loopback and playground hosts may be plain. |
 | `invalid_input` | arguments or config missing/malformed | The message names the field. For config, `wp_connect` and read `config_sources`. |
-| `companion_unreachable` | the site did not answer | Is it running? Is the URL right? Do not retry blindly. |
+| `companion_unreachable` | the site did not answer | Is it running? Is the URL right? Do not retry blindly. On `wp_verify`/`wp_screenshot` against a heavy front end (WooCommerce), pass `wait: "domcontentloaded"` and a lower `nav_timeout_ms` — some pages never reach network-idle. |
 | `companion_error` | the site answered with an error; carries `status`, `wp_code` | `rest_forbidden` (401) = bad credentials. `rest_forbidden_capability` (403) = the user lacks the tier capability. |
 | `posture_forbidden` | extend-tier tool on a `production` instance | R8. Snapshot → sandbox → promote. Never route around it. |
 | `epoch_mismatch` | the fingerprint moved and stayed moved after one auto-retry | `wp_manifest({refresh: true})`, regenerate with the new epoch. |

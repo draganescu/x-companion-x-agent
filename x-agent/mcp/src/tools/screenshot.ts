@@ -22,6 +22,8 @@ const InputSchema = z.looseObject({
   url: z.string().optional(),
   markup: z.string().optional(),
   viewport: ViewportSchema.optional(),
+  nav_timeout_ms: z.number().int().min(1000).max(600000).optional().describe('Navigation timeout in ms (default 60000). Lower it for pages that never settle.'),
+  wait: z.enum(['load', 'domcontentloaded', 'networkidle']).optional().describe("waitUntil for the navigation (default 'load'). Use 'domcontentloaded' for frontends whose subresources crawl or never idle — e.g. WooCommerce on a single-worker sandbox."),
   out_path: z.string().optional().describe('Destination .png path; defaults to a temp file.'),
   clip: z
     .object({ x: z.number(), y: z.number(), width: z.number().gt(0), height: z.number().gt(0) })
@@ -57,6 +59,8 @@ export const wpScreenshot = defineTool({
     const target = await prepareTarget(ctx, {
       ...(args.markup !== undefined ? { markup: args.markup } : {}),
       ...(args.url !== undefined ? { url: args.url } : {}),
+      ...(args.nav_timeout_ms !== undefined ? { nav_timeout_ms: args.nav_timeout_ms } : {}),
+      ...(args.wait !== undefined ? { wait: args.wait } : {}),
       viewport,
     });
 

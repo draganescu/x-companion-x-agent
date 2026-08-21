@@ -958,6 +958,10 @@ export interface TargetInput {
   markup?: string;
   url?: string;
   viewport?: { width: number; height: number };
+  /** Navigation timeout in ms (default 60_000). Lower it for frontends that never settle. */
+  nav_timeout_ms?: number;
+  /** Playwright waitUntil for the navigation (default 'load'). 'domcontentloaded' escapes pages whose subresources crawl or never idle (e.g. WooCommerce cart fragments on a single-worker sandbox). */
+  wait?: 'load' | 'domcontentloaded' | 'networkidle';
 }
 
 export interface PreparedTarget {
@@ -992,11 +996,13 @@ export async function prepareTarget(ctx: Ctx, input: TargetInput): Promise<Prepa
   }
 
   const viewport = input.viewport ?? DEFAULT_VIEWPORT;
+  const navTimeout = typeof input.nav_timeout_ms === 'number' && input.nav_timeout_ms > 0 ? input.nav_timeout_ms : 60_000;
+  const waitUntil = input.wait ?? 'load';
   const session = await sessionFor(ctx);
   const page = await session.page({ viewport });
 
   if (hasUrl) {
-    const res = await page.goto(input.url!, { waitUntil: 'load', timeout: 60_000 }).catch((e: Error) => {
+    const res = await page.goto(input.url!, { waitUntil, timeout: navTimeout }).catch((e: Error) => {
       throw new XError('companion_unreachable', `Could not navigate to ${input.url}: ${e.message}`, 'Check the URL is reachable from this machine.');
     });
     if (!res || res.status() >= 400) {
@@ -1007,7 +1013,7 @@ export async function prepareTarget(ctx: Ctx, input: TargetInput): Promise<Prepa
         { status: res ? res.status() : 0 },
       );
     }
-    await settle(page);
+    await settle(page, navTimeout);
     return {
       page,
       session,
@@ -1040,7 +1046,7 @@ export async function prepareTarget(ctx: Ctx, input: TargetInput): Promise<Prepa
 
   const server = new ShellServer();
   const url = await server.start(shellHtml);
-  const res = await page.goto(url, { waitUntil: 'load', timeout: 60_000 }).catch(async (e: Error) => {
+  const res = await page.goto(url, { waitUntil, timeout: navTimeout }).catch(async (e: Error) => {
     await server.close();
     throw new XError('internal', `Could not load the local render shell: ${e.message}`, 'This is an agent-side failure; re-run with X_AGENT_DEBUG=1.');
   });
@@ -1065,8 +1071,8 @@ export async function prepareTarget(ctx: Ctx, input: TargetInput): Promise<Prepa
 }
 
 /** Fonts and web-font-driven reflow settle before anything is measured. */
-async function settle(page: Page): Promise<void> {
+async function settle(page: Page, navTimeout = 60_000): Promise<void> {
   await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready ?? null).catch(() => null);
-  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: Math.min(15_000, navTimeout) }).catch(() => {});
   await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
 }
