@@ -64,7 +64,9 @@ The agent hits a design need core blocks cannot express, and *extends the instan
 2. `wp_block_build_test` → builds, smoke-tests in a **local throwaway Playground**, produces a zip.
 3. `wp_block_install` → `POST /blocks/install` → new fingerprint E3.
 4. Assert the new block now appears in `GET /manifest` blocks map **and** in the harness's
-   `window.__registry()`.
+   `window.__registry()`, **and** that every script URL the warm harness page loads resolves —
+   an uploads-installed block whose editor-script URL is mis-computed 404s silently and only
+   surfaces later as `harness_gap` (regression found live with `agent/tap-meter`).
 5. Author a tree *using* the new block; `wp_validate` clean at E3; `wp_compile` `all_valid: true`.
 6. `POST /render` that markup; assert the rendered HTML contains the sample attribute value.
 **Proves:** the two plugins form a closed loop where the agent can grow the instance's block

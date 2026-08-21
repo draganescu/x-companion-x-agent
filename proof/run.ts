@@ -7,6 +7,8 @@
  * pays only for what it uses.
  */
 import path from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 // @ts-ignore — plain-JS helper with JSDoc types
 import { boot } from '../tools/playground/boot.mjs';
@@ -48,8 +50,12 @@ async function ctxFor(kind: InstanceKey) {
   const env = new ProofEnv(instance);
 
   // Point the real MCP runtime at this instance via the documented env chain.
+  // The chain prefers a .x-agent.json in cwd over env — and the README tells
+  // developers to keep one at the repo root — so the runtime gets a
+  // guaranteed config-free cwd; otherwise a stray dev config silently
+  // repoints every proof at the wrong instance.
   const runtime = new Runtime({
-    cwd: REPO_ROOT,
+    cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'x-proof-mcp-')),
     env: {
       X_WP_URL: env.runtime.url,
       X_WP_USER: env.runtime.admin.user,

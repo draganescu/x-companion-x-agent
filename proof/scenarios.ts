@@ -341,7 +341,9 @@ const p6: Scenario = {
     t.check('install returned a NEW epoch', after && after !== before, `${before.slice(0,12)}… → ${String(after).slice(0,12)}…`);
 
     // 1. It is now part of the manifest vocabulary.
-    const m = unwrap(await call('wp_manifest', { refresh: true })).data;
+    const mres = unwrap(await call('wp_manifest', { refresh: true }));
+    t.check('wp_manifest answered with a blocks map', mres.ok && Boolean(mres.data?.blocks), JSON.stringify(mres.data).slice(0, 200));
+    const m = mres.data;
     const name = inst.json.installed.name;
     t.check(`${name} is in the manifest`, Boolean(m.blocks[name]), Object.keys(m.blocks).filter((k) => k.startsWith('agent/')));
     t.eq('manifest epoch === install epoch', m.fingerprint, after);
@@ -350,6 +352,34 @@ const p6: Scenario = {
     const page = await env.harnessPage();
     const registry: string[] = await page.evaluate(() => (window as any).__registry());
     t.check(`${name} is in window.__registry()`, registry.includes(name), `${registry.length} client-registered blocks`);
+
+    // 2b. Every script the warm harness page loads actually resolves. A block
+    // installed under uploads/ whose editor-script URL is computed wrongly
+    // (core's plugins_url() fallback) 404s silently, falls out of the client
+    // registry, and only surfaces later as harness_gap at compile time — the
+    // exact regression found live with agent/tap-meter. Zero dead scripts is
+    // the invariant.
+    const scriptSrcs: string[] = await page.evaluate(() => Array.from(document.scripts).map((sc) => sc.src).filter((u) => u.length > 0));
+    const fetched: { u: string; status: number }[] = await page.evaluate(
+      async (urls: string[]) =>
+        Promise.all(
+          urls.map(async (u) => {
+            try {
+              const r = await fetch(u);
+              return { u, status: r.status };
+            } catch {
+              return { u, status: 0 };
+            }
+          }),
+        ),
+      scriptSrcs,
+    );
+    const dead = fetched.filter((r) => r.status >= 400 || r.status === 0);
+    t.check(
+      'every harness script URL resolves after a warm-session install',
+      dead.length === 0,
+      dead.length ? dead.slice(0, 3).map((d) => `${d.status} ${d.u}`).join(', ') : `${fetched.length} scripts checked`,
+    );
 
     // 3. A tree USING it validates and compiles.
     const tree = { version: 1, epoch: after, blocks: [{ name, attributes: { quote: 'It compiled.', author: 'the instance' } }] };
