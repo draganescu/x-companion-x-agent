@@ -88,7 +88,7 @@ You can use the environment variables `X_WP_URL`, `X_WP_USER` and
 Add `.x-agent.json` to your `.gitignore`. It contains a password.
 
 Finally, add the `x-agent/` folder as a plugin in Claude Code. It provides one skill
-(`wp-blocks`) and one MCP server with 16 tools.
+(`wp-blocks`) and one MCP server with 17 tools.
 
 ## Usage
 
@@ -126,6 +126,7 @@ You can also call the tools directly. The main ones:
 | `wp_block_install` | Installs it on your site |
 | `wp_tokens_apply` | Writes colours, spacing and fonts to your theme |
 | `wp_snapshot` | Exports the site as a zip |
+| `wp_placeholder` | Makes a solid-colour placeholder image for layouts built before real photos exist |
 
 The full list is in `x-agent/README.md`.
 
@@ -187,6 +188,7 @@ Current result: 15 of 15 pass, 187 recorded values, on WordPress 7.1.
 | `x-companion/` | The WordPress plugin |
 | `x-agent/` | The Claude Code plugin: the skill and the MCP server |
 | `contract/` | The agreed API format both plugins follow, and the shared JSON schemas |
+| `FLOW.md` | Diagrams of how requests and processes flow between the agent and the instance |
 | `tools/` | Scripts that start a throwaway WordPress for testing |
 | `proof/` | Tests that check the two plugins work together, and the results |
 | `specs/` | The original specifications |

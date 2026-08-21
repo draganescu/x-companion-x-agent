@@ -167,6 +167,35 @@ The order is load-bearing:
 
 If you find yourself calling `wp_screenshot` twice, you have replaced engineering with squinting.
 
+**Images before assets exist — the placeholder default.** A layout is not allowed to wait for
+photography, and an agent never hotlinks stock imagery it cannot license. When a design calls for
+an image and no real asset exists yet:
+
+1. `wp_placeholder({color: "accent-2"})` — one call per colour, idempotent. Pass a **palette
+   slug** so the placeholder sits on the design system; it returns `{id, url}` for a 1×1 GIF
+   attachment.
+2. Stretch the pixel with block attributes, never CSS: on `core/image`, `width: "100%"` +
+   `aspectRatio` + `scale: "cover"`; on `core/media-text`, `imageFill: true`. The geometry is
+   final from day one — swapping in the real photo later moves nothing.
+3. **Record what the picture should be** on the same node, in
+   `attributes.metadata.imageIntent` — a one-sentence brief for the image that belongs there
+   (subject, mood, crop). `metadata` is a real block attribute: it validates, serializes into
+   the block delimiter, and round-trips through `wp_compile`/`wp_parse`.
+
+```jsonc
+{ "name": "core/image",
+  "attributes": {
+    "url": "…/x-pixel-b05427.gif", "id": 8,
+    "alt": "Interiorul berăriei — fotografie în curând",
+    "width": "100%", "aspectRatio": "21/9", "scale": "cover",
+    "metadata": { "imageIntent": "Wide interior shot of the bar at night: warm amber pendant light on a copper counter, patrons blurred in the background, moody chiaroscuro." } } }
+```
+
+The intent leaf is the hand-off to a later **image-generation pass**: it runs `wp_parse` on the
+published page, walks the tree for `metadata.imageIntent`, generates or sources each asset,
+uploads it, swaps `url`/`id` on that node, recompiles, and drops or keeps the intent as
+provenance. Layout and content ship now; pixels arrive when they are ready.
+
 ### R6 — from-design mode: lift binaries into DesignSpecIR per `references/design-spec.md` (measure, don't trace; quantize every observed value onto the token scale and log the delta; mark every synthesized responsive behavior). `wp_spec_validate` must pass before any tree is generated. `wp_verify` diffs are then attributable: token decision, mapping approximation, or vocabulary gap.
 
 An image is not a layout. Read `references/design-spec.md` before you lift one — the whole method
@@ -233,7 +262,7 @@ the constant that turns this off.
 | posture | you may | you may not |
 |---|---|---|
 | `toolchain` | everything | — |
-| `production` | `wp_manifest`, `wp_patterns`, `wp_validate`, `wp_parse`, `wp_render`, `wp_compile`, `wp_verify`, `wp_screenshot`, `wp_spec_validate`, `wp_tokens_apply({dry_run: true})` | `wp_tokens_apply`, `wp_block_install`, `wp_snapshot` — 403 `posture_forbidden` |
+| `production` | `wp_manifest`, `wp_patterns`, `wp_validate`, `wp_parse`, `wp_render`, `wp_compile`, `wp_verify`, `wp_screenshot`, `wp_spec_validate`, `wp_tokens_apply({dry_run: true})` | `wp_tokens_apply`, `wp_block_install`, `wp_snapshot`, `wp_placeholder` — 403 `posture_forbidden` |
 
 The refusal happens in the permission callback, **before the request body is parsed**. It is not a
 UI toggle and there is no header that changes it. When you hit it, the correct response is the
@@ -945,7 +974,7 @@ promote the artifact. R8.
 
 ## 6. Tool index
 
-Sixteen tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
+Seventeen tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
 may be passed to any connected tool to override the config chain, and are omitted below.
 
 | Tool | Args | Returns |
@@ -966,6 +995,7 @@ may be passed to any connected tool to override the config chain, and are omitte
 | `wp_block_build_test` | `dir, sample_attributes?` | `built, smoke{registered, rendered_html, php_error?}, zip_path?, build_log?` |
 | `wp_block_install` | `zip_path` | `installed{slug,name,version}, fingerprint, replaced_previous` |
 | `wp_snapshot` | `out_path?` | `zip_path, bytes, fingerprint, site_url` |
+| `wp_placeholder` | `color` (hex or palette slug) | `id, url, color, slug, reused` |
 
 `wp_validate`, `wp_compile`, `wp_spec_validate` and `wp_tokens_apply` take their payload
 **flattened into the tool arguments** — send `{version, epoch, blocks}`, not `{tree: {...}}`.

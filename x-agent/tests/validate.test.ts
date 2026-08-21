@@ -29,7 +29,7 @@ const PW = 'aaaa bbbb cccc dddd eeee ffff';
 const FP_A = 'a'.repeat(64);
 const FP_B = 'b'.repeat(64);
 
-const EXPECTED_16 = [
+const EXPECTED_TOOLS = [
   'wp_connect',
   'wp_disconnect',
   'wp_manifest',
@@ -46,6 +46,7 @@ const EXPECTED_16 = [
   'wp_block_install',
   'wp_parse',
   'wp_snapshot',
+  'wp_placeholder',
 ];
 
 let mock: MockCompanion;
@@ -83,7 +84,7 @@ async function call(name: string, args: unknown = {}): Promise<{ ok: boolean; da
 
 describe('registry / tools list', () => {
   it('declares exactly the 16 tools, with schemas, regardless of which handlers exist', () => {
-    expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_16].sort());
+    expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
     for (const t of TOOLS) {
       const described = describeTool(t);
       expect(described.name, `${t.name} name`).toBe(t.name);
@@ -102,7 +103,7 @@ describe('registry / tools list', () => {
   it('every declared tool now resolves to a real handler', async () => {
     await loadExternalHandlers({ force: true });
     expect(unimplementedToolNames()).toEqual([]);
-    for (const name of EXPECTED_16) {
+    for (const name of EXPECTED_TOOLS) {
       expect(isUnimplemented(name), `${name} should have a real handler`).toBe(false);
       expect(typeof findTool(name)?.handler, `${name} handler`).toBe('function');
     }
@@ -151,13 +152,13 @@ describe('registry / tools list', () => {
     const first = await loadExternalHandlers({ force: true });
     expect(first.missing).toEqual([]);
     expect(first.failed).toEqual([]);
-    expect(TOOLS.length).toBe(16);
+    expect(TOOLS.length).toBe(EXPECTED_TOOLS.length);
 
     // Running it again must not duplicate or drop entries.
     const second = await loadExternalHandlers({ force: true });
     expect(second.failed).toEqual([]);
-    expect(TOOLS.length).toBe(16);
-    expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_16].sort());
+    expect(TOOLS.length).toBe(EXPECTED_TOOLS.length);
+    expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
   });
 
   it('every tool has a unique name and findTool resolves it', () => {

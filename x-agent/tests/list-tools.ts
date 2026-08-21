@@ -25,6 +25,7 @@ const EXPECTED = [
   'wp_block_install',
   'wp_parse',
   'wp_snapshot',
+  'wp_placeholder',
 ];
 
 async function main(): Promise<void> {

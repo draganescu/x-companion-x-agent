@@ -58,7 +58,7 @@ Pinned codes (status in parentheses):
 |---|---|---|
 | introspect | `x_companion_read` | `GET /manifest`, `GET /fingerprint`, `GET /patterns`, `GET /harness`, `POST /validate`, `POST /parse`, `POST /render` |
 | author | `x_companion_author` | (reserved — no v1 routes) |
-| extend | `x_companion_extend` | `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`, `DELETE /blocks/library/{slug}`, `POST /theme/tokens`, `POST /snapshot/export` |
+| extend | `x_companion_extend` | `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`, `DELETE /blocks/library/{slug}`, `POST /theme/tokens`, `POST /snapshot/export`, `POST /placeholder` |
 
 Order inside every handler, no exceptions: **capability check → input schema validation → work.**
 Posture gate is part of the capability check (`permission_callback`) for extend-tier routes, so
@@ -196,6 +196,20 @@ on read-only theme dirs and survives theme updates.
 ### `POST /snapshot/export` — extend
 `application/zip` stream containing exactly: `theme/`, `agent-blocks/`, `patterns.json`,
 `content.xml` (WXR), `manifest.json`.
+
+### `POST /placeholder` — extend
+
+Body `{ "color": "#rrggbb" | "<palette-slug>" }`. Creates — idempotently, one attachment per
+colour — a 1×1 solid-colour GIF in the media library and answers
+`{ id, url, color, slug, reused }`. Palette slugs resolve against the instance's global
+settings (user origin wins over theme, theme over default), so placeholders land on the design
+system. Unknown colours answer 400 `{ code: "invalid_color" }`.
+
+This is the default image source while a layout is being fabricated: the client stretches the
+pixel with block attributes (`width`/`aspectRatio`/`scale`, or `imageFill` on media-text) and
+records the intended picture in the node's `attributes.metadata.imageIntent`, which serializes
+into the block delimiter and round-trips through `POST /parse` for a later image-generation
+pass to fulfil.
 
 ## 6. Harness page contract
 
