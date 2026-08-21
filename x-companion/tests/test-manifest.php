@@ -461,6 +461,10 @@ x_test(
 							'slug'    => 'akismet',
 							'version' => '5.3',
 						),
+						array(
+							'slug'    => 'woocommerce',
+							'version' => '11.0.1',
+						),
 					)
 				),
 			)
@@ -489,7 +493,20 @@ x_test(
 		x_assert_same( count( $snapshot ) - 4, $manifest['counts']['static_blocks'], 'counts.static_blocks' );
 		x_assert_same( 1, $manifest['counts']['patterns'], 'counts.patterns' );
 
-		x_assert_same( array( array( 'slug' => 'kadence-blocks', 'version' => '3.2.0' ) ), $manifest['suites'], 'only known suites are listed' );
+		x_assert_same(
+			array(
+				array(
+					'slug'    => 'kadence-blocks',
+					'version' => '3.2.0',
+				),
+				array(
+					'slug'    => 'woocommerce',
+					'version' => '11.0.1',
+				),
+			),
+			$manifest['suites'],
+			'only known suites are listed (WooCommerce included)'
+		);
 
 		x_assert_same(
 			array( 'color', 'spacing', 'typography', 'layout' ),

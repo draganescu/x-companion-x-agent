@@ -46,6 +46,7 @@ final class X_Companion_Manifest {
 		'ultimate-addons-for-gutenberg',
 		'generateblocks',
 		'stackable-ultimate-gutenberg-blocks',
+		'woocommerce',
 	);
 
 	/**
