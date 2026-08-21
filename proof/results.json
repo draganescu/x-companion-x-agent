@@ -1,9 +1,9 @@
 {
   "env": {
-    "generated": "2026-08-21T21:07:09.282Z",
+    "generated": "2026-08-21T21:21:47.955Z",
     "WordPress": "7.1",
     "instances": "toolchain, production",
-    "duration": "57.8s"
+    "duration": "58.8s"
   },
   "totals": {
     "pass": 15,
@@ -41,7 +41,7 @@
         },
         {
           "what": "agent fingerprint === companion GET /fingerprint",
-          "observed": "2bb27a7df96b59e62b5532476f209f6ff3a195e58e837c746399c651f65e6764",
+          "observed": "7114632ede42326a8b5f3e0065978f8e311499b8a124f73217169c5c413528c9",
           "ok": true
         },
         {
@@ -70,7 +70,7 @@
           "ok": true
         }
       ],
-      "ms": 9695
+      "ms": 10161
     },
     {
       "id": "P2",
@@ -110,7 +110,7 @@
           "ok": true
         }
       ],
-      "ms": 1180
+      "ms": 1205
     },
     {
       "id": "P3",
@@ -190,7 +190,7 @@
           "ok": true
         }
       ],
-      "ms": 2360
+      "ms": 2581
     },
     {
       "id": "P4",
@@ -340,7 +340,7 @@
           "ok": true
         }
       ],
-      "ms": 4652
+      "ms": 4721
     },
     {
       "id": "P5",
@@ -356,12 +356,12 @@
         },
         {
           "what": "E1",
-          "observed": "2bb27a7df96b59e6…",
+          "observed": "7114632ede42326a…",
           "ok": true
         },
         {
           "what": "fingerprint moved after a registry change",
-          "observed": "E1=2bb27a7df96b… E2=d96c5d75a2d2…",
+          "observed": "E1=7114632ede42… E2=f240de17e5a9…",
           "ok": true
         },
         {
@@ -386,7 +386,7 @@
         },
         {
           "what": "agent manifest adopted E2",
-          "observed": "d96c5d75a2d2a0a6160f31cb31fae47796e3e8a568e542c845c49eae1a467249",
+          "observed": "f240de17e5a91975ab1da24125ac239828af8d6e036ec6c746995d650b1d22c0",
           "ok": true
         },
         {
@@ -400,7 +400,7 @@
           "ok": true
         }
       ],
-      "ms": 2972
+      "ms": 2951
     },
     {
       "id": "P6",
@@ -426,12 +426,12 @@
         },
         {
           "what": "install returned a NEW epoch",
-          "observed": "d96c5d75a2d2… → 2cb0fcb08b3e…",
+          "observed": "f240de17e5a9… → 8b2295b6f9a2…",
           "ok": true
         },
         {
           "what": "wp_manifest answered with a blocks map",
-          "observed": "{\"fingerprint\":\"2cb0fcb08b3e2bf386133aaf86e3fb41e08f6182637577120e6af77c7b8183c7\",\"generated_at\":\"2026-08-21T21:06:33+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
+          "observed": "{\"fingerprint\":\"8b2295b6f9a263f27a5ee71f28a07008854a3c4c4e5a42d4b40c76bfa7e42eec\",\"generated_at\":\"2026-08-21T21:21:11+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
           "ok": true
         },
         {
@@ -441,7 +441,7 @@
         },
         {
           "what": "manifest epoch === install epoch",
-          "observed": "2cb0fcb08b3e2bf386133aaf86e3fb41e08f6182637577120e6af77c7b8183c7",
+          "observed": "8b2295b6f9a263f27a5ee71f28a07008854a3c4c4e5a42d4b40c76bfa7e42eec",
           "ok": true
         },
         {
@@ -485,7 +485,7 @@
           "ok": true
         }
       ],
-      "ms": 3857
+      "ms": 3839
     },
     {
       "id": "P7",
@@ -496,7 +496,7 @@
       "steps": [
         {
           "what": "scaffolded at",
-          "observed": "proof/artifacts/sabotage-T7j1ae/proof-broken",
+          "observed": "proof/artifacts/sabotage-R8dAxl/proof-broken",
           "ok": true
         },
         {
@@ -520,7 +520,7 @@
           "ok": true
         }
       ],
-      "ms": 8921
+      "ms": 8699
     },
     {
       "id": "P8",
@@ -581,7 +581,7 @@
         },
         {
           "what": "library reports has_prev",
-          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-21T21:06:46+00:00\",\"has_prev\":true}",
+          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-21T21:21:24+00:00\",\"has_prev\":true}",
           "ok": true
         },
         {
@@ -591,11 +591,11 @@
         },
         {
           "what": "rollback returns a fingerprint",
-          "observed": "2cb0fcb08b3e2bf3…",
+          "observed": "8b2295b6f9a263f2…",
           "ok": true
         }
       ],
-      "ms": 2209
+      "ms": 2255
     },
     {
       "id": "P9",
@@ -640,7 +640,7 @@
           "ok": true
         }
       ],
-      "ms": 3106
+      "ms": 3195
     },
     {
       "id": "P11",
@@ -715,7 +715,7 @@
           "ok": true
         }
       ],
-      "ms": 9469
+      "ms": 9731
     },
     {
       "id": "P12",
@@ -726,7 +726,7 @@
       "steps": [
         {
           "what": "snapshot written",
-          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-2cb0fcb08b3e-1787346420200.zip (8075.0 KB)",
+          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-8b2295b6f9a2-1787347298836.zip (8075.0 KB)",
           "ok": true
         },
         {
@@ -756,11 +756,11 @@
         },
         {
           "what": "manifest.json fingerprint === live /fingerprint",
-          "observed": "2cb0fcb08b3e2bf386133aaf86e3fb41e08f6182637577120e6af77c7b8183c7",
+          "observed": "8b2295b6f9a263f27a5ee71f28a07008854a3c4c4e5a42d4b40c76bfa7e42eec",
           "ok": true
         }
       ],
-      "ms": 1310
+      "ms": 1325
     },
     {
       "id": "P13",
@@ -941,7 +941,7 @@
         },
         {
           "what": "wp_screenshot produced a PNG",
-          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787346423345.png",
+          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787347302038.png",
           "ok": true
         },
         {
@@ -960,7 +960,7 @@
           "ok": true
         }
       ],
-      "ms": 3066
+      "ms": 3147
     },
     {
       "id": "P15",
@@ -1040,7 +1040,7 @@
           "ok": true
         }
       ],
-      "ms": 1521
+      "ms": 1501
     },
     {
       "id": "P10",
@@ -1105,7 +1105,7 @@
           "ok": true
         }
       ],
-      "ms": 3386
+      "ms": 3361
     }
   ]
 }
