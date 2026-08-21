@@ -47,6 +47,7 @@ const ATTRS: ScaffoldAttribute[] = [
   { name: 'featured', type: 'boolean', default: false, control: 'toggle' },
   { name: 'blurb', type: 'string', default: 'For small teams', control: 'textarea' },
   { name: 'tier', type: 'string', default: 'basic', control: 'select', options: [{ label: 'Basic', value: 'basic' }, { label: 'Pro', value: 'pro' }] },
+  { name: 'photoUrl', type: 'string', default: '', control: 'image' },
 ];
 
 const INTENT = 'Render a pricing card: plan name as an <h3>, price with a currency prefix, and a ribbon when featured.';
@@ -197,7 +198,7 @@ describe('wp_block_scaffold — generated files', () => {
     const meta = JSON.parse(fs.readFileSync(path.join(dir, 'block.json'), 'utf8')) as {
       attributes: Record<string, { type: string; default?: unknown; enum?: string[] }>;
     };
-    expect(Object.keys(meta.attributes).sort()).toEqual(['blurb', 'featured', 'planName', 'price', 'tier']);
+    expect(Object.keys(meta.attributes).sort()).toEqual(['blurb', 'featured', 'photoUrl', 'planName', 'price', 'tier']);
     expect(meta.attributes.planName).toEqual({ type: 'string', default: 'Starter' });
     expect(meta.attributes.price).toEqual({ type: 'number', default: 9 });
     expect(meta.attributes.featured).toEqual({ type: 'boolean', default: false });
@@ -223,6 +224,20 @@ describe('wp_block_scaffold — generated files', () => {
     for (const e of echoes) {
       expect(e, `unescaped echo: ${e}`).toMatch(/esc_html|esc_attr|esc_url|wp_kses_post|\$wrapper_attributes/);
     }
+  });
+
+  it('src/edit.js edits images inline via MediaPlaceholder/MediaUpload', () => {
+    const js = fs.readFileSync(path.join(dir, 'src/edit.js'), 'utf8');
+    expect(js).toContain('<MediaUploadCheck>');
+    expect(js).toContain('<MediaPlaceholder');
+    expect(js).toContain('setAttributes( { photoUrl: media.url } )');
+    // Image attributes get no sidebar control; they are edited on the canvas.
+    expect(js).not.toContain('label={ __( "Photo url"');
+  });
+
+  it('render.php outputs image attributes through esc_url inside an <img>', () => {
+    const php = fs.readFileSync(path.join(dir, 'render.php'), 'utf8');
+    expect(php).toContain('esc_url( (string) $photo_url )');
   });
 
   it('src/edit.js edits text inline via RichText and keeps non-text controls in the sidebar', () => {

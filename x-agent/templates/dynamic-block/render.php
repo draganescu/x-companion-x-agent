@@ -19,6 +19,8 @@
  *   - String attributes edited inline via RichText in edit.js arrive
  *     entity-encoded: output them with `wp_kses( $value, array() )` (or a
  *     richer whitelist), NOT `esc_html()`, or entities double-escape.
+ *   - Image attributes (control `image`) hold attachment URLs: output them
+ *     with `esc_url()` inside an <img>, and keep the element empty-safe.
  *   - The outermost element must carry `get_block_wrapper_attributes()` so the
  *     block's own supports (align, spacing, colour, anchor) actually apply.
  *   - Return nothing / echo directly: WordPress buffers this file's output.

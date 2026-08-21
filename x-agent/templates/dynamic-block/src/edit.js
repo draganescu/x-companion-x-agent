@@ -6,12 +6,22 @@
  * the front end will show them; only non-text attributes (numbers, toggles,
  * selects) live in the InspectorControls sidebar. When implementing
  * render.php, shape this canvas into the same structure, classes and inline
- * styles — the two files are one design in two languages. Note: RichText
+ * styles — the two files are one design in two languages. Image attributes
+ * (control `image`) are likewise inline: MediaPlaceholder when empty, the
+ * image itself (click to replace) when set; render.php outputs their URLs
+ * through `esc_url()`. Note: RichText
  * stores entity-encoded text, so render.php must output those attributes
  * through `wp_kses( $value, array() )`, not `esc_html()`.
  */
 import { __ } from '@wordpress/i18n';
-import { useBlockProps, InspectorControls, RichText } from '@wordpress/block-editor';
+import {
+	useBlockProps,
+	InspectorControls,
+	RichText,
+	MediaPlaceholder,
+	MediaUpload,
+	MediaUploadCheck,
+} from '@wordpress/block-editor';
 import {
 	PanelBody,
 	TextControl,

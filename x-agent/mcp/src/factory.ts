@@ -64,7 +64,7 @@ import type { Logger } from './companion.js';
 /* Types                                                                      */
 /* ========================================================================== */
 
-export type AttributeControl = 'text' | 'textarea' | 'number' | 'toggle' | 'select';
+export type AttributeControl = 'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'image';
 export type AttributeType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
 
 export interface ScaffoldAttribute {
@@ -318,8 +318,11 @@ export function assertAttributes(input: unknown): ScaffoldAttribute[] {
       throw errInvalidInput(`attributes[${i}].type "${String(type)}" is not a block attribute type.`, 'Use string|number|integer|boolean|array|object.');
     }
     const control = a.control ?? 'text';
-    if (!['text', 'textarea', 'number', 'toggle', 'select'].includes(control)) {
-      throw errInvalidInput(`attributes[${i}].control "${String(control)}" is unknown.`, 'Use text|textarea|number|toggle|select.');
+    if (!['text', 'textarea', 'number', 'toggle', 'select', 'image'].includes(control)) {
+      throw errInvalidInput(`attributes[${i}].control "${String(control)}" is unknown.`, 'Use text|textarea|number|toggle|select|image.');
+    }
+    if (control === 'image' && type !== 'string') {
+      throw errInvalidInput(`attributes[${i}] uses control "image" but type "${String(type)}".`, 'An image attribute stores its URL: declare it type string.');
     }
     if (control === 'select' && (!Array.isArray(a.options) || a.options.length === 0)) {
       throw errInvalidInput(`attributes[${i}] uses control "select" but declares no options.`, 'Pass options: [{label, value}, ...].');
@@ -450,6 +453,9 @@ export function renderAttributeOutput(attrs: ScaffoldAttribute[], cssClass: stri
       if (a.type === 'array' || a.type === 'object') {
         return `\t<div class="${cls}"><?php echo esc_html( (string) wp_json_encode( ${v} ) ); ?></div>`;
       }
+      if (a.control === 'image') {
+        return `\t<?php if ( '' !== (string) ${v} ) : ?><img class="${cls}" src="<?php echo esc_url( (string) ${v} ); ?>" alt="" /><?php endif; ?>`;
+      }
       if (a.control === 'textarea') {
         return `\t<div class="${cls}"><?php echo wp_kses_post( wpautop( (string) ${v} ) ); ?></div>`;
       }
@@ -470,13 +476,18 @@ export function isInlineTextAttribute(a: ScaffoldAttribute): boolean {
   return a.type === 'string' && (a.control === 'text' || a.control === 'textarea' || a.control === undefined);
 }
 
+/** Image attributes (control `image`, string URL) are also edited inline, via MediaPlaceholder/MediaUpload. */
+export function isImageAttribute(a: ScaffoldAttribute): boolean {
+  return a.type === 'string' && a.control === 'image';
+}
+
 export function renderInspectorControls(attrs: ScaffoldAttribute[], textdomain: string): string {
   if (attrs.length === 0) {
     return `${CTRL_INDENT}<p>{ __( 'This block declares no attributes yet.', ${jsString(textdomain)} ) }</p>`;
   }
-  const sidebar = attrs.filter((a) => !isInlineTextAttribute(a));
+  const sidebar = attrs.filter((a) => !isInlineTextAttribute(a) && !isImageAttribute(a));
   if (sidebar.length === 0) {
-    return `${CTRL_INDENT}<p>{ __( 'All of this block’s text is edited directly on the canvas.', ${jsString(textdomain)} ) }</p>`;
+    return `${CTRL_INDENT}<p>{ __( 'All of this block’s text and images are edited directly on the canvas.', ${jsString(textdomain)} ) }</p>`;
   }
   return sidebar
     .map((a) => {
@@ -543,6 +554,30 @@ export function renderEditorPreview(attrs: ScaffoldAttribute[], cssClass: string
   return attrs
     .map((a) => {
       const cls = `${cssClass}__${kebab(a.name)}`;
+      if (isImageAttribute(a)) {
+        // Inline-editable media: an empty slot shows MediaPlaceholder, a
+        // filled one shows the image itself (click to replace).
+        return [
+          `${PREVIEW_INDENT}<MediaUploadCheck>`,
+          `${PREVIEW_INDENT}\t<MediaUpload`,
+          `${PREVIEW_INDENT}\t\tallowedTypes={ [ 'image' ] }`,
+          `${PREVIEW_INDENT}\t\tonSelect={ ( media ) => setAttributes( { ${a.name}: media.url } ) }`,
+          `${PREVIEW_INDENT}\t\trender={ ( { open } ) =>`,
+          `${PREVIEW_INDENT}\t\t\tattributes.${a.name} ? (`,
+          `${PREVIEW_INDENT}\t\t\t\t<img className="${cls}" src={ attributes.${a.name} } alt="" style={ { maxWidth: '100%', cursor: 'pointer' } } onClick={ open } title={ __( 'Click to replace', ${jsString(textdomain)} ) } />`,
+          `${PREVIEW_INDENT}\t\t\t) : (`,
+          `${PREVIEW_INDENT}\t\t\t\t<MediaPlaceholder`,
+          `${PREVIEW_INDENT}\t\t\t\t\ticon="format-image"`,
+          `${PREVIEW_INDENT}\t\t\t\t\tlabels={ { title: __( ${jsString(labelFor(a.name))}, ${jsString(textdomain)} ) } }`,
+          `${PREVIEW_INDENT}\t\t\t\t\tallowedTypes={ [ 'image' ] }`,
+          `${PREVIEW_INDENT}\t\t\t\t\tonSelect={ ( media ) => setAttributes( { ${a.name}: media.url } ) }`,
+          `${PREVIEW_INDENT}\t\t\t\t/>`,
+          `${PREVIEW_INDENT}\t\t\t)`,
+          `${PREVIEW_INDENT}\t\t}`,
+          `${PREVIEW_INDENT}\t/>`,
+          `${PREVIEW_INDENT}</MediaUploadCheck>`,
+        ].join('\n');
+      }
       if (isInlineTextAttribute(a)) {
         // Inline-editable on the canvas: the block editor contract is that
         // text is edited where it is seen, not in a sidebar form.
