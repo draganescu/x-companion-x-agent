@@ -472,14 +472,16 @@ export async function boot(opts = {}) {
 		}
 
 		// 3. Provision users + application passwords inside the sandbox.
+		const adminLoginPass = randomBytes(18).toString('base64url');
+		const agentLoginPass = randomBytes(18).toString('base64url');
 		const provision = await server.playground.run({
 			code: provisionPhp({
 				adminUser: 'x_admin',
 				agentUser: 'x_agent_user',
 				adminEmail: 'x-admin@example.test',
 				agentEmail: 'x-agent@example.test',
-				adminPass: randomBytes(18).toString('base64url'),
-				agentPass: randomBytes(18).toString('base64url'),
+				adminPass: adminLoginPass,
+				agentPass: agentLoginPass,
 			}),
 		});
 		const info = parseTagged(provision.text);
@@ -516,8 +518,8 @@ export async function boot(opts = {}) {
 		//    with the other tools; do not reorder.
 		const runtime = {
 			url,
-			admin: { user: info.admin.user, app_password: info.admin.app_password },
-			agent: { user: info.agent.user, app_password: info.agent.app_password, role: info.agent.role },
+			admin: { user: info.admin.user, app_password: info.admin.app_password, login_pass: adminLoginPass },
+			agent: { user: info.agent.user, app_password: info.agent.app_password, login_pass: agentLoginPass, role: info.agent.role },
 			posture,
 			profile,
 			wp_version: info.wp_version,
@@ -797,7 +799,7 @@ function humanSummary(rt, extra = {}) {
 		`  runtime    ${runtimePath(rt.profile, rt.posture)}`,
 		extra.plugins?.length ? `  plugins    ${extra.plugins.map((p) => p.pluginFile).join(', ')} (mounted live)` : null,
 		'',
-		`  App passwords are in the runtime file (mode 0600); they are not printed here.`,
+		`  App + wp-admin login passwords are in the runtime file (mode 0600); not printed here.`,
 		`  Re-run with --json to get them on stdout.`,
 		`  Stop with: node tools/playground/stop.mjs --profile ${rt.profile} --posture ${rt.posture}`,
 	].filter(Boolean).join('\n');

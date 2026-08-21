@@ -89,8 +89,8 @@ rather than trampling the bookkeeping.
 ```json
 {
   "url": "http://127.0.0.1:9400",
-  "admin": { "user": "x_admin", "app_password": "..." },
-  "agent": { "user": "x_agent_user", "app_password": "...", "role": "x_agent" },
+  "admin": { "user": "x_admin", "app_password": "...", "login_pass": "..." },
+  "agent": { "user": "x_agent_user", "app_password": "...", "login_pass": "...", "role": "x_agent" },
   "posture": "toolchain",
   "profile": "core-only",
   "wp_version": "7.1",
@@ -178,7 +178,10 @@ host is loopback or a Playground host — which is exactly this case.
 | `x_agent_user` | `x_agent`, or `subscriber` if that role does not exist | proves capability gating: a user that is authenticated but not privileged |
 
 Both get a freshly minted application password on each boot (previous ones are
-deleted first, so a `--persist` site does not accumulate them). Passwords are
+deleted first, so a `--persist` site does not accumulate them). The interactive
+wp-admin login password is set to the same generated value recorded as
+`login_pass` in the runtime descriptor — so `/wp-login.php` is one `jq` away
+instead of a dead end. Passwords are
 generated inside the sandbox by
 `WP_Application_Passwords::create_new_application_password()` and are the only
 place the plaintext ever exists.
