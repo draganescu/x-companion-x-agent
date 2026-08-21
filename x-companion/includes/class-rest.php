@@ -73,6 +73,7 @@ final class X_Companion_Rest {
 		'blocks_delete',
 		'theme_tokens',
 		'snapshot_export',
+		'placeholder',
 	);
 
 	/**
@@ -184,7 +185,7 @@ final class X_Companion_Rest {
 	 */
 
 	/**
-	 * Register all thirteen contract v1 routes.
+	 * Register all fourteen v1 routes (thirteen from the contract, plus /placeholder).
 	 *
 	 * @return void
 	 */
@@ -363,6 +364,24 @@ final class X_Companion_Rest {
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( __CLASS__, 'route_snapshot_export' ),
 				'permission_callback' => $ext,
+			)
+		);
+
+		// 14. POST /placeholder  -> dispatched (X_Companion_Placeholders)
+		register_rest_route(
+			$ns,
+			'/placeholder',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'route_placeholder' ),
+				'permission_callback' => $ext,
+				'args'                => array(
+					'color' => array(
+						'type'        => 'string',
+						'required'    => true,
+						'description' => __( 'A #rrggbb value or a palette slug from this instance.', 'x-companion' ),
+					),
+				),
 			)
 		);
 	}
@@ -622,6 +641,16 @@ final class X_Companion_Rest {
 	 */
 	public static function route_snapshot_export( WP_REST_Request $request ) {
 		return self::dispatch( 'snapshot_export', $request );
+	}
+
+	/**
+	 * POST /placeholder -> dispatched.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return mixed|WP_Error
+	 */
+	public static function route_placeholder( WP_REST_Request $request ) {
+		return self::dispatch( 'placeholder', $request );
 	}
 
 	/*
