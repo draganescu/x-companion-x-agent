@@ -75,6 +75,8 @@ final class X_Companion_Rest {
 		'snapshot_export',
 		'placeholder',
 		'patterns_save',
+		'schema_install',
+		'schema_installed',
 	);
 
 	/**
@@ -443,6 +445,62 @@ final class X_Companion_Rest {
 				),
 			)
 		);
+
+		self::register_schema_routes();
+	}
+
+	/**
+	 * Register the interfaces-v2 schema routes (16 + 17).
+	 *
+	 * Separate method so register_routes() stays readable; called from it.
+	 *
+	 * @return void
+	 */
+	private static function register_schema_routes(): void {
+		$ns  = self::REST_NAMESPACE;
+		$ext = array( __CLASS__, 'permission_extend' );
+
+		// 16. POST /schema/install  -> dispatched (X_Companion_Schema_Library)
+		register_rest_route(
+			$ns,
+			'/schema/install',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'route_schema_install' ),
+				'permission_callback' => $ext,
+			)
+		);
+
+		// 17. GET /schema/installed  -> dispatched
+		register_rest_route(
+			$ns,
+			'/schema/installed',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'route_schema_installed' ),
+				'permission_callback' => $ext,
+			)
+		);
+	}
+
+	/**
+	 * POST /schema/install -> dispatched.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return mixed|WP_Error
+	 */
+	public static function route_schema_install( WP_REST_Request $request ) {
+		return self::dispatch( 'schema_install', $request );
+	}
+
+	/**
+	 * GET /schema/installed -> dispatched.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return mixed|WP_Error
+	 */
+	public static function route_schema_installed( WP_REST_Request $request ) {
+		return self::dispatch( 'schema_installed', $request );
 	}
 
 	/*

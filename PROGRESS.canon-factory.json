@@ -5,7 +5,7 @@
         "M2_harness_capture": { "status": "done", "evidence": "core-plus-suite (kadence) 9420, new build via bridge 9491: wp_manifest section=variations -> client_capture {performed:true, from_cache:false, harness_loads:1, blocks_with_client_variations:21, blocks_with_client_styles:15}; core/embed carries 33 source='client' variations absent from the server registry; second read -> {from_cache:true, harness_loads:0} (zero harness navigations, output-asserted); styles section serves client-captured styles (core/image rounded etc. source plugin); vitest 267 passed incl. 5 new merge tests.", "updated_at": "2026-08-22T00:00:00Z" },
         "M3_rung5_css": { "status": "done", "evidence": "suite 9420: wp_tokens_apply css.blocks['core/button'] -> css_written:true, css_rejected itemizes core/paragraph 'markup is not allowed in css', fingerprint b8aecdb8->6f3344b0; published proof page: verified button link computes background rgb(1,2,3) via wp_verify(url); global custom_css section shows the write merged beside TT5's own per-block css; live wp_validate flags W_STYLE_UNKNOWN (/blocks/0/attributes/className), E_BINDING_UNKNOWN and E_BINDING_UNBINDABLE with valid=false; offline validator 155/155, vitest 267.", "updated_at": "2026-08-22T00:00:00Z" },
         "M4_schema_factory": { "status": "done", "evidence": "m4-accept.mjs: orders package (hc_order CPT + pickup_day/contact meta + ready/picked-up statuses + public-nonce /submit + capability /orders + pickup-day binding) -> gate green: types true, meta_in_rest both true, /submit 200 anonymous-nonce, /orders 200 admin + 401 unauth, binding registered, uninstall_clean true, zip produced. Sabotage meta-without-show_in_rest -> smoke_failed naming 'hc_order:pickup_day not REST-visible', no zip. Sabotage $wpdb -> schema_policy 'routes.php:73 — direct $wpdb use', no sandbox boot, no zip. vitest 267.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M5_schema_install": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M5_schema_install": { "status": "done", "evidence": "toolchain 9420: wp_schema_install(orders 1.0.0) -> fingerprint 6f3344b0->88887a3e, manifest_refreshed; data_model lists hc_order source='agent' with meta_keys [contact, pickup_day]; GET /wp/v2/hc_order answers 200; GET /schema/installed lists {orders, 1.0.0, provides hc_order}. Production 9410 direct multipart POST /schema/install -> 403 posture_forbidden. Regated 1.0.1 zip -> replaced_previous:true (fingerprint unchanged — identical registrations, correct epoch semantics). vitest 267 with 21 tools.", "updated_at": "2026-08-22T00:00:00Z" },
         "M6_block_factory_upgrades": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
         "M7_skills_and_e2e": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" }
     },
@@ -41,5 +41,12 @@
             "why": "Registration happens on init before any REST read; the fingerprint IS the invalidator by construction, and hooks like registered_post_type fire on every request."
         }
     ],
-    "deviations": []
+    "deviations": [
+        {
+            "when": "2026-08-22",
+            "spec_ref": "M5 acceptance: 'uninstall leaves no registrations (asserted via data_model diff)'",
+            "what": "Live uninstall is asserted by the gate's sandbox probes (deactivate -> fresh-request data-model diff, per package, every build), not by a live delete route — the spec's rest_api_additions define install + installed only.",
+            "why": "A DELETE /schema/{slug} route is real surface area the spec deliberately did not include; adding it silently would be scope growth. The uninstall guarantee is still proven on every gate run."
+        }
+    ]
 }

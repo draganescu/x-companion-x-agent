@@ -64,6 +64,12 @@ export interface InstallResult {
   replaced_previous: boolean;
 }
 
+export interface SchemaInstallResult {
+  installed: { slug: string; version: string };
+  fingerprint: string;
+  replaced_previous: boolean;
+}
+
 export interface LibraryEntry {
   slug: string;
   name: string;
@@ -578,6 +584,40 @@ export class CompanionClient {
     if (!parsed || typeof parsed.fingerprint !== 'string') {
       throw new XError('companion_error', 'POST /blocks/install did not return {installed, fingerprint, replaced_previous}.', 'Check the companion version.', {
         route: '/blocks/install',
+      });
+    }
+    this._fingerprint = parsed.fingerprint;
+    this._manifest = undefined;
+    return parsed;
+  }
+
+  /** `POST /schema/install` — a schema-package zip from disk. */
+  async installSchemaFromFile(zipPath: string): Promise<SchemaInstallResult> {
+    this.assertToolchain('/schema/install');
+    let bytes: Buffer;
+    try {
+      bytes = fs.readFileSync(zipPath);
+    } catch (e) {
+      throw new XError('invalid_input', `Cannot read package zip at ${zipPath}: ${(e as Error).message}`, 'Pass a path produced by wp_schema_build_test.');
+    }
+    const boundary = `----xagent${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+    const head = Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="package"; filename="${path.basename(zipPath).replace(/"/g, '')}"\r\n` +
+        `Content-Type: application/zip\r\n\r\n`,
+      'utf8',
+    );
+    const tail = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+    const body = Buffer.concat([head, bytes, tail]);
+
+    const res = await this.request('POST', '/schema/install', {
+      body: new Uint8Array(body),
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': String(body.length) },
+    });
+    const parsed = res.json as SchemaInstallResult | undefined;
+    if (!parsed || typeof parsed.fingerprint !== 'string') {
+      throw new XError('companion_error', 'POST /schema/install did not return {installed, fingerprint, replaced_previous}.', 'Check the companion version — /schema/install is interfaces v2.', {
+        route: '/schema/install',
       });
     }
     this._fingerprint = parsed.fingerprint;

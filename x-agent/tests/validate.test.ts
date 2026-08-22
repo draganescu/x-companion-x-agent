@@ -50,6 +50,7 @@ const EXPECTED_TOOLS = [
   'wp_pattern_save',
   'wp_schema_scaffold',
   'wp_schema_build_test',
+  'wp_schema_install',
 ];
 
 let mock: MockCompanion;
@@ -86,7 +87,7 @@ async function call(name: string, args: unknown = {}): Promise<{ ok: boolean; da
 /* ------------------------------------------------------------ M1: registry */
 
 describe('registry / tools list', () => {
-  it('declares exactly the 20 tools, with schemas, regardless of which handlers exist', () => {
+  it('declares exactly the 21 tools, with schemas, regardless of which handlers exist', () => {
     expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
     for (const t of TOOLS) {
       const described = describeTool(t);

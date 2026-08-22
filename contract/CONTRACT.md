@@ -252,6 +252,26 @@ records the intended picture in the node's `attributes.metadata.imageIntent`, wh
 into the block delimiter and round-trips through `POST /parse` for a later image-generation
 pass to fulfil.
 
+### `POST /schema/install` — extend (interfaces v2)
+Multipart field `package`: a schema-package zip produced by the agent-side gate
+(`wp_schema_build_test`). Structural policy: safe entries, ≤ 1 MB, `schema.json` with a slug at
+the root, `{slug}.php` present, and a forbidden-token scan (`$wpdb`, `eval`, `exec`, SQL
+drivers) — the same list the agent gate scans, enforced twice by design; violations answer 422
+`schema_policy` with itemized `reasons`. No PHP linting — the sandbox gate is THE gate. On
+success the package's registrations are applied in-request and the response carries the **new**
+fingerprint:
+
+```json
+{ "installed": { "slug": "orders", "version": "1.0.0" }, "fingerprint": "<64 hex>", "replaced_previous": false }
+```
+
+Installed packages load on every request (crash-loop breaker: a package that fataled while
+loading is skipped on the next request); their post types and taxonomies appear in the
+manifest's `data_model` with `source: "agent"`.
+
+### `GET /schema/installed` — extend (interfaces v2)
+`{ "packages": [ { "slug", "version", "installed_at", "provides": { post_types, taxonomies, meta_keys, binding_sources, routes } } ] }`
+
 ## 6. Harness page contract
 
 Server emits a minimal page (no theme, no admin chrome) that:
