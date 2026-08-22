@@ -14,11 +14,7 @@
     "patterns",
     "theme_tokens",
     "suites",
-    "counts",
-    "global_styles",
-    "bindings",
-    "data_model",
-    "features"
+    "counts"
   ],
   "properties": {
     "fingerprint": {

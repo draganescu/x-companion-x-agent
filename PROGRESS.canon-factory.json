@@ -2,7 +2,7 @@
     "spec": "specs/canon-factory.spec.json",
     "milestones": {
         "M1_manifest_lsp": { "status": "done", "evidence": "core-only 9410: GET /manifest?section=bindings -> sources incl core/post-meta (+post-data/term-data/pattern-overrides), bindable_attributes['core/paragraph']=['content']; section=data_model -> post/page with rest_base+meta_keys, taxonomies listed; mu-plugin CPT hc_test_cpt: fingerprint 68793da8->bec0ba15 (moved), removal reverts to 68793da8 exactly; ajv: fat manifest valid against manifest.schema.json v2; interfaces_version '2'; offline suites 216/216 manifest, 140/140 validator, 35/35 tokens, 62/62 install.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M2_harness_capture": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M2_harness_capture": { "status": "done", "evidence": "core-plus-suite (kadence) 9420, new build via bridge 9491: wp_manifest section=variations -> client_capture {performed:true, from_cache:false, harness_loads:1, blocks_with_client_variations:21, blocks_with_client_styles:15}; core/embed carries 33 source='client' variations absent from the server registry; second read -> {from_cache:true, harness_loads:0} (zero harness navigations, output-asserted); styles section serves client-captured styles (core/image rounded etc. source plugin); vitest 267 passed incl. 5 new merge tests.", "updated_at": "2026-08-22T00:00:00Z" },
         "M3_rung5_css": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
         "M4_schema_factory": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
         "M5_schema_install": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },

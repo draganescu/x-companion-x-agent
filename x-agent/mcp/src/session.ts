@@ -70,6 +70,24 @@ export interface PageOptions {
   fresh?: boolean;
 }
 
+/** Client-side registrations captured from the harness page, per fingerprint. */
+export interface ClientCapture {
+  fingerprint: string;
+  variations: Record<
+    string,
+    {
+      name: string;
+      title: string;
+      description?: string;
+      scope?: string[];
+      isDefault?: boolean;
+      attributes?: Record<string, unknown>;
+      innerBlocks?: unknown[];
+    }[]
+  >;
+  styles: Record<string, { name: string; label: string }[]>;
+}
+
 export interface SessionStats {
   browser_launches: number;
   harness_loads: number;
@@ -132,6 +150,7 @@ export class HarnessSession {
   private loadedFingerprint?: string;
   private loadedUrl?: string;
   private registryCache?: string[];
+  private clientCapture?: ClientCapture;
   private pageErrors: string[] = [];
   private degradedHeader: string | null = null;
   private usedEditorFallback = false;
@@ -169,6 +188,7 @@ export class HarnessSession {
   /** Drop the memoised `window.__registry()` result. */
   invalidateRegistry(): void {
     this.registryCache = undefined;
+    this.clientCapture = undefined;
   }
 
   /* ----------------------------------------------------------- the browser */
@@ -314,6 +334,7 @@ export class HarnessSession {
     this.loadedUrl = target;
     this.loadedFingerprint = this.ctx.companion.expectedFingerprint;
     this.registryCache = undefined;
+    this.clientCapture = undefined;
     this.usedEditorFallback = false;
     this.stats.harness_loads += 1;
     this.ctx.logger.debug(`harness loaded at epoch ${this.loadedFingerprint ?? '(unknown)'} (${target})`);
@@ -347,6 +368,7 @@ export class HarnessSession {
   async reload(fingerprint?: string): Promise<Page> {
     this.stats.reloads += 1;
     this.registryCache = undefined;
+    this.clientCapture = undefined;
     this.ctx.logger.info(
       `epoch moved (${(this.loadedFingerprint ?? '(none)').slice(0, 12)} -> ${(fingerprint ?? '(unknown)').slice(0, 12)}); reloading the harness page`,
     );
@@ -381,6 +403,99 @@ export class HarnessSession {
   async registryGaps(manifestBlockNames: string[]): Promise<string[]> {
     const present = new Set(await this.registry());
     return manifestBlockNames.filter((n) => !present.has(n)).sort();
+  }
+
+  /* -------------------------------------------------- client registry capture */
+
+  /**
+   * Capture client-registered block variations and styles from the harness
+   * page — the registrations that only exist in editor JavaScript
+   * (registerBlockVariation / registerBlockStyle) and are therefore invisible
+   * to the server manifest. Cached per fingerprint: the second call at the
+   * same epoch performs zero harness navigations.
+   */
+  async captureClient(opts: { refresh?: boolean } = {}): Promise<{ capture: ClientCapture; from_cache: boolean }> {
+    const expected = this.ctx.companion.expectedFingerprint;
+    if (
+      !opts.refresh &&
+      this.clientCapture &&
+      (!expected || this.clientCapture.fingerprint === expected)
+    ) {
+      return { capture: this.clientCapture, from_cache: true };
+    }
+
+    const page = await this.ensureHarness();
+    const raw = await page.evaluate(() => {
+      const w = window as HarnessWindow & { wp?: any };
+      const wp = w.wp;
+      if (!wp || !wp.blocks) return { variations: {}, styles: {} };
+
+      const plain = (v: unknown): unknown => {
+        try {
+          return JSON.parse(JSON.stringify(v));
+        } catch {
+          return undefined;
+        }
+      };
+
+      const names: string[] =
+        typeof w.__registry === 'function'
+          ? w.__registry()
+          : wp.blocks.getBlockTypes().map((t: { name: string }) => t.name);
+
+      const variations: Record<string, unknown[]> = {};
+      const styles: Record<string, unknown[]> = {};
+
+      for (const name of names) {
+        let vars: any[] = [];
+        try {
+          if (typeof wp.blocks.getBlockVariations === 'function') {
+            vars = wp.blocks.getBlockVariations(name) ?? [];
+          } else if (wp.data && typeof wp.data.select === 'function') {
+            vars = wp.data.select('core/blocks')?.getBlockVariations?.(name) ?? [];
+          }
+        } catch {
+          vars = [];
+        }
+        const trimmedVars = vars
+          .filter((v) => v && typeof v.name === 'string')
+          .map((v) => {
+            const entry: Record<string, unknown> = { name: v.name, title: typeof v.title === 'string' ? v.title : v.name };
+            if (typeof v.description === 'string' && v.description) entry.description = v.description;
+            if (Array.isArray(v.scope)) entry.scope = v.scope.map(String);
+            if (v.isDefault === true) entry.isDefault = true;
+            const attrs = plain(v.attributes);
+            if (attrs && typeof attrs === 'object' && !Array.isArray(attrs)) entry.attributes = attrs;
+            const inner = plain(v.innerBlocks);
+            if (Array.isArray(inner)) entry.innerBlocks = inner;
+            return entry;
+          });
+        if (trimmedVars.length) variations[name] = trimmedVars;
+
+        let sts: any[] = [];
+        try {
+          if (wp.data && typeof wp.data.select === 'function') {
+            sts = wp.data.select('core/blocks')?.getBlockStyles?.(name) ?? [];
+          }
+        } catch {
+          sts = [];
+        }
+        const trimmedStyles = sts
+          .filter((s) => s && typeof s.name === 'string')
+          .map((s) => ({ name: s.name, label: typeof s.label === 'string' ? s.label : s.name }));
+        if (trimmedStyles.length) styles[name] = trimmedStyles;
+      }
+
+      return { variations, styles };
+    });
+
+    const capture: ClientCapture = {
+      fingerprint: expected ?? this.loadedFingerprint ?? '',
+      variations: (raw?.variations ?? {}) as ClientCapture['variations'],
+      styles: (raw?.styles ?? {}) as ClientCapture['styles'],
+    };
+    this.clientCapture = capture;
+    return { capture, from_cache: false };
   }
 
   /* --------------------------------------------------------------- compile */
@@ -544,6 +659,7 @@ export class HarnessSession {
     this.harness = page;
     this.usedEditorFallback = true;
     this.registryCache = undefined;
+    this.clientCapture = undefined;
     this.loadedFingerprint = this.ctx.companion.expectedFingerprint;
     this.loadedUrl = url;
     this.stats.harness_loads += 1;
@@ -567,6 +683,7 @@ export class HarnessSession {
     this.loadedFingerprint = undefined;
     this.loadedUrl = undefined;
     this.registryCache = undefined;
+    this.clientCapture = undefined;
     this.closing = false;
   }
 

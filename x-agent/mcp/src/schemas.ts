@@ -77,6 +77,25 @@ export type Diagnostics = z.infer<typeof DiagnosticsSchema>;
 
 /* ---------------------------------------------------------------- Manifest */
 
+export const BlockStyleEntrySchema = z.object({
+  name: z.string(),
+  label: z.string(),
+  source: z.enum(['theme', 'plugin', 'agent']),
+});
+export type BlockStyleEntry = z.infer<typeof BlockStyleEntrySchema>;
+
+export const BlockVariationEntrySchema = z.object({
+  name: z.string(),
+  title: z.string(),
+  source: z.enum(['server', 'client']),
+  description: z.string().optional(),
+  scope: z.array(z.string()).optional(),
+  isDefault: z.boolean().optional(),
+  attributes: z.record(z.string(), z.unknown()).optional(),
+  innerBlocks: z.array(z.unknown()).optional(),
+});
+export type BlockVariationEntry = z.infer<typeof BlockVariationEntrySchema>;
+
 export const ManifestBlockSchema = z.object({
   title: z.string(),
   category: z.union([z.string(), z.null()]),
@@ -89,6 +108,8 @@ export const ManifestBlockSchema = z.object({
   uses_context: z.array(z.string()).optional(),
   is_dynamic: z.boolean(),
   variations_count: z.int().optional(),
+  variations: z.array(BlockVariationEntrySchema).optional(),
+  styles: z.array(BlockStyleEntrySchema).optional(),
   agent_hints: z
     .object({
       allowed_blocks: z.union([z.array(z.string()), z.null()]).optional(),
@@ -124,6 +145,11 @@ export const ManifestSchema = z.object({
     layout: z.object({ contentSize: z.unknown().optional(), wideSize: z.unknown().optional() }),
   }),
   suites: z.array(z.object({ slug: z.string(), version: z.string() })),
+  /** interfaces v2 sections; absent on a v1 companion. */
+  global_styles: z.record(z.string(), z.unknown()).optional(),
+  bindings: z.record(z.string(), z.unknown()).optional(),
+  data_model: z.record(z.string(), z.unknown()).optional(),
+  features: z.record(z.string(), z.unknown()).optional(),
   counts: z.object({
     blocks: z.int(),
     dynamic_blocks: z.int(),
@@ -132,6 +158,9 @@ export const ManifestSchema = z.object({
   }),
 });
 export type Manifest = z.infer<typeof ManifestSchema>;
+
+export const MANIFEST_SECTIONS = ['styles', 'variations', 'global_styles', 'bindings', 'data_model', 'features'] as const;
+export type ManifestSection = (typeof MANIFEST_SECTIONS)[number];
 
 /* ------------------------------------------------------------ DesignTokens */
 
