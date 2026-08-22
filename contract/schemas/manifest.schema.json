@@ -4,8 +4,21 @@
   "title": "Manifest",
   "type": "object",
   "required": [
-    "fingerprint", "generated_at", "wp_version", "site_url", "posture",
-    "interfaces_version", "blocks", "patterns", "theme_tokens", "suites", "counts"
+    "fingerprint",
+    "generated_at",
+    "wp_version",
+    "site_url",
+    "posture",
+    "interfaces_version",
+    "blocks",
+    "patterns",
+    "theme_tokens",
+    "suites",
+    "counts",
+    "global_styles",
+    "bindings",
+    "data_model",
+    "features"
   ],
   "properties": {
     "fingerprint": {
@@ -13,35 +26,187 @@
       "pattern": "^[0-9a-f]{64}$",
       "description": "sha256 hex of canonical JSON of: sorted block names + each block's attributes schema + parent/ancestor + api_version + active theme slug+version + active plugin slugs+versions + interfaces.version"
     },
-    "generated_at": { "type": "string" },
-    "wp_version": { "type": "string" },
-    "site_url": { "type": "string" },
-    "posture": { "enum": ["toolchain", "production"] },
-    "interfaces_version": { "type": "string" },
+    "generated_at": {
+      "type": "string"
+    },
+    "wp_version": {
+      "type": "string"
+    },
+    "site_url": {
+      "type": "string"
+    },
+    "posture": {
+      "enum": [
+        "toolchain",
+        "production"
+      ]
+    },
+    "interfaces_version": {
+      "type": "string"
+    },
     "blocks": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
-        "required": ["title", "category", "api_version", "attributes", "is_dynamic"],
+        "required": [
+          "title",
+          "category",
+          "api_version",
+          "attributes",
+          "is_dynamic"
+        ],
         "properties": {
-          "title": { "type": "string" },
-          "category": { "type": ["string", "null"] },
-          "api_version": { "type": "integer" },
-          "attributes": { "type": "object", "description": "verbatim from registry" },
-          "supports": { "type": "object" },
-          "parent": { "type": ["array", "null"], "items": { "type": "string" } },
-          "ancestor": { "type": ["array", "null"], "items": { "type": "string" } },
-          "provides_context": { "type": "object" },
-          "uses_context": { "type": "array", "items": { "type": "string" } },
-          "is_dynamic": { "type": "boolean", "description": "has render_callback or render file" },
-          "variations_count": { "type": "integer" },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "api_version": {
+            "type": "integer"
+          },
+          "attributes": {
+            "type": "object",
+            "description": "verbatim from registry"
+          },
+          "supports": {
+            "type": "object"
+          },
+          "parent": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "ancestor": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "provides_context": {
+            "type": "object"
+          },
+          "uses_context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "is_dynamic": {
+            "type": "boolean",
+            "description": "has render_callback or render file"
+          },
+          "variations_count": {
+            "type": "integer"
+          },
           "agent_hints": {
             "type": "object",
             "properties": {
-              "allowed_blocks": { "type": ["array", "null"], "items": { "type": "string" } },
-              "template_lock": { "type": ["string", "boolean", "null"] },
-              "usage_notes": { "type": "string" },
-              "example_attributes": { "type": "object" }
+              "allowed_blocks": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "template_lock": {
+                "type": [
+                  "string",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "usage_notes": {
+                "type": "string"
+              },
+              "example_attributes": {
+                "type": "object"
+              }
+            }
+          },
+          "variations": {
+            "type": "array",
+            "description": "interfaces v2: full variation entries. source is server (registry) or client (captured on the harness page by the agent side).",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "title",
+                "source"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "server",
+                    "client"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "isDefault": {
+                  "type": "boolean"
+                },
+                "attributes": {
+                  "type": "object"
+                },
+                "innerBlocks": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "styles": {
+            "type": "array",
+            "description": "interfaces v2: registered block styles for this block.",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "label",
+                "source"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "theme",
+                    "plugin",
+                    "agent"
+                  ]
+                }
+              }
             }
           }
         }
@@ -51,43 +216,364 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "title", "categories", "source", "has_content"],
+        "required": [
+          "name",
+          "title",
+          "categories",
+          "source",
+          "has_content"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "title": { "type": "string" },
-          "categories": { "type": "array", "items": { "type": "string" } },
-          "source": { "type": ["string", "null"] },
-          "has_content": { "type": "boolean" }
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_content": {
+            "type": "boolean"
+          }
         }
       }
     },
     "theme_tokens": {
       "type": "object",
       "description": "resolved wp_get_global_settings() subset",
-      "required": ["color", "spacing", "typography", "layout"],
+      "required": [
+        "color",
+        "spacing",
+        "typography",
+        "layout"
+      ],
       "properties": {
-        "color": { "type": "object", "properties": { "palette": {} } },
-        "spacing": { "type": "object", "properties": { "spacingSizes": {}, "spacingScale": {} } },
-        "typography": { "type": "object", "properties": { "fontSizes": {}, "fontFamilies": {} } },
-        "layout": { "type": "object", "properties": { "contentSize": {}, "wideSize": {} } }
+        "color": {
+          "type": "object",
+          "properties": {
+            "palette": {}
+          }
+        },
+        "spacing": {
+          "type": "object",
+          "properties": {
+            "spacingSizes": {},
+            "spacingScale": {}
+          }
+        },
+        "typography": {
+          "type": "object",
+          "properties": {
+            "fontSizes": {},
+            "fontFamilies": {}
+          }
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "contentSize": {},
+            "wideSize": {}
+          }
+        }
       }
     },
     "suites": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["slug", "version"],
-        "properties": { "slug": { "type": "string" }, "version": { "type": "string" } }
+        "required": [
+          "slug",
+          "version"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
       }
     },
     "counts": {
       "type": "object",
-      "required": ["blocks", "dynamic_blocks", "static_blocks", "patterns"],
+      "required": [
+        "blocks",
+        "dynamic_blocks",
+        "static_blocks",
+        "patterns"
+      ],
       "properties": {
-        "blocks": { "type": "integer" },
-        "dynamic_blocks": { "type": "integer" },
-        "static_blocks": { "type": "integer" },
-        "patterns": { "type": "integer" }
+        "blocks": {
+          "type": "integer"
+        },
+        "dynamic_blocks": {
+          "type": "integer"
+        },
+        "static_blocks": {
+          "type": "integer"
+        },
+        "patterns": {
+          "type": "integer"
+        }
+      }
+    },
+    "global_styles": {
+      "type": "object",
+      "description": "interfaces v2: merged global styles.",
+      "properties": {
+        "settings": {
+          "type": "object"
+        },
+        "styles": {
+          "type": "object"
+        },
+        "custom_css": {
+          "type": "object",
+          "properties": {
+            "global": {
+              "type": "string"
+            },
+            "blocks": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "description": "interfaces v2: block bindings surface.",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "label"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "uses_context": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "bindable_attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "registered_meta": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "type",
+                "single",
+                "show_in_rest"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "single": {
+                  "type": "boolean"
+                },
+                "show_in_rest": {
+                  "type": "boolean"
+                },
+                "show_in_rest_schema": {},
+                "subtype": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "data_model": {
+      "type": "object",
+      "description": "interfaces v2: the instance content model.",
+      "properties": {
+        "post_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "slug",
+              "label",
+              "public",
+              "show_in_rest",
+              "rest_base",
+              "source"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "public": {
+                "type": "boolean"
+              },
+              "show_in_rest": {
+                "type": "boolean"
+              },
+              "rest_base": {
+                "type": "string"
+              },
+              "supports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "taxonomies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "meta_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "core",
+                  "plugin",
+                  "agent"
+                ]
+              }
+            }
+          }
+        },
+        "taxonomies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "slug",
+              "object_types",
+              "hierarchical",
+              "show_in_rest",
+              "rest_base",
+              "source"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "object_types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "hierarchical": {
+                "type": "boolean"
+              },
+              "show_in_rest": {
+                "type": "boolean"
+              },
+              "rest_base": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "core",
+                  "plugin",
+                  "agent"
+                ]
+              }
+            }
+          }
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "slug",
+              "label"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "public": {
+                "type": "boolean"
+              },
+              "private": {
+                "type": "boolean"
+              },
+              "protected": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "interfaces v2: capability matrix detected from the running instance.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
       }
     }
   }

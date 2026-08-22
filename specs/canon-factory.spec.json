@@ -1,0 +1,124 @@
+{
+  "spec_version": "1.0.0",
+  "id": "x-canon-factory",
+  "title": "X Canon Factory — LSP-complete instance introspection plus a two-discipline fabrication factory (blocks + schema packages) that keeps the agent inside the WordPress block-platform canon for styling, data, and interactivity",
+  "mission": "Close the gap where the agent invents: every expressive rung of the block platform (supports, global styles, block styles, variations, per-block custom CSS in global styles, block-owned stylesheets) and every backend fundamental (post types, taxonomies, meta, block bindings, REST routes) becomes (a) READABLE from the instance through the companion — an LSP-grade surface that is always current for this WP version, theme, and active block libraries — and (b) WRITABLE only through gated factory artifacts tested in a throwaway Playground before install. The agent never works outside platform canon unless canon is provably insufficient, and it cites the rung it is on.",
+
+  "problem_context": {
+    "why": "Field evidence (the Hearth & Crumb ordering build): the agent improvises exactly where the manifest goes silent. The manifest serves blocks + theme tokens only, so form styling fell off the token cliff into unstyled markup, and storage fell off the render.php-only cliff into orders-as-comments. Both failures are introspection failures first and fabrication failures second.",
+    "canon_principle": "Never invent; escalate. Styling, data, and interactivity each get an explicit ladder whose every rung is READ from the connected instance at the current fingerprint. A rung may only be skipped by citing why it cannot express the requirement. Custom CSS and custom code are the last rungs, not the first tools.",
+    "amends": "This spec amends x-companion (specs/companion-plugin.spec.json) and x-agent (specs/agent-plugin.spec.json). Those specs stay canonical for the base contract (auth, postures, TreeIR, Diagnostics, epoch). Everything here is additive; on conflict the base specs win unless this spec explicitly overrides (it overrides R4 and extends R7).",
+    "recorded_decision": "One agent plugin, one MCP server, a second skill. A separate x-agent-backend plugin was considered and rejected: a Claude Code plugin is the unit that bundles an MCP server, so a second plugin means a second server process duplicating the config chain, redaction, REST client, Playground boot, and — fatally — a second holder of epoch state. Capability gating, when wanted, is done by the companion's extend tier and/or client-side tool allowlists, not by packaging."
+  },
+
+  "expression_ladder": {
+    "purpose": "Replaces R4's binary token rule with an ordered ladder. The agent states the rung it lands on and why each lower rung failed; that citation is a complete explanation of a styling decision.",
+    "rungs": [
+      { "n": 1, "name": "block_supports", "what": "Attributes the block's supports expose: color/typography/spacing/layout/border presets, align, elements.", "read_from": "manifest.blocks[].supports + attributes" },
+      { "n": 2, "name": "global_styles_and_tokens", "what": "DesignTokens -> theme.json settings; per-block and per-element styles in global styles (user origin).", "read_from": "manifest.theme_tokens + manifest.global_styles" },
+      { "n": 3, "name": "registered_block_styles", "what": "className is-style-* registered by theme, plugins, or a factory artifact.", "read_from": "manifest.blocks[].styles" },
+      { "n": 4, "name": "block_variations", "what": "Named attribute/innerBlocks presets registered server- or client-side.", "read_from": "manifest.blocks[].variations (merged server + harness capture)" },
+      { "n": 5, "name": "custom_css_in_global_styles", "what": "Per-block or global css written into global styles (styles.css, styles.blocks[name].css) — canon's own escape hatch since WP 6.2, theme-update-safe, reviewable as data.", "read_from": "manifest.features.per_block_css + manifest.global_styles.custom_css", "write_via": "wp_tokens_apply css section" },
+      { "n": 6, "name": "block_owned_stylesheet", "what": "style.css shipped inside a factory block, built exclusively on token custom properties (var(--wp--preset--*)). Owned code; last rung.", "write_via": "block factory" }
+    ],
+    "rule": "A designed outcome that lands on rung 5 or 6 without a cited failure of rungs 1-4 is a defect, exactly as hand-written markup is."
+  },
+
+  "interfaces": {
+    "version_policy": "interfaces.version bumps '1' -> '2'. All manifest additions are additive; a v1 agent keeps working against a v2 companion. The agent must read interfaces_version and not request v2 sections from a v1 instance.",
+    "manifest_additions": {
+      "blocks[].styles": "[{name, label, source: 'theme'|'plugin'|'agent'}] from WP_Block_Styles_Registry merged with theme.json styles.blocks.",
+      "blocks[].variations": "[{name, title, source: 'server'|'client', attributes, innerBlocks?}] — server-registered from the block registry; client-registered captured by the harness page (wp.blocks.getBlockVariations) once per fingerprint and cached. Replaces the write-only variations_count.",
+      "global_styles": "{settings: merged wp_get_global_settings(), styles: merged wp_get_global_styles() including elements and per-block styles, custom_css: {global: string, blocks: map<name, string>}}.",
+      "bindings": "{sources: [{name, label, uses_context}] from WP_Block_Bindings_Registry, bindable_attributes: map<block_name, string[]>, registered_meta: map<object_type, [{key, type, single, show_in_rest_schema, subtype?}]>} — the agent learns WHAT can bind to WHAT, never assumes.",
+      "data_model": "{post_types: [{slug, label, public, show_in_rest, rest_base, supports, taxonomies, meta_keys, source: 'core'|'plugin'|'agent'}], taxonomies: [{slug, object_types, hierarchical, show_in_rest, rest_base, source}], statuses: [...]}. The WP REST API remains the exhaustive read/write surface for content in these types; the manifest only makes the model VISIBLE.",
+      "features": "Capability matrix read from the running instance, never inferred from version tables by the agent: {block_bindings: bool, per_block_css: bool, interactivity_api: bool, block_hooks: bool, ...} each {available, detail?}."
+    },
+    "rest_api_additions": {
+      "GET /manifest?section=": "styles|variations|global_styles|bindings|data_model|features — sectioned retrieval so the fat manifest stays cheap; summary mode lists section names + counts.",
+      "POST /schema/install": "Extend tier (posture-gated identically to /blocks/install). Accepts a schema-package zip (policy below). Returns {installed:{slug,version}, fingerprint, replaced_previous}. Activation registers everything on init like real plugin code — because it is real plugin code.",
+      "GET /schema/installed": "[{slug, version, provides: {post_types, taxonomies, meta_keys, binding_sources, routes}}]."
+    },
+    "diagnostics_additions": [
+      "E_BINDING_UNKNOWN — tree binds an attribute to an unregistered source or unregistered meta key; fix_hint names the nearest registered source.",
+      "E_BINDING_UNBINDABLE — attribute not bindable on this block per manifest.bindings.bindable_attributes.",
+      "W_STYLE_UNKNOWN — className is-style-* not present in blocks[].styles at this fingerprint."
+    ],
+    "fingerprint_additions": "The epoch hash gains: registered post types + taxonomies + meta keys, binding sources, block styles, server-registered variations, global-styles custom_css. Installing a schema package or writing per-block css MUST move the fingerprint — they change what a valid tree means. Client-captured variations are keyed by fingerprint but are not hash inputs (server-computed hash only).",
+    "design_tokens_additions": "DesignTokens schema gains optional css: {global?: string, blocks?: map<block_name, string>} compiled by /theme/tokens into global-styles custom css (rung 5's write path). Companion sanitizes with core's global-styles CSS validation; rejected properties are itemized in the response, never silently dropped."
+  },
+
+  "schema_package": {
+    "purpose": "The backend counterpart of an agent block: how storage, taxonomies, meta, bindings, REST behavior, and an admin surface enter the instance. Dissolves the render.php-only ceiling that produced orders-as-comments.",
+    "artifact": "A plugin directory: {slug}.php registering on init (post types, taxonomies, meta with show_in_rest schemas, binding sources), routes.php (register_rest_route with explicit permission_callback + nonces for anonymous submission flows), uninstall.php (clean removal), no build step required, size < 1MB.",
+    "policy_enforced_by_companion_on_install": [
+      "Registration exclusively via core APIs (register_post_type, register_taxonomy, register_post_meta, register_block_bindings_source, register_rest_route); static analysis rejects direct SQL and direct $wpdb use (422 schema_policy).",
+      "Every registered meta key MUST carry show_in_rest with a schema — REST-invisible meta is invisible to bindings and to the agent, so it is a policy error, not a style choice.",
+      "Every custom route MUST declare permission_callback (literal true only with a nonce check in the handler); capabilities mapped, never assumed.",
+      "Admin UX = the CPT's standard admin UI (show_ui, list-table columns via standard hooks). No bundled admin frameworks.",
+      "Prefix namespace agent/{slug} mirroring agent blocks; uninstall.php must deregister and optionally (flagged) remove content."
+    ],
+    "gate": "schema_build_test in a throwaway Playground is THE safety mechanism, mirroring the block factory: activate, assert each declared post type appears in /wp/v2/types, meta keys appear in the type's REST schema, taxonomies in /wp/v2/taxonomies, each route answers (2xx for a valid sample call, 401/403 for an unauthenticated protected call), binding sources resolve in a probe tree, uninstall leaves no registrations behind. No zip without a green gate; nothing reaches the instance without the zip."
+  },
+
+  "agent_side": {
+    "packaging": "Unchanged: the ONE x-agent plugin, the ONE MCP server. New tools are namespaced wp_schema_*; new skill ships beside wp-blocks.",
+    "mcp_tool_additions": [
+      { "name": "wp_schema_scaffold", "input": "{slug, intent: string, post_types: [{slug, label, supports, meta: [{key, type, schema}], taxonomies?}], routes?: [{path, methods, auth: 'public-nonce'|'capability', capability?}], bindings?: [{name, meta_key}]}", "output": "{dir, files}", "behavior": "Template a schema package; intent embedded as the implementation comment exactly like render_intent." },
+      { "name": "wp_schema_build_test", "input": "{dir, sample: {posts?, route_calls?}}", "output": "{built, smoke: {types_registered, meta_in_rest, routes: [{path, status}], php_error?}, zip_path?}", "behavior": "Run the gate above in @wp-playground/cli; structured failure detail; no zip on any failure." },
+      { "name": "wp_schema_install", "input": "{zip_path}", "output": "{installed, fingerprint}", "behavior": "POST /schema/install; refresh manifest + reload harness to the new epoch; posture-guarded." }
+    ],
+    "mcp_tool_amendments": [
+      "wp_manifest gains {section} passthrough mirroring GET /manifest?section=.",
+      "wp_block_scaffold gains {interactivity: 'none'|'view-script'|'interactivity-api', stylesheet: bool}. 'view-script' templates a vanilla view.js (no framework, no build-time deps beyond wp-scripts) declared as block.json viewScript; 'interactivity-api' templates data-wp-* directives in render.php + a store module, only offered when manifest.features.interactivity_api is true. stylesheet templates style.css restricted to token custom properties.",
+      "wp_block_build_test smoke additionally asserts: viewScript enqueues and executes without console errors against the rendered sample; style.css enqueues; any hardcoded color/size literal in style.css (not a var(--wp--preset--*)) is a warning surfaced in the result.",
+      "wp_validate implements the three new diagnostics locally where possible (styles, bindable attributes) before the round trip."
+    ],
+    "interactivity_policy": "Default rung is 'view-script' vanilla JS for progressive enhancement (submit-over-fetch, toggles, client state that never leaves the page). Escalate to the Interactivity API only when state must flow server->client (hydration, context sharing across blocks) AND manifest.features.interactivity_api is true. Both rungs are canon; React or any framework on the front end is outside canon and forbidden."
+  },
+
+  "skill_contract": {
+    "new_skill": {
+      "file": "skills/wp-schema/SKILL.md",
+      "frontmatter": "name + description tuned to trigger on: storage, orders/bookings/submissions/inventory, custom post types, taxonomies, custom fields/meta, block bindings, REST endpoints, admin screens, 'where does the data live', and any block whose behavior needs a backend.",
+      "mandatory_rules": [
+        "S1 Model before UI: post types, taxonomies, meta, and routes are designed and installed BEFORE the blocks that render them. The data model is the source of truth; blocks are views.",
+        "S2 Read the model first: wp_manifest section=data_model + bindings at the current fingerprint. Extend what exists (a taxonomy term, a meta key) before registering anything new; registering a parallel model beside an existing one is the schema-side equivalent of hand-written markup.",
+        "S3 Everything REST-visible: no meta without show_in_rest schema, no CPT the agent cannot read back through /wp/v2. If the agent can't see it in the manifest afterwards, it doesn't exist.",
+        "S4 Bindings over bespoke rendering: when a core block + a binding to registered meta can display the data, that beats a custom block. Cite manifest.bindings before building a rung-3 block that merely displays a field.",
+        "S5 The factory gate is not skippable: scaffold -> implement -> wp_schema_build_test green -> wp_schema_install -> adopt the new fingerprint in the very next tree.",
+        "S6 Anonymous write flows (order forms, RSVPs) go through a package-registered route with nonce + honeypot + server-side validation; never through comments, options, or transients. Content types the public writes get moderated statuses by design.",
+        "S7 A schema package is owned code with an uninstall story. Say the cost out loud when you create one, exactly as R7 rung 3 requires for blocks.",
+        "S8 Posture: /schema/install is extend-tier. Production = snapshot -> sandbox -> promote. Never around the wall."
+      ],
+      "worked_example_required": "The bakery ordering system rebuilt end-to-end: agent/orders schema package (hc_order CPT with moderated statuses, meta with REST schemas, nonce-guarded submit route, standard admin list) + the order-form block reduced to a styled form with view.js fetch submission + a binding displaying pickup-day on a core block. Literal tool-call transcripts, including the schema_build_test failure path."
+    },
+    "wp_blocks_amendments": [
+      "R4 is superseded by the expression_ladder (referenced, with the citation rule).",
+      "R7 gains the handoff rule (rung 3.5): if the gap is storage, backend behavior, or an admin surface — stop climbing the block ladder; that is wp-schema territory. A block may be the VIEW of a schema package, never its database.",
+      "R5 gains: blocks with interactivity declare the rung (view-script | interactivity-api) and why; wp_block_build_test's console-error assertion is part of the gate.",
+      "New R11: block-owned stylesheets use token custom properties exclusively; a literal hex or px that exists as a token is a defect the build_test warning already names."
+    ]
+  },
+
+  "milestones": [
+    { "id": "M1_manifest_lsp", "goal": "Companion serves styles, global_styles, bindings, data_model, features sections; sectioned GET; fingerprint covers the new server-side state.", "acceptance": ["curl GET /manifest?section=bindings on core-only env lists core/post-meta source and bindable_attributes for core/paragraph content", "GET /manifest?section=data_model lists post/page with meta_keys and rest_base", "register a test CPT via mu-plugin -> /fingerprint changes; deactivate -> reverts", "manifest.schema.json v2 validates the fat manifest; interfaces_version reads '2'"] },
+    { "id": "M2_harness_capture", "goal": "Harness page captures client-registered variations and styles per fingerprint; manifest merges with source labels.", "acceptance": ["with a suite active, blocks[].variations includes at least one source='client' entry absent from the server registry", "capture is cached: second manifest read at same fingerprint performs zero harness navigations (log-asserted)"] },
+    { "id": "M3_rung5_css", "goal": "DesignTokens css section compiles into global-styles custom css; validator additions live.", "acceptance": ["wp_tokens_apply with css.blocks['core/button'] changes the computed style of a verified button and moves the fingerprint", "a rejected CSS property is itemized in the response", "wp_validate flags W_STYLE_UNKNOWN for an unregistered is-style-* and E_BINDING_UNKNOWN for a bogus binding source (fixture trees)"] },
+    { "id": "M4_schema_factory", "goal": "wp_schema_scaffold + wp_schema_build_test end-to-end against the throwaway Playground.", "acceptance": ["scaffold a package with one CPT + two meta keys + one nonce route -> build_test green with types_registered and routes 2xx/403 as declared", "sabotage: meta without show_in_rest -> gate fails naming the key; direct $wpdb call -> gate fails schema_policy; no zip in either case"] },
+    { "id": "M5_schema_install", "goal": "POST /schema/install with policy enforcement, posture gating, epoch movement; wp_schema_install adopts the new world.", "acceptance": ["install the M4 package on toolchain env -> new fingerprint; manifest.data_model lists the CPT with source='agent'; /wp/v2/<rest_base> answers", "same call on production posture -> 403 posture_forbidden with sandbox hint", "reinstall bumped version -> replaced_previous=true; uninstall leaves no registrations (asserted via data_model diff)"] },
+    { "id": "M6_block_factory_upgrades", "goal": "view-script and interactivity-api scaffolding, owned stylesheet rung, extended smoke.", "acceptance": ["scaffold with interactivity='view-script' + stylesheet=true -> build_test asserts view.js executed without console errors and style.css enqueued", "a hardcoded #hex in style.css surfaces as the named warning", "interactivity='interactivity-api' refused (structured error) when features.interactivity_api is false on the target"] },
+    { "id": "M7_skills_and_e2e", "goal": "wp-schema SKILL.md complete (S1-S8 + worked example with literal transcripts); wp-blocks amended (ladder, R7 handoff, R11); proof suite extended.", "acceptance": ["tests/e2e/ordering.sh: fresh toolchain instance -> schema package installed -> block with view.js submits an order over the nonce route -> order visible in /wp/v2/<rest_base> with moderated status -> zero comments created", "skill triggers verified: 'add an ordering system' loads wp-schema before any block work (manual check documented in PROGRESS evidence)", "proof/run-all.sh green including the new checks, full count reported in proof/REPORT.md"] }
+  ],
+
+  "progress_protocol": { "same_as": "companion spec progress_protocol — identical file schema and rules; record here the interfaces v2 additivity check and every WP-API surface verified against developer.wordpress.org rather than memory (bindings registry, per-block css, interactivity API)." },
+
+  "non_goals": [
+    "No separate agent-side plugin (decision recorded above; revisit only if a trust story cannot be met by extend-tier gating plus tool allowlists).",
+    "No front-end frameworks: view.js is vanilla; the Interactivity API is the only sanctioned stateful escalation.",
+    "No direct SQL, no bespoke admin frameworks, no settings pages — the CPT's standard admin UI is the admin surface.",
+    "No commerce suite integration in this spec: if a commerce suite is active it appears in the manifest like any vocabulary; installing one remains a product decision made in the prompt, never a factory default.",
+    "No relaxation of the base contract: postures, epoch semantics, no-hand-written-markup, and the block factory's dynamic-only rule all stand.",
+    "Custom CSS never becomes a first resort: rungs 5 and 6 require the cited failure of rungs 1-4, enforced by skill discipline and surfaced by build_test warnings, not by trusting restraint."
+  ]
+}

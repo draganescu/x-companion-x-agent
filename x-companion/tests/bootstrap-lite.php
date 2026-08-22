@@ -605,7 +605,7 @@ if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
  * ---------------------------------------------------------------------------
  */
 
-foreach ( array( 'class-manifest.php', 'class-validator.php' ) as $x_lite_include ) {
+foreach ( array( 'class-manifest.php', 'class-validator.php', 'class-platform.php' ) as $x_lite_include ) {
 	$x_lite_path = dirname( __DIR__ ) . '/includes/' . $x_lite_include;
 	if ( file_exists( $x_lite_path ) ) {
 		require_once $x_lite_path;

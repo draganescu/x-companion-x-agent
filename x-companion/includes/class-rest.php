@@ -239,6 +239,11 @@ final class X_Companion_Rest {
 						'default'     => false,
 						'description' => __( 'Bypass the manifest transient.', 'x-companion' ),
 					),
+					'section' => array(
+						'type'        => 'string',
+						'enum'        => array( 'styles', 'variations', 'global_styles', 'bindings', 'data_model', 'features' ),
+						'description' => __( 'Return one interfaces-v2 section instead of the full manifest.', 'x-companion' ),
+					),
 				),
 			)
 		);
@@ -499,7 +504,35 @@ final class X_Companion_Rest {
 	 * @return WP_REST_Response
 	 */
 	public static function route_manifest( WP_REST_Request $request ) {
-		return rest_ensure_response( X_Companion_Manifest::get_manifest( (bool) $request->get_param( 'refresh' ) ) );
+		$manifest = X_Companion_Manifest::get_manifest( (bool) $request->get_param( 'refresh' ) );
+		$section  = (string) $request->get_param( 'section' );
+
+		if ( '' === $section ) {
+			return rest_ensure_response( $manifest );
+		}
+
+		$envelope = array(
+			'fingerprint'        => $manifest['fingerprint'] ?? '',
+			'posture'            => $manifest['posture'] ?? '',
+			'interfaces_version' => $manifest['interfaces_version'] ?? '',
+			'section'            => $section,
+		);
+
+		if ( 'styles' === $section || 'variations' === $section ) {
+			$key = 'styles' === $section ? 'styles' : 'variations';
+			$map = array();
+			foreach ( (array) ( $manifest['blocks'] ?? array() ) as $name => $block ) {
+				$list = (array) ( $block[ $key ] ?? array() );
+				if ( ! empty( $list ) ) {
+					$map[ (string) $name ] = $list;
+				}
+			}
+			$envelope[ $section ] = X_Companion_Manifest::as_object( $map );
+		} else {
+			$envelope[ $section ] = $manifest[ $section ] ?? X_Companion_Manifest::as_object( array() );
+		}
+
+		return rest_ensure_response( $envelope );
 	}
 
 	/**

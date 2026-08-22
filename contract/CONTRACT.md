@@ -85,7 +85,8 @@ fingerprint = sha256( canonical_json( fingerprint_inputs ) )
   "theme": { "slug": "twentytwentyfive", "version": "1.3" },
   "plugins": [ { "slug": "x-companion", "version": "1.0.0" } ],
   "global_styles": "<sha256 of the user-origin global styles post content, or ''>",
-  "agent_patterns": "<sha256 of the agent-saved pattern corpus, or ''>"
+  "agent_patterns": "<sha256 of the agent-saved pattern corpus, or ''>",
+  "platform": "<sha256 of the canonical platform snapshot, or ''>"
 }
 ```
 
@@ -97,6 +98,12 @@ fingerprint = sha256( canonical_json( fingerprint_inputs ) )
   post does not exist or is empty. It is an input **so that design-token writes move the epoch**:
   the manifest is cached by fingerprint, and without this component `POST /theme/tokens` changed
   `theme_tokens` while the cache key stayed put, serving stale tokens until a forced refresh.
+
+- `platform` (interfaces v2) is the sha256 of the canonical platform snapshot: registered block
+  styles, binding source names, post types with their registered meta keys, taxonomies, and
+  server-registered variation names. It is an input **so that schema installs, meta registration
+  and style/variation registration move the epoch** — each changes what a valid tree means.
+  `''` on a v1 instance.
 
 `canonical_json` = UTF-8 JSON with **object keys sorted ascending byte order at every depth**,
 no insignificant whitespace, `/` not escaped, unicode not escaped.
@@ -124,6 +131,19 @@ Returns `Manifest` (see `manifest.schema.json`). Cached in a transient keyed by 
 fingerprint inputs. Each request recomputes the *cheap* inputs hash and rebuilds the heavy body
 only when it moved. Invalidated on `activated_plugin`, `deactivated_plugin`, `switch_theme`, and
 after `POST /blocks/install`.
+
+**interfaces v2** adds the manifest sections `global_styles`, `bindings`, `data_model`,
+`features`, and per-block `styles` + `variations` (full entries beside the v1
+`variations_count`), plus sectioned retrieval:
+
+```
+GET /manifest?section=styles|variations|global_styles|bindings|data_model|features
+```
+
+returns `{ fingerprint, posture, interfaces_version, section, <section> }` — for `styles` and
+`variations` the payload is a `block name → entries` map extracted from `blocks`. All v2
+additions are additive: every v1 field is unchanged, a v1 client keeps working, and a v2 client
+must read `interfaces_version` before requesting v2 sections.
 
 ### `POST /validate` — introspect
 Body: `TreeIR`. Returns `Diagnostics`. Diagnostic codes and their exact semantics:

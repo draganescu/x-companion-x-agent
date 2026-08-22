@@ -134,7 +134,8 @@ final class X_Companion_Manifest {
 			self::active_theme(),
 			self::active_plugins(),
 			self::global_styles_stamp(),
-			class_exists( 'X_Companion_Pattern_Library' ) ? X_Companion_Pattern_Library::stamp() : ''
+			class_exists( 'X_Companion_Pattern_Library' ) ? X_Companion_Pattern_Library::stamp() : '',
+			class_exists( 'X_Companion_Platform' ) ? X_Companion_Platform::stamp() : ''
 		);
 
 		self::$fingerprint = self::compute_fingerprint( $inputs );
@@ -173,6 +174,8 @@ final class X_Companion_Manifest {
 			}
 		}
 
+		$platform_available = class_exists( 'X_Companion_Platform' );
+
 		$manifest = self::build(
 			self::snapshot_registry(),
 			array(
@@ -185,6 +188,11 @@ final class X_Companion_Manifest {
 				'patterns'           => self::patterns_summary(),
 				'theme_tokens'       => self::theme_tokens(),
 				'suites'             => self::suites( self::active_plugins() ),
+				'block_styles'       => $platform_available ? X_Companion_Platform::styles_map() : array(),
+				'global_styles'      => $platform_available ? X_Companion_Platform::global_styles() : array(),
+				'bindings'           => $platform_available ? X_Companion_Platform::bindings() : array(),
+				'data_model'         => $platform_available ? X_Companion_Platform::data_model() : array(),
+				'features'           => $platform_available ? X_Companion_Platform::features() : array(),
 			)
 		);
 
@@ -281,7 +289,7 @@ final class X_Companion_Manifest {
 	 * @param array $plugins  List of { slug, version }.
 	 * @return array
 	 */
-	public static function fingerprint_inputs( array $snapshot, array $theme, array $plugins, string $global_styles = '', string $agent_patterns = '' ): array {
+	public static function fingerprint_inputs( array $snapshot, array $theme, array $plugins, string $global_styles = '', string $agent_patterns = '', string $platform = '' ): array {
 		$names = array_keys( $snapshot );
 		usort( $names, 'strcmp' );
 
@@ -322,6 +330,7 @@ final class X_Companion_Manifest {
 			'plugins'            => $plugin_list,
 			'global_styles'      => $global_styles,
 			'agent_patterns'     => $agent_patterns,
+			'platform'           => $platform,
 		);
 	}
 
@@ -385,10 +394,11 @@ final class X_Companion_Manifest {
 	 * on the snapshot entry under `_type`, which is never emitted); offline it
 	 * is null.
 	 *
-	 * @param array $snapshot Registry snapshot.
+	 * @param array $snapshot   Registry snapshot.
+	 * @param array $styles_map block name => registered styles (from X_Companion_Platform).
 	 * @return array name => block entry.
 	 */
-	public static function build_blocks( array $snapshot ): array {
+	public static function build_blocks( array $snapshot, array $styles_map = array() ): array {
 		$names = array_keys( $snapshot );
 		usort( $names, 'strcmp' );
 
@@ -409,6 +419,8 @@ final class X_Companion_Manifest {
 				'uses_context'     => array_values( (array) ( $block['uses_context'] ?? array() ) ),
 				'is_dynamic'       => (bool) ( $block['is_dynamic'] ?? false ),
 				'variations_count' => (int) ( $block['variations_count'] ?? 0 ),
+				'variations'       => array_values( (array) ( $block['variations'] ?? array() ) ),
+				'styles'           => array_values( (array) ( $styles_map[ (string) $name ] ?? array() ) ),
 			);
 
 			$hints = array_merge( self::default_hints(), (array) ( $block['agent_hints'] ?? array() ) );
@@ -431,6 +443,60 @@ final class X_Companion_Manifest {
 		}
 
 		return $blocks;
+	}
+
+	/**
+	 * Trim registry variations to the manifest shape.
+	 *
+	 * Icon (often a large inline SVG), example and keywords are deliberately
+	 * dropped — they inform pickers, not generation. `source` is stamped
+	 * 'server'; the agent side merges client-registered variations captured on
+	 * the harness page under source 'client'.
+	 *
+	 * @param array $variations Raw registry variations.
+	 * @return array
+	 */
+	public static function normalize_variations( array $variations ): array {
+		$out = array();
+
+		foreach ( $variations as $variation ) {
+			if ( ! is_array( $variation ) || '' === (string) ( $variation['name'] ?? '' ) ) {
+				continue;
+			}
+
+			$entry = array(
+				'name'   => (string) $variation['name'],
+				'title'  => (string) ( $variation['title'] ?? $variation['name'] ),
+				'source' => 'server',
+			);
+
+			if ( isset( $variation['description'] ) && '' !== (string) $variation['description'] ) {
+				$entry['description'] = (string) $variation['description'];
+			}
+			if ( isset( $variation['scope'] ) && is_array( $variation['scope'] ) ) {
+				$entry['scope'] = array_values( array_map( 'strval', $variation['scope'] ) );
+			}
+			if ( ! empty( $variation['isDefault'] ) ) {
+				$entry['isDefault'] = true;
+			}
+			if ( isset( $variation['attributes'] ) && is_array( $variation['attributes'] ) ) {
+				$entry['attributes'] = self::as_object( $variation['attributes'] );
+			}
+			if ( isset( $variation['innerBlocks'] ) && is_array( $variation['innerBlocks'] ) ) {
+				$entry['innerBlocks'] = $variation['innerBlocks'];
+			}
+
+			$out[] = $entry;
+		}
+
+		usort(
+			$out,
+			static function ( $a, $b ) {
+				return strcmp( $a['name'], $b['name'] );
+			}
+		);
+
+		return $out;
 	}
 
 	/**
@@ -476,11 +542,12 @@ final class X_Companion_Manifest {
 	 * @param array $snapshot Registry snapshot.
 	 * @param array $context  fingerprint, generated_at, wp_version, site_url,
 	 *                        posture, interfaces_version, patterns,
-	 *                        theme_tokens, suites.
+	 *                        theme_tokens, suites, block_styles, global_styles,
+	 *                        bindings, data_model, features.
 	 * @return array Manifest.
 	 */
 	public static function build( array $snapshot, array $context ): array {
-		$blocks = self::build_blocks( $snapshot );
+		$blocks = self::build_blocks( $snapshot, (array) ( $context['block_styles'] ?? array() ) );
 
 		$dynamic = 0;
 		foreach ( $blocks as $block ) {
@@ -502,6 +569,10 @@ final class X_Companion_Manifest {
 			'patterns'           => $patterns,
 			'theme_tokens'       => self::normalize_theme_tokens( (array) ( $context['theme_tokens'] ?? array() ) ),
 			'suites'             => array_values( (array) ( $context['suites'] ?? array() ) ),
+			'global_styles'      => self::as_object( $context['global_styles'] ?? array() ),
+			'bindings'           => self::as_object( $context['bindings'] ?? array() ),
+			'data_model'         => self::as_object( $context['data_model'] ?? array() ),
+			'features'           => self::as_object( $context['features'] ?? array() ),
 			'counts'             => array(
 				'blocks'         => count( $blocks ),
 				'dynamic_blocks' => $dynamic,
@@ -641,6 +712,7 @@ final class X_Companion_Manifest {
 				'uses_context'     => array_values( (array) ( $type->uses_context ?? array() ) ),
 				'is_dynamic'       => method_exists( $type, 'is_dynamic' ) ? (bool) $type->is_dynamic() : is_callable( $type->render_callback ?? null ),
 				'variations_count' => is_array( $variations ) ? count( $variations ) : 0,
+				'variations'       => self::normalize_variations( is_array( $variations ) ? $variations : array() ),
 				'_type'            => $type,
 			);
 		}

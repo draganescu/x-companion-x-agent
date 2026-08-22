@@ -144,13 +144,18 @@ x_test(
 		$inputs = X_Companion_Manifest::fingerprint_inputs( $snapshot, $theme, $plugins );
 
 		x_assert_same(
-			array( 'interfaces_version', 'blocks', 'theme', 'plugins', 'global_styles', 'agent_patterns' ),
+			array( 'interfaces_version', 'blocks', 'theme', 'plugins', 'global_styles', 'agent_patterns', 'platform' ),
 			array_keys( $inputs ),
 			'top-level keys, in contract order'
 		);
 		x_assert_same( '', $inputs['global_styles'], 'global_styles defaults to the empty stamp' );
 		x_assert_same( '', $inputs['agent_patterns'], 'agent_patterns defaults to the empty stamp' );
-		x_assert_same( '1', $inputs['interfaces_version'], 'interfaces_version' );
+		x_assert_same( '', $inputs['platform'], 'platform defaults to the empty stamp' );
+		x_assert_same(
+			defined( 'X_COMPANION_INTERFACES_VERSION' ) ? X_COMPANION_INTERFACES_VERSION : '1',
+			$inputs['interfaces_version'],
+			'interfaces_version'
+		);
 		x_assert_same( $theme, $inputs['theme'], 'theme' );
 		x_assert_same( $plugins, $inputs['plugins'], 'plugins' );
 
@@ -510,6 +515,10 @@ x_test(
 				'patterns',
 				'theme_tokens',
 				'suites',
+				'global_styles',
+				'bindings',
+				'data_model',
+				'features',
 				'counts',
 			),
 			array_keys( $manifest ),
@@ -675,5 +684,127 @@ if ( ! X_COMPANION_LITE ) {
 		}
 	);
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * interfaces v2: variations + platform stamp (pure layer)
+ * ---------------------------------------------------------------------------
+ */
+
+x_test(
+	'normalize_variations trims to the manifest shape and sorts by name',
+	function () {
+		$normalized = X_Companion_Manifest::normalize_variations(
+			array(
+				array(
+					'name'       => 'youtube',
+					'title'      => 'YouTube',
+					'icon'       => '<svg>enormous</svg>',
+					'example'    => array( 'attributes' => array() ),
+					'keywords'   => array( 'video' ),
+					'attributes' => array( 'providerNameSlug' => 'youtube' ),
+					'scope'      => array( 'inserter' ),
+					'isDefault'  => true,
+				),
+				array(
+					'name'  => 'vimeo',
+					'title' => 'Vimeo',
+				),
+				array( 'title' => 'nameless — dropped' ),
+			)
+		);
+
+		x_assert_same( array( 'vimeo', 'youtube' ), array_column( $normalized, 'name' ), 'sorted by name, nameless dropped' );
+		x_assert_same( 'server', $normalized[0]['source'], 'source stamped server' );
+		x_assert( ! isset( $normalized[1]['icon'] ) && ! isset( $normalized[1]['example'] ), 'icon and example dropped' );
+		x_assert_same( array( 'inserter' ), $normalized[1]['scope'], 'scope kept' );
+		x_assert( true === $normalized[1]['isDefault'], 'isDefault kept' );
+	}
+);
+
+x_test(
+	'platform_stamp_inputs is order-insensitive: shuffled inputs hash identically',
+	function () {
+		$a = X_Companion_Platform::platform_stamp_inputs(
+			array( 'core/button' => array( 'outline' ), 'core/image' => array( 'rounded' ) ),
+			array( 'core/post-meta', 'acme/source' ),
+			array( array( 'slug' => 'post', 'meta_keys' => array() ), array( 'slug' => 'hc_order', 'meta_keys' => array( 'pickup_day' ) ) ),
+			array( 'category', 'post_tag' ),
+			array( 'core/embed' => array( 'vimeo', 'youtube' ) )
+		);
+		$b = X_Companion_Platform::platform_stamp_inputs(
+			array( 'core/image' => array( 'rounded' ), 'core/button' => array( 'outline' ) ),
+			array( 'acme/source', 'core/post-meta' ),
+			array( array( 'slug' => 'hc_order', 'meta_keys' => array( 'pickup_day' ) ), array( 'slug' => 'post', 'meta_keys' => array() ) ),
+			array( 'post_tag', 'category' ),
+			array( 'core/embed' => array( 'vimeo', 'youtube' ) )
+		);
+
+		x_assert_same(
+			X_Companion_Manifest::canonical_json( $a ),
+			X_Companion_Manifest::canonical_json( $b ),
+			'canonical stamp inputs identical under input reordering'
+		);
+	}
+);
+
+x_test(
+	'a new post type moves the platform stamp inputs (the epoch lever)',
+	function () {
+		$base = X_Companion_Platform::platform_stamp_inputs( array(), array(), array( array( 'slug' => 'post', 'meta_keys' => array() ) ), array(), array() );
+		$cpt  = X_Companion_Platform::platform_stamp_inputs( array(), array(), array( array( 'slug' => 'post', 'meta_keys' => array() ), array( 'slug' => 'hc_order', 'meta_keys' => array() ) ), array(), array() );
+
+		x_assert(
+			hash( 'sha256', X_Companion_Manifest::canonical_json( $base ) ) !== hash( 'sha256', X_Companion_Manifest::canonical_json( $cpt ) ),
+			'registering a CPT changes the stamp'
+		);
+	}
+);
+
+x_test(
+	'fingerprint moves when the platform stamp moves',
+	function () use ( $snapshot, $theme, $plugins ) {
+		$without = X_Companion_Manifest::compute_fingerprint( X_Companion_Manifest::fingerprint_inputs( $snapshot, $theme, $plugins, '', '', '' ) );
+		$with    = X_Companion_Manifest::compute_fingerprint( X_Companion_Manifest::fingerprint_inputs( $snapshot, $theme, $plugins, '', '', str_repeat( 'a', 64 ) ) );
+
+		x_assert( $without !== $with, 'platform stamp is a fingerprint input' );
+	}
+);
+
+x_test(
+	'build_blocks carries styles from the styles map and full variations from the snapshot',
+	function () use ( $snapshot ) {
+		$with_variation = $snapshot;
+		$first          = array_key_first( $with_variation );
+
+		$with_variation[ $first ]['variations'] = X_Companion_Manifest::normalize_variations(
+			array(
+				array(
+					'name'  => 'special',
+					'title' => 'Special',
+				),
+			)
+		);
+
+		$styles_map = array(
+			$first => array(
+				array(
+					'name'   => 'outline',
+					'label'  => 'Outline',
+					'source' => 'theme',
+				),
+			),
+		);
+
+		$blocks = X_Companion_Manifest::build_blocks( $with_variation, $styles_map );
+
+		x_assert_same( array( array( 'name' => 'outline', 'label' => 'Outline', 'source' => 'theme' ) ), $blocks[ $first ]['styles'], 'styles attached to the block entry' );
+		x_assert_same( 'special', $blocks[ $first ]['variations'][0]['name'], 'variations attached to the block entry' );
+
+		foreach ( $blocks as $name => $entry ) {
+			x_assert( array_key_exists( 'styles', $entry ) && array_key_exists( 'variations', $entry ), $name . ' carries styles + variations keys' );
+		}
+	}
+);
 
 exit( x_summary() );

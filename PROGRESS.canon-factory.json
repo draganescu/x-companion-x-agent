@@ -1,0 +1,35 @@
+{
+    "spec": "specs/canon-factory.spec.json",
+    "milestones": {
+        "M1_manifest_lsp": { "status": "done", "evidence": "core-only 9410: GET /manifest?section=bindings -> sources incl core/post-meta (+post-data/term-data/pattern-overrides), bindable_attributes['core/paragraph']=['content']; section=data_model -> post/page with rest_base+meta_keys, taxonomies listed; mu-plugin CPT hc_test_cpt: fingerprint 68793da8->bec0ba15 (moved), removal reverts to 68793da8 exactly; ajv: fat manifest valid against manifest.schema.json v2; interfaces_version '2'; offline suites 216/216 manifest, 140/140 validator, 35/35 tokens, 62/62 install.", "updated_at": "2026-08-22T00:00:00Z" },
+        "M2_harness_capture": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M3_rung5_css": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M4_schema_factory": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M5_schema_install": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M6_block_factory_upgrades": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M7_skills_and_e2e": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" }
+    },
+    "decisions": [
+        {
+            "when": "2026-08-22",
+            "what": "Kept variations_count beside the new blocks[].variations despite the spec's 'replaces' wording.",
+            "why": "The spec's own version_policy (v1 clients keep working) outranks the section prose; removing a v1 field is a wire break."
+        },
+        {
+            "when": "2026-08-22",
+            "what": "bindable_attributes ships as a version-aware vendored map (paragraph/heading/image/button) behind the x_companion_bindable_attributes filter.",
+            "why": "Core hardcodes the allowlist in a local variable inside WP_Block::process_block_bindings — not reflectable; the map mirrors canon verbatim and the filter adopts future core expansion without a release."
+        },
+        {
+            "when": "2026-08-22",
+            "what": "Block style source labels are best-effort: 'theme' when the style name appears in theme-origin theme.json variations for that block, 'agent' when tracked by the schema provides option, else 'plugin'.",
+            "why": "register_block_style() does not record its caller; no API exposes registration provenance."
+        },
+        {
+            "when": "2026-08-22",
+            "what": "No new cache-invalidation hooks for model changes: the platform stamp is a fingerprint input and the manifest transient is keyed by fingerprint.",
+            "why": "Registration happens on init before any REST read; the fingerprint IS the invalidator by construction, and hooks like registered_post_type fire on every request."
+        }
+    ],
+    "deviations": []
+}

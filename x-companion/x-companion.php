@@ -30,8 +30,14 @@ define( 'X_COMPANION_URL', plugin_dir_url( __FILE__ ) );
 /** REST namespace. Pinned by contract v1. */
 define( 'X_COMPANION_REST_NAMESPACE', 'x-companion/v1' );
 
-/** interfaces.version. Pinned by contract v1. Bumping this is a wire break. */
-define( 'X_COMPANION_INTERFACES_VERSION', '1' );
+/**
+ * interfaces.version. '2' = contract v1 plus the additive canon-factory
+ * surface (manifest sections styles/variations/global_styles/bindings/
+ * data_model/features, GET /manifest?section=, POST /schema/install). Every
+ * v1 field is unchanged, so v1 clients keep working; v2 clients must read
+ * this value before requesting v2 sections.
+ */
+define( 'X_COMPANION_INTERFACES_VERSION', '2' );
 
 /**
  * Posture. 'toolchain' | 'production'.
