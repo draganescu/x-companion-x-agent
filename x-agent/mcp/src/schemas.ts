@@ -53,10 +53,13 @@ export const DIAGNOSTIC_CODES = [
   'E_NEST_PARENT',
   'E_NEST_ANCESTOR',
   'E_EPOCH_MISMATCH',
+  'E_BINDING_UNKNOWN',
+  'E_BINDING_UNBINDABLE',
   'W_ATTR_UNKNOWN',
   'W_STATIC_NEEDS_HARNESS',
   'W_HINT_ALLOWED_BLOCKS',
   'W_HINT_TEMPLATE_LOCK',
+  'W_STYLE_UNKNOWN',
 ] as const;
 
 export const DiagnosticSchema = z.object({
@@ -208,12 +211,21 @@ export const TypographySchema = z
 
 export const LayoutTokensSchema = z.object({ contentSize: z.string(), wideSize: z.string() }).strict();
 
+export const CssTokensSchema = z
+  .object({
+    global: z.string().optional(),
+    blocks: z.record(z.string(), z.string()).optional(),
+  })
+  .strict();
+
 export const DesignTokensSchema = z
   .object({
     palette: PaletteSchema,
     spacing: SpacingSchema,
     typography: TypographySchema,
     layout: LayoutTokensSchema,
+    /** interfaces v2, rung 5: custom css into global styles. Requires the cited failure of rungs 1-4. */
+    css: CssTokensSchema.optional(),
   })
   .strict();
 export type DesignTokens = z.infer<typeof DesignTokensSchema>;

@@ -80,6 +80,17 @@ final class X_Companion_Validator {
 	private static $diagnostics = array();
 
 	/**
+	 * Platform context for binding checks: binding_sources (string[] | null
+	 * when unknown) and bindable (block name => attribute list).
+	 *
+	 * @var array
+	 */
+	private static $platform = array(
+		'binding_sources' => null,
+		'bindable'        => array(),
+	);
+
+	/**
 	 * No hooks. Present so the bootstrap loader can call ::init() uniformly.
 	 *
 	 * @return void
@@ -94,9 +105,15 @@ final class X_Companion_Validator {
 	 * @param string $server_fingerprint The current epoch.
 	 * @return array Diagnostics document.
 	 */
-	public static function validate( $tree, array $blocks, string $server_fingerprint ): array {
+	public static function validate( $tree, array $blocks, string $server_fingerprint, array $platform = array() ): array {
 		self::$static_seen = array();
 		self::$diagnostics = array();
+		self::$platform    = array(
+			// null = unknown (offline / v1 context): binding-source existence
+			// is then not checkable and E_BINDING_UNKNOWN is skipped.
+			'binding_sources' => array_key_exists( 'binding_sources', $platform ) ? $platform['binding_sources'] : null,
+			'bindable'        => is_array( $platform['bindable'] ?? null ) ? $platform['bindable'] : array(),
+		);
 
 		$as_map   = self::to_map( $tree );
 		$epoch    = ( isset( $as_map['epoch'] ) && is_string( $as_map['epoch'] ) ) ? $as_map['epoch'] : null;
@@ -138,7 +155,29 @@ final class X_Companion_Validator {
 		$manifest = X_Companion_Manifest::get_manifest();
 		$blocks   = is_array( $manifest['blocks'] ?? null ) ? $manifest['blocks'] : array();
 
-		return self::validate( $tree, $blocks, (string) ( $manifest['fingerprint'] ?? '' ) );
+		$platform = array();
+		$bindings = $manifest['bindings'] ?? null;
+		if ( $bindings instanceof stdClass ) {
+			$bindings = (array) $bindings;
+		}
+		if ( is_array( $bindings ) ) {
+			$sources = array();
+			foreach ( (array) ( $bindings['sources'] ?? array() ) as $source ) {
+				$source = is_array( $source ) ? $source : (array) $source;
+				if ( '' !== (string) ( $source['name'] ?? '' ) ) {
+					$sources[] = (string) $source['name'];
+				}
+			}
+			$platform['binding_sources'] = $sources;
+
+			$bindable = $bindings['bindable_attributes'] ?? array();
+			if ( $bindable instanceof stdClass ) {
+				$bindable = (array) $bindable;
+			}
+			$platform['bindable'] = is_array( $bindable ) ? $bindable : array();
+		}
+
+		return self::validate( $tree, $blocks, (string) ( $manifest['fingerprint'] ?? '' ), $platform );
 	}
 
 	/*
@@ -322,6 +361,8 @@ final class X_Companion_Validator {
 		self::check_parent( $name, $type, $path, $parent_name );
 		self::check_ancestor( $name, $type, $path, $ancestors );
 		self::check_attributes( $name, $type, $node, $path );
+		self::check_styles( $name, $type, $node, $path );
+		self::check_bindings( $name, $node, $path );
 
 		if ( empty( $type['is_dynamic'] ) && ! isset( self::$static_seen[ $name ] ) ) {
 			self::$static_seen[ $name ] = true;
@@ -432,6 +473,126 @@ final class X_Companion_Validator {
 	 * @param string $path Node pointer.
 	 * @return void
 	 */
+	/**
+	 * W_STYLE_UNKNOWN — an is-style-* className that is not registered
+	 * server-side for this block at this fingerprint.
+	 *
+	 * Deliberately a warning, and deliberately skipped when the block has no
+	 * server-registered styles at all: many core styles (image "rounded",
+	 * button "outline") register client-side only, where the server is blind —
+	 * wp_manifest's client capture is the authority there.
+	 *
+	 * @param string $name Block name.
+	 * @param array  $type Manifest entry (carries `styles` since interfaces v2).
+	 * @param array  $node Node.
+	 * @param string $path Node pointer.
+	 * @return void
+	 */
+	private static function check_styles( string $name, array $type, array $node, string $path ): void {
+		$attrs      = isset( $node['attributes'] ) ? self::to_map( $node['attributes'] ) : array();
+		$class_name = $attrs['className'] ?? null;
+
+		if ( ! is_string( $class_name ) || false === strpos( $class_name, 'is-style-' ) ) {
+			return;
+		}
+
+		$registered = array();
+		foreach ( (array) ( $type['styles'] ?? array() ) as $style ) {
+			$style = is_array( $style ) ? $style : (array) $style;
+			if ( '' !== (string) ( $style['name'] ?? '' ) ) {
+				$registered[] = (string) $style['name'];
+			}
+		}
+
+		if ( array() === $registered ) {
+			return;
+		}
+
+		foreach ( preg_split( '/\s+/', trim( $class_name ) ) ?: array() as $token ) {
+			if ( 0 !== strpos( $token, 'is-style-' ) ) {
+				continue;
+			}
+			$slug = substr( $token, strlen( 'is-style-' ) );
+			if ( '' === $slug || 'default' === $slug || in_array( $slug, $registered, true ) ) {
+				continue;
+			}
+
+			self::add(
+				'W_STYLE_UNKNOWN',
+				'warning',
+				$path . '/attributes/className',
+				sprintf( 'Style "%s" is not registered for "%s" at this fingerprint (server-side styles: %s).', $slug, $name, implode( ', ', $registered ) ),
+				'pick a registered style from wp_manifest blocks[].styles — client-registered styles appear there under source "client" via the harness capture'
+			);
+		}
+	}
+
+	/**
+	 * E_BINDING_UNKNOWN / E_BINDING_UNBINDABLE — attributes.metadata.bindings
+	 * must reference a registered binding source and a bindable attribute.
+	 *
+	 * @param string $name Block name.
+	 * @param array  $node Node.
+	 * @param string $path Node pointer.
+	 * @return void
+	 */
+	private static function check_bindings( string $name, array $node, string $path ): void {
+		$attrs    = isset( $node['attributes'] ) ? self::to_map( $node['attributes'] ) : array();
+		$metadata = isset( $attrs['metadata'] ) ? self::to_map( $attrs['metadata'] ) : array();
+		$bindings = isset( $metadata['bindings'] ) ? self::to_map( $metadata['bindings'] ) : array();
+
+		if ( array() === $bindings ) {
+			return;
+		}
+
+		$sources  = self::$platform['binding_sources'];
+		$bindable = self::$platform['bindable'];
+
+		foreach ( $bindings as $attr => $binding ) {
+			$attr    = (string) $attr;
+			$pointer = $path . '/attributes/metadata/bindings/' . self::escape_pointer_token( $attr );
+			$binding = self::to_map( $binding );
+			$source  = (string) ( $binding['source'] ?? '' );
+
+			if ( is_array( $sources ) && ! in_array( $source, $sources, true ) ) {
+				self::add(
+					'E_BINDING_UNKNOWN',
+					'error',
+					$pointer,
+					sprintf( 'Binding source "%s" is not registered on this instance.', $source ),
+					sprintf( 'registered sources: %s — see wp_manifest section "bindings"', implode( ', ', $sources ) ?: '(none)' )
+				);
+				continue;
+			}
+
+			// '__default' binds the pattern-overrides set, not one attribute.
+			if ( '__default' === $attr ) {
+				continue;
+			}
+
+			if ( isset( $bindable[ $name ] ) ) {
+				$allowed = array_map( 'strval', (array) $bindable[ $name ] );
+				if ( ! in_array( $attr, $allowed, true ) ) {
+					self::add(
+						'E_BINDING_UNBINDABLE',
+						'error',
+						$pointer,
+						sprintf( 'Attribute "%s" is not bindable on "%s".', $attr, $name ),
+						sprintf( 'bindable attributes on %s: %s', $name, implode( ', ', $allowed ) )
+					);
+				}
+			} elseif ( array() !== $bindable ) {
+				self::add(
+					'E_BINDING_UNBINDABLE',
+					'error',
+					$pointer,
+					sprintf( 'Block "%s" supports no block bindings on this instance.', $name ),
+					'core supports bindings on paragraph content, heading content, image id/url/title/alt and button url/text/linkTarget/rel — see wp_manifest section "bindings"'
+				);
+			}
+		}
+	}
+
 	private static function check_attributes( string $name, array $type, array $node, string $path ): void {
 		$given = isset( $node['attributes'] ) ? self::to_map( $node['attributes'] ) : array();
 

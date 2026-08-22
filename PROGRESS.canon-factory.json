@@ -3,13 +3,23 @@
     "milestones": {
         "M1_manifest_lsp": { "status": "done", "evidence": "core-only 9410: GET /manifest?section=bindings -> sources incl core/post-meta (+post-data/term-data/pattern-overrides), bindable_attributes['core/paragraph']=['content']; section=data_model -> post/page with rest_base+meta_keys, taxonomies listed; mu-plugin CPT hc_test_cpt: fingerprint 68793da8->bec0ba15 (moved), removal reverts to 68793da8 exactly; ajv: fat manifest valid against manifest.schema.json v2; interfaces_version '2'; offline suites 216/216 manifest, 140/140 validator, 35/35 tokens, 62/62 install.", "updated_at": "2026-08-22T00:00:00Z" },
         "M2_harness_capture": { "status": "done", "evidence": "core-plus-suite (kadence) 9420, new build via bridge 9491: wp_manifest section=variations -> client_capture {performed:true, from_cache:false, harness_loads:1, blocks_with_client_variations:21, blocks_with_client_styles:15}; core/embed carries 33 source='client' variations absent from the server registry; second read -> {from_cache:true, harness_loads:0} (zero harness navigations, output-asserted); styles section serves client-captured styles (core/image rounded etc. source plugin); vitest 267 passed incl. 5 new merge tests.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M3_rung5_css": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
+        "M3_rung5_css": { "status": "done", "evidence": "suite 9420: wp_tokens_apply css.blocks['core/button'] -> css_written:true, css_rejected itemizes core/paragraph 'markup is not allowed in css', fingerprint b8aecdb8->6f3344b0; published proof page: verified button link computes background rgb(1,2,3) via wp_verify(url); global custom_css section shows the write merged beside TT5's own per-block css; live wp_validate flags W_STYLE_UNKNOWN (/blocks/0/attributes/className), E_BINDING_UNKNOWN and E_BINDING_UNBINDABLE with valid=false; offline validator 155/155, vitest 267.", "updated_at": "2026-08-22T00:00:00Z" },
         "M4_schema_factory": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
         "M5_schema_install": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
         "M6_block_factory_upgrades": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" },
         "M7_skills_and_e2e": { "status": "pending", "evidence": "", "updated_at": "2026-08-22T00:00:00Z" }
     },
     "decisions": [
+        {
+            "when": "2026-08-22",
+            "what": "W_STYLE_UNKNOWN fires only when the block has at least one server-registered style; markup-mode wp_verify does not see per-block custom css unless the harvested page contains that block.",
+            "why": "Many core styles (image rounded, button outline) register client-side only — warning on every such use would be noise; and WordPress itself emits per-block custom css conditionally on block presence, so url-mode verify against a page containing the block is the honest oracle for rung-5 css."
+        },
+        {
+            "when": "2026-08-22",
+            "what": "wp_validate's binding/style checks run server-side through POST /validate; the agent-local pre-check remains TreeIR-schema-only.",
+            "why": "The checks need the styles registry and binding sources at the current fingerprint — exactly what the server has and the local pre-check exists to avoid fetching."
+        },
         {
             "when": "2026-08-22",
             "what": "Kept variations_count beside the new blocks[].variations despite the spec's 'replaces' wording.",

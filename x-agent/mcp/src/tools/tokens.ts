@@ -11,6 +11,9 @@ const InputSchema = z.object({
   spacing: DesignTokensSchema.shape.spacing,
   typography: DesignTokensSchema.shape.typography,
   layout: DesignTokensSchema.shape.layout,
+  css: DesignTokensSchema.shape.css.describe(
+    'Rung 5 of the expression ladder: custom css into global styles ({global?, blocks?: {block name: css}}). Only after supports, tokens, block styles and variations have failed — cite the failure. Rejected entries come back itemized in css_rejected.',
+  ),
   dry_run: z
     .boolean()
     .optional()
@@ -25,6 +28,11 @@ const OutputSchema = z.object({
   theme_json_written: z.boolean().optional(),
   theme_json_preview: z.unknown().describe('The theme.json settings object this token set compiles to (local mirror of the server-side compiler).'),
   diff_against_instance: z.array(z.unknown()).describe('Per-token differences between the preview and the instance theme_tokens at the current epoch.'),
+  css_written: z.boolean().optional(),
+  css_rejected: z
+    .array(z.object({ target: z.string(), reason: z.string() }))
+    .optional()
+    .describe('Itemized css rejections (markup in css, unknown block). Never silently dropped.'),
 });
 
 export const wpTokensApply = defineTool({
@@ -41,6 +49,7 @@ export const wpTokensApply = defineTool({
       spacing: args.spacing,
       typography: args.typography,
       layout: args.layout,
+      ...(args.css !== undefined ? { css: args.css } : {}),
     });
     const preview = emitThemeJsonSettings(tokens);
 
@@ -85,6 +94,8 @@ export const wpTokensApply = defineTool({
       theme_json_written: res.theme_json_written,
       theme_json_preview: preview,
       diff_against_instance: diff,
+      ...(res.css_written !== undefined ? { css_written: Boolean(res.css_written) } : {}),
+      ...(Array.isArray(res.css_rejected) ? { css_rejected: res.css_rejected } : {}),
     };
   },
 });

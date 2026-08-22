@@ -82,7 +82,8 @@ final class X_Companion_Theme_Tokens {
 		}
 
 		$settings = self::compile( $tokens );
-		$written  = self::write_global_styles( $settings );
+		$css      = self::compile_css( $tokens );
+		$written  = self::write_global_styles( $settings, $css['styles'] );
 		$file     = self::maybe_write_theme_file( $settings );
 
 		$applied = array();
@@ -116,6 +117,93 @@ final class X_Companion_Theme_Tokens {
 			'adapter_notes'      => $notes,
 			'theme_file_written' => $file,
 			'settings'           => $settings,
+			'css_written'        => array() !== $css['styles'],
+			'css_rejected'       => $css['rejected'],
+		);
+	}
+
+	/**
+	 * DesignTokens `css` section -> a theme.json `styles` fragment.
+	 *
+	 * The expression ladder's rung 5: custom css written into global styles
+	 * (styles.css global, styles.blocks[name].css per block) — canon's own
+	 * escape hatch, theme-update-safe. Validation mirrors core's
+	 * WP_REST_Global_Styles_Controller::validate_custom_css (markup in a css
+	 * string is rejected); an unknown block name is rejected too. Every
+	 * rejection is itemized — never silently dropped.
+	 *
+	 * @param array $tokens DesignTokens (may carry `css`).
+	 * @return array{styles:array,rejected:array<int,array{target:string,reason:string}>}
+	 */
+	public static function compile_css( array $tokens ): array {
+		$css = $tokens['css'] ?? null;
+		if ( ! is_array( $css ) ) {
+			return array(
+				'styles'   => array(),
+				'rejected' => array(),
+			);
+		}
+
+		$styles   = array();
+		$rejected = array();
+
+		$validate = static function ( string $value ): ?string {
+			// Core's validate_custom_css: markup inside a css payload.
+			if ( preg_match( '#</?\w+#', $value ) ) {
+				return 'markup is not allowed in css';
+			}
+
+			return null;
+		};
+
+		$global = $css['global'] ?? null;
+		if ( is_string( $global ) && '' !== trim( $global ) ) {
+			$reason = $validate( $global );
+			if ( null === $reason ) {
+				$styles['css'] = $global;
+			} else {
+				$rejected[] = array(
+					'target' => 'global',
+					'reason' => $reason,
+				);
+			}
+		}
+
+		$registry = class_exists( 'WP_Block_Type_Registry' ) ? WP_Block_Type_Registry::get_instance() : null;
+		if ( $registry && ! method_exists( $registry, 'is_registered' ) ) {
+			$registry = null;
+		}
+
+		foreach ( (array) ( $css['blocks'] ?? array() ) as $block_name => $value ) {
+			$block_name = (string) $block_name;
+
+			if ( ! is_string( $value ) || '' === trim( $value ) ) {
+				continue;
+			}
+
+			if ( $registry && ! $registry->is_registered( $block_name ) ) {
+				$rejected[] = array(
+					'target' => $block_name,
+					'reason' => 'block is not registered on this instance',
+				);
+				continue;
+			}
+
+			$reason = $validate( $value );
+			if ( null !== $reason ) {
+				$rejected[] = array(
+					'target' => $block_name,
+					'reason' => $reason,
+				);
+				continue;
+			}
+
+			$styles['blocks'][ $block_name ] = array( 'css' => $value );
+		}
+
+		return array(
+			'styles'   => $styles,
+			'rejected' => $rejected,
 		);
 	}
 
@@ -276,8 +364,8 @@ final class X_Companion_Theme_Tokens {
 	 * @param array $settings theme.json settings fragment.
 	 * @return bool
 	 */
-	public static function write_global_styles( array $settings ): bool {
-		if ( empty( $settings ) || ! class_exists( 'WP_Theme_JSON_Resolver' ) ) {
+	public static function write_global_styles( array $settings, array $styles = array() ): bool {
+		if ( ( empty( $settings ) && empty( $styles ) ) || ! class_exists( 'WP_Theme_JSON_Resolver' ) ) {
 			return false;
 		}
 
@@ -299,6 +387,10 @@ final class X_Companion_Theme_Tokens {
 		$config['version']                     = class_exists( 'WP_Theme_JSON' ) ? WP_Theme_JSON::LATEST_SCHEMA : 3;
 		$config['isGlobalStylesUserThemeJSON'] = true;
 		$config['settings']                    = self::merge_settings( (array) ( $config['settings'] ?? array() ), $settings );
+
+		if ( array() !== $styles ) {
+			$config['styles'] = self::merge_settings( (array) ( $config['styles'] ?? array() ), $styles );
+		}
 
 		$json = wp_json_encode( $config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 

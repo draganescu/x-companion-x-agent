@@ -431,6 +431,169 @@ x_test(
 	}
 );
 
+/*
+ * ---------------------------------------------------------------------------
+ * interfaces v2 diagnostics: styles + bindings
+ * ---------------------------------------------------------------------------
+ */
+
+x_test(
+	'W_STYLE_UNKNOWN flags an unregistered is-style-* only when the block has server-side styles',
+	function () use ( $blocks, $fingerprint ) {
+		$with_styles = $blocks;
+		$with_styles['core/group']['styles'] = array(
+			array(
+				'name'   => 'section-1',
+				'label'  => 'Section 1',
+				'source' => 'theme',
+			),
+		);
+
+		$tree = array(
+			'version' => 1,
+			'epoch'   => $fingerprint,
+			'blocks'  => array(
+				array(
+					'name'       => 'core/group',
+					'attributes' => array( 'className' => 'is-style-section-99 extra-class' ),
+				),
+				array(
+					'name'       => 'core/paragraph',
+					'attributes' => array( 'className' => 'is-style-rounded' ),
+				),
+			),
+		);
+
+		$document = X_Companion_Validator::validate( $tree, $with_styles, $fingerprint );
+		$style_diags = array_values(
+			array_filter(
+				$document['diagnostics'],
+				static function ( $d ) {
+					return 'W_STYLE_UNKNOWN' === $d['code'];
+				}
+			)
+		);
+
+		x_assert_same( 1, count( $style_diags ), 'exactly one style warning' );
+		x_assert_same( '/blocks/0/attributes/className', $style_diags[0]['path'], 'points at the group className' );
+		x_assert_same( true, $document['valid'], 'a style warning does not invalidate the tree' );
+
+		$ok = X_Companion_Validator::validate(
+			array(
+				'version' => 1,
+				'epoch'   => $fingerprint,
+				'blocks'  => array(
+					array(
+						'name'       => 'core/group',
+						'attributes' => array( 'className' => 'is-style-section-1' ),
+					),
+				),
+			),
+			$with_styles,
+			$fingerprint
+		);
+		x_assert_same( array(), array_filter( $ok['diagnostics'], static fn( $d ) => 'W_STYLE_UNKNOWN' === $d['code'] ), 'a registered style passes clean' );
+	}
+);
+
+x_test(
+	'E_BINDING_UNKNOWN and E_BINDING_UNBINDABLE, with the platform context',
+	function () use ( $blocks, $fingerprint ) {
+		$platform = array(
+			'binding_sources' => array( 'core/post-meta', 'core/pattern-overrides' ),
+			'bindable'        => array( 'core/paragraph' => array( 'content' ) ),
+		);
+
+		$tree = array(
+			'version' => 1,
+			'epoch'   => $fingerprint,
+			'blocks'  => array(
+				array(
+					'name'       => 'core/paragraph',
+					'attributes' => array(
+						'metadata' => array(
+							'bindings' => array(
+								'content' => array(
+									'source' => 'acme/nonexistent',
+									'args'   => array( 'key' => 'x' ),
+								),
+							),
+						),
+					),
+				),
+				array(
+					'name'       => 'core/paragraph',
+					'attributes' => array(
+						'metadata' => array(
+							'bindings' => array(
+								'placeholder' => array(
+									'source' => 'core/post-meta',
+									'args'   => array( 'key' => 'x' ),
+								),
+							),
+						),
+					),
+				),
+				array(
+					'name'       => 'core/paragraph',
+					'attributes' => array(
+						'metadata' => array(
+							'bindings' => array(
+								'content' => array(
+									'source' => 'core/post-meta',
+									'args'   => array( 'key' => 'pickup_day' ),
+								),
+							),
+						),
+					),
+				),
+			),
+		);
+
+		$document = X_Companion_Validator::validate( $tree, $blocks, $fingerprint, $platform );
+		$codes    = array_column( $document['diagnostics'], 'code', 'path' );
+
+		x_assert_same( 'E_BINDING_UNKNOWN', $codes['/blocks/0/attributes/metadata/bindings/content'] ?? null, 'unknown source is an error' );
+		x_assert_same( 'E_BINDING_UNBINDABLE', $codes['/blocks/1/attributes/metadata/bindings/placeholder'] ?? null, 'unbindable attribute is an error' );
+		x_assert( ! isset( $codes['/blocks/2/attributes/metadata/bindings/content'] ), 'a registered source on a bindable attribute passes' );
+		x_assert_same( false, $document['valid'], 'binding errors invalidate the tree' );
+
+		// Without platform context (offline / v1) binding checks are skipped.
+		$skipped = X_Companion_Validator::validate( $tree, $blocks, $fingerprint );
+		x_assert_same(
+			array(),
+			array_filter( $skipped['diagnostics'], static fn( $d ) => in_array( $d['code'], array( 'E_BINDING_UNKNOWN', 'E_BINDING_UNBINDABLE' ), true ) ),
+			'no binding diagnostics without a platform context'
+		);
+	}
+);
+
+x_test(
+	'compile_css accepts clean css, itemizes markup rejections, never drops silently',
+	function () {
+		$out = X_Companion_Theme_Tokens::compile_css(
+			array(
+				'css' => array(
+					'global' => ':root { --hc-rhythm: 1.5rem; }',
+					'blocks' => array(
+						'core/button' => '.wp-block-button__link { letter-spacing: 0.02em; }',
+						'core/quote'  => '<script>alert(1)</script>',
+					),
+				),
+			)
+		);
+
+		x_assert_same( ':root { --hc-rhythm: 1.5rem; }', $out['styles']['css'] ?? null, 'global css accepted' );
+		x_assert_same( '.wp-block-button__link { letter-spacing: 0.02em; }', $out['styles']['blocks']['core/button']['css'] ?? null, 'block css accepted' );
+		x_assert_same( 1, count( $out['rejected'] ), 'one rejection' );
+		x_assert_same( 'core/quote', $out['rejected'][0]['target'], 'rejection names the target' );
+		x_assert( ! isset( $out['styles']['blocks']['core/quote'] ), 'rejected css is not written' );
+
+		$none = X_Companion_Theme_Tokens::compile_css( array( 'palette' => array() ) );
+		x_assert_same( array(), $none['styles'], 'no css section, no styles fragment' );
+	}
+);
+
 if ( ! X_COMPANION_LITE ) {
 	x_test(
 		'live: validate_request runs against the real registry',
