@@ -89,7 +89,7 @@ report of how long every tool call takes (`x-agent-profile.md`, updated live).
 Add `.x-agent.json` to your `.gitignore`. It contains a password.
 
 Finally, add the `x-agent/` folder as a plugin in Claude Code. It provides one skill
-(`wp-blocks`) and one MCP server with 18 tools.
+(`wp-blocks` for pages, `wp-schema` for backends) and one MCP server with 21 tools.
 
 ## Usage
 
@@ -129,6 +129,9 @@ You can also call the tools directly. The main ones:
 | `wp_snapshot` | Exports the site as a zip |
 | `wp_placeholder` | Makes a solid-colour placeholder image for layouts built before real photos exist |
 | `wp_pattern_save` | Saves a section you built as a reusable pattern on the site |
+| `wp_schema_scaffold` | Starts a schema package: post types, fields, routes — the backend of a feature |
+| `wp_schema_build_test` | Proves the whole model in a throwaway WordPress before anything ships |
+| `wp_schema_install` | Installs the package; orders, bookings and the like become real site data |
 
 The full list is in `x-agent/README.md`.
 
@@ -178,10 +181,10 @@ cd x-agent/mcp && npm test
 bash proof/run-all.sh
 ```
 
-The last one starts WordPress, runs 15 checks covering both plugins working together,
+The last one starts WordPress, runs 16 checks covering both plugins working together,
 and writes the results to `proof/REPORT.md`. It takes about 90 seconds.
 
-Current result: 15 of 15 pass, 187 recorded values, on WordPress 7.1.
+Current result: 16 of 16 pass, 206 recorded values, on WordPress 7.1.
 
 ## What is in this repo
 

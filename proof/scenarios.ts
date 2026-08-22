@@ -83,7 +83,7 @@ const p1: Scenario = {
     const fp = await env.call('GET', '/x-companion/v1/fingerprint');
     t.eq('agent fingerprint === companion GET /fingerprint', c.data.fingerprint, fp.json.fingerprint);
     t.eq('posture agrees', c.data.posture, fp.json.posture);
-    t.eq('interfaces_version is 1', fp.json.interfaces_version, '1');
+    t.eq('interfaces_version is 2', fp.json.interfaces_version, '2');
 
     const m = unwrap(await call('wp_manifest', {}));
     t.eq('blocks_count === manifest counts.blocks', c.data.blocks_count, m.data.counts.blocks);
@@ -810,6 +810,124 @@ const p15: Scenario = {
   },
 };
 
+/* ───────────────────────────────── P16 ────────────────────────────────── */
+
+const p16: Scenario = {
+  id: 'P16',
+  title: 'The ordering system, the canon way (schema factory end to end)',
+  proves:
+    'Storage and backend behavior enter through a gated schema package, never through improvisation: model installed with source "agent", an anonymous nonce’d submit lands as a moderated CPT entry, the agent-created binding source validates, and zero comments are created.',
+  needs: 'toolchain',
+  async run({ env, call }, t) {
+    const workDir = path.join(ARTIFACTS, 'p16-schema');
+    fs.rmSync(workDir, { recursive: true, force: true });
+
+    // 1. Scaffold the orders package — the wp-schema discipline's worked example.
+    const scaffolded = unwrap(
+      await call('wp_schema_scaffold', {
+        slug: 'orders',
+        intent:
+          'Pickup orders for a bakery: customers submit through a public form, staff work orders through pending -> ready -> picked-up in the standard admin list.',
+        post_types: [
+          {
+            slug: 'hc-order',
+            label: 'Orders',
+            meta: [
+              { key: 'pickup_day', type: 'string' },
+              { key: 'contact', type: 'string' },
+            ],
+            statuses: [
+              { slug: 'ready', label: 'Ready' },
+              { slug: 'picked-up', label: 'Picked up' },
+            ],
+          },
+        ],
+        routes: [
+          { path: '/submit', methods: ['POST'], auth: 'public-nonce' },
+          { path: '/orders', methods: ['GET'], auth: 'capability', capability: 'edit_posts' },
+        ],
+        bindings: [{ name: 'pickup-day', meta_key: 'pickup_day', label: 'Pickup day' }],
+        dir: workDir,
+      }),
+    );
+    t.check('wp_schema_scaffold produced the package', scaffolded.ok, scaffolded.data.files ?? scaffolded.data);
+
+    // 2. THE GATE. A throwaway sandbox must prove the whole model first.
+    const gated = unwrap(await call('wp_schema_build_test', { dir: scaffolded.data.dir }));
+    t.check('wp_schema_build_test is green', gated.ok && gated.data.built === true, gated.ok ? 'built' : gated.data);
+    t.check('  every meta key REST-visible', Object.values(gated.data.smoke?.meta_in_rest ?? {}).every(Boolean), gated.data.smoke?.meta_in_rest);
+    t.check('  routes answered as declared', (gated.data.smoke?.routes ?? []).every((r: any) => r.ok), gated.data.smoke?.routes);
+    t.check('  uninstall leaves nothing behind', gated.data.smoke?.uninstall_clean === true, 'sandbox post-uninstall diff');
+    if (!gated.data.zip_path) return { skipped: 'gate produced no zip; earlier checks carry the failure detail' };
+
+    // 3. Install; the epoch moves and the model is vocabulary.
+    const commentsBefore = await env.call('GET', '/wp/v2/comments', { as: 'admin' });
+    const nBefore = Array.isArray(commentsBefore.json) ? commentsBefore.json.length : 0;
+
+    const installed = unwrap(await call('wp_schema_install', { zip_path: gated.data.zip_path }));
+    t.check('wp_schema_install succeeded', installed.ok, installed.data.code ?? installed.data.installed);
+    t.check('the epoch moved', installed.data.fingerprint !== installed.data.previous_fingerprint, `${String(installed.data.previous_fingerprint).slice(0, 12)}… -> ${String(installed.data.fingerprint).slice(0, 12)}…`);
+
+    const dm = unwrap(await call('wp_manifest', { section: 'data_model', client_capture: false }));
+    const hcOrder = (dm.data.data_model?.post_types ?? []).find((p: any) => p.slug === 'hc_order');
+    t.check('data_model lists hc_order with source "agent"', hcOrder?.source === 'agent', hcOrder);
+    t.check('  meta keys visible in the model', (hcOrder?.meta_keys ?? []).includes('pickup_day'), hcOrder?.meta_keys);
+
+    // 4. An anonymous customer submits over the nonce'd route. No comments involved.
+    const nonce = String(
+      (
+        await env.php(`<?php
+      require_once '/wordpress/wp-load.php';
+      wp_set_current_user( 0 );
+      echo wp_create_nonce( 'wp_rest' );
+    `)
+      ).text ?? '',
+    ).trim();
+    const submit = await env.call('POST', '/agent-orders/v1/submit', {
+      as: 'anon',
+      body: { _wpnonce: nonce, hp_website: '', title: 'Proof order', pickup_day: 'Saturday', contact: 'neighbor@example.com' },
+    });
+    t.eq('anonymous nonce’d submit answers 201/200', submit.status < 300, true);
+    const orderId = submit.json?.created;
+    t.check('the route created an order', Number(orderId) > 0, submit.json);
+
+    const noNonce = await env.call('POST', '/agent-orders/v1/submit', { as: 'anon', body: { title: 'no nonce' } });
+    t.eq('the same route without a nonce is refused', noNonce.status, 403);
+
+    // 5. The order is a moderated CPT entry with structured fields — an inbox, not a comment.
+    const order = await env.call('GET', `/wp/v2/hc_order/${orderId}`, { as: 'admin', query: { context: 'edit' } });
+    t.eq('order status is moderated (pending)', order.json?.status, 'pending');
+    t.eq('pickup_day meta round-tripped', order.json?.meta?.pickup_day, 'Saturday');
+
+    const commentsAfter = await env.call('GET', '/wp/v2/comments', { as: 'admin' });
+    const nAfter = Array.isArray(commentsAfter.json) ? commentsAfter.json.length : 0;
+    t.eq('ZERO comments created by the ordering flow', nAfter, nBefore);
+
+    // 6. The agent-created binding source is validator-checkable vocabulary.
+    const fp = (await env.call('GET', '/x-companion/v1/fingerprint')).json.fingerprint;
+    const bound = {
+      version: 1,
+      epoch: fp,
+      blocks: [
+        {
+          name: 'core/paragraph',
+          attributes: { metadata: { bindings: { content: { source: 'agent-orders/pickup-day', args: {} } } } },
+        },
+      ],
+    };
+    const okDoc = unwrap(await call('wp_validate', bound));
+    t.eq('binding to the package source validates', okDoc.data.valid, true);
+    const badDoc = unwrap(
+      await call('wp_validate', {
+        ...bound,
+        blocks: [{ name: 'core/paragraph', attributes: { metadata: { bindings: { content: { source: 'agent-orders/nope', args: {} } } } } }],
+      }),
+    );
+    const codes = (badDoc.data.diagnostics ?? []).map((d: any) => d.code);
+    t.check('a bogus source is E_BINDING_UNKNOWN', codes.includes('E_BINDING_UNKNOWN'), codes);
+  },
+};
+
 /**
  * Execution order, deliberately not numeric.
  *
@@ -823,4 +941,4 @@ const p15: Scenario = {
  * The registry mutations in P5/P6/P8 are safe to interleave: they move the epoch
  * and grow the block vocabulary without restyling anything already rendered.
  */
-export const SCENARIOS: Scenario[] = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p11, p12, p13, p14, p15, p10];
+export const SCENARIOS: Scenario[] = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p11, p12, p13, p14, p15, p16, p10];

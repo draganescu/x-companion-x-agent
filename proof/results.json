@@ -1,15 +1,15 @@
 {
   "env": {
-    "generated": "2026-08-21T21:21:47.955Z",
+    "generated": "2026-08-22T08:15:19.668Z",
     "WordPress": "7.1",
     "instances": "toolchain, production",
-    "duration": "58.8s"
+    "duration": "66.9s"
   },
   "totals": {
-    "pass": 15,
+    "pass": 16,
     "fail": 0,
     "skip": 0,
-    "total": 15
+    "total": 16
   },
   "results": [
     {
@@ -41,7 +41,7 @@
         },
         {
           "what": "agent fingerprint === companion GET /fingerprint",
-          "observed": "7114632ede42326a8b5f3e0065978f8e311499b8a124f73217169c5c413528c9",
+          "observed": "68793da8c4612a2cff52d1cbd3c68b9322f0464b844dccb52d03bf07009d6353",
           "ok": true
         },
         {
@@ -50,8 +50,8 @@
           "ok": true
         },
         {
-          "what": "interfaces_version is 1",
-          "observed": "1",
+          "what": "interfaces_version is 2",
+          "observed": "2",
           "ok": true
         },
         {
@@ -70,7 +70,7 @@
           "ok": true
         }
       ],
-      "ms": 10161
+      "ms": 10083
     },
     {
       "id": "P2",
@@ -110,7 +110,7 @@
           "ok": true
         }
       ],
-      "ms": 1205
+      "ms": 1115
     },
     {
       "id": "P3",
@@ -190,7 +190,7 @@
           "ok": true
         }
       ],
-      "ms": 2581
+      "ms": 1467
     },
     {
       "id": "P4",
@@ -336,11 +336,11 @@
         },
         {
           "what": "every diagnostic code in the contract was produced by the LIVE validator",
-          "observed": "covered 11/11, missing: none",
+          "observed": "covered 12/11, missing: none",
           "ok": true
         }
       ],
-      "ms": 4721
+      "ms": 4465
     },
     {
       "id": "P5",
@@ -356,12 +356,12 @@
         },
         {
           "what": "E1",
-          "observed": "7114632ede42326a…",
+          "observed": "68793da8c4612a2c…",
           "ok": true
         },
         {
           "what": "fingerprint moved after a registry change",
-          "observed": "E1=7114632ede42… E2=f240de17e5a9…",
+          "observed": "E1=68793da8c461… E2=2da356165acb…",
           "ok": true
         },
         {
@@ -386,7 +386,7 @@
         },
         {
           "what": "agent manifest adopted E2",
-          "observed": "f240de17e5a91975ab1da24125ac239828af8d6e036ec6c746995d650b1d22c0",
+          "observed": "2da356165acb07b115720421131d878d68f7f0c3f203f9fc4f7dc2733ec399ea",
           "ok": true
         },
         {
@@ -400,7 +400,7 @@
           "ok": true
         }
       ],
-      "ms": 2951
+      "ms": 2845
     },
     {
       "id": "P6",
@@ -426,12 +426,12 @@
         },
         {
           "what": "install returned a NEW epoch",
-          "observed": "f240de17e5a9… → 8b2295b6f9a2…",
+          "observed": "2da356165acb… → e2bffb91ed4a…",
           "ok": true
         },
         {
           "what": "wp_manifest answered with a blocks map",
-          "observed": "{\"fingerprint\":\"8b2295b6f9a263f27a5ee71f28a07008854a3c4c4e5a42d4b40c76bfa7e42eec\",\"generated_at\":\"2026-08-21T21:21:11+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
+          "observed": "{\"fingerprint\":\"e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5\",\"generated_at\":\"2026-08-22T08:14:33+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
           "ok": true
         },
         {
@@ -441,7 +441,7 @@
         },
         {
           "what": "manifest epoch === install epoch",
-          "observed": "8b2295b6f9a263f27a5ee71f28a07008854a3c4c4e5a42d4b40c76bfa7e42eec",
+          "observed": "e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5",
           "ok": true
         },
         {
@@ -485,7 +485,7 @@
           "ok": true
         }
       ],
-      "ms": 3839
+      "ms": 3693
     },
     {
       "id": "P7",
@@ -496,7 +496,7 @@
       "steps": [
         {
           "what": "scaffolded at",
-          "observed": "proof/artifacts/sabotage-R8dAxl/proof-broken",
+          "observed": "proof/artifacts/sabotage-oJtxR6/proof-broken",
           "ok": true
         },
         {
@@ -520,7 +520,7 @@
           "ok": true
         }
       ],
-      "ms": 8699
+      "ms": 8274
     },
     {
       "id": "P8",
@@ -581,7 +581,7 @@
         },
         {
           "what": "library reports has_prev",
-          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-21T21:21:24+00:00\",\"has_prev\":true}",
+          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-22T08:14:46+00:00\",\"has_prev\":true}",
           "ok": true
         },
         {
@@ -591,11 +591,11 @@
         },
         {
           "what": "rollback returns a fingerprint",
-          "observed": "8b2295b6f9a263f2…",
+          "observed": "e2bffb91ed4a3695…",
           "ok": true
         }
       ],
-      "ms": 2255
+      "ms": 2100
     },
     {
       "id": "P9",
@@ -640,7 +640,7 @@
           "ok": true
         }
       ],
-      "ms": 3195
+      "ms": 3091
     },
     {
       "id": "P11",
@@ -715,7 +715,7 @@
           "ok": true
         }
       ],
-      "ms": 9731
+      "ms": 8606
     },
     {
       "id": "P12",
@@ -726,7 +726,7 @@
       "steps": [
         {
           "what": "snapshot written",
-          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-8b2295b6f9a2-1787347298836.zip (8075.0 KB)",
+          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-e2bffb91ed4a-1787386498864.zip (8080.5 KB)",
           "ok": true
         },
         {
@@ -756,11 +756,11 @@
         },
         {
           "what": "manifest.json fingerprint === live /fingerprint",
-          "observed": "8b2295b6f9a263f27a5ee71f28a07008854a3c4c4e5a42d4b40c76bfa7e42eec",
+          "observed": "e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5",
           "ok": true
         }
       ],
-      "ms": 1325
+      "ms": 1321
     },
     {
       "id": "P13",
@@ -801,7 +801,7 @@
         },
         {
           "what": "design-tokens.schema.json identical in schemas",
-          "observed": "dee5890d8edb",
+          "observed": "88c9ef6837c9",
           "ok": true
         },
         {
@@ -811,7 +811,7 @@
         },
         {
           "what": "design-tokens.schema.json identical in schemas",
-          "observed": "dee5890d8edb",
+          "observed": "88c9ef6837c9",
           "ok": true
         },
         {
@@ -821,7 +821,7 @@
         },
         {
           "what": "diagnostics.schema.json identical in schemas",
-          "observed": "8ef2d82be8b1",
+          "observed": "79ebe63c676b",
           "ok": true
         },
         {
@@ -831,7 +831,7 @@
         },
         {
           "what": "diagnostics.schema.json identical in schemas",
-          "observed": "8ef2d82be8b1",
+          "observed": "79ebe63c676b",
           "ok": true
         },
         {
@@ -841,7 +841,7 @@
         },
         {
           "what": "manifest.schema.json identical in schemas",
-          "observed": "7c9dea6300b9",
+          "observed": "6e2838b44b6d",
           "ok": true
         },
         {
@@ -851,7 +851,7 @@
         },
         {
           "what": "manifest.schema.json identical in schemas",
-          "observed": "7c9dea6300b9",
+          "observed": "6e2838b44b6d",
           "ok": true
         },
         {
@@ -875,7 +875,7 @@
           "ok": true
         }
       ],
-      "ms": 3
+      "ms": 4
     },
     {
       "id": "P14",
@@ -941,7 +941,7 @@
         },
         {
           "what": "wp_screenshot produced a PNG",
-          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787347302038.png",
+          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787386501970.png",
           "ok": true
         },
         {
@@ -960,7 +960,7 @@
           "ok": true
         }
       ],
-      "ms": 3147
+      "ms": 3032
     },
     {
       "id": "P15",
@@ -1040,7 +1040,102 @@
           "ok": true
         }
       ],
-      "ms": 1501
+      "ms": 1478
+    },
+    {
+      "id": "P16",
+      "title": "The ordering system, the canon way (schema factory end to end)",
+      "proves": "Storage and backend behavior enter through a gated schema package, never through improvisation: model installed with source \"agent\", an anonymous nonce’d submit lands as a moderated CPT entry, the agent-created binding source validates, and zero comments are created.",
+      "needs": "toolchain",
+      "status": "pass",
+      "steps": [
+        {
+          "what": "wp_schema_scaffold produced the package",
+          "observed": "[\"orders.php\",\"routes.php\",\"schema.json\",\"uninstall.php\"]",
+          "ok": true
+        },
+        {
+          "what": "wp_schema_build_test is green",
+          "observed": "built",
+          "ok": true
+        },
+        {
+          "what": "  every meta key REST-visible",
+          "observed": "{\"hc_order:pickup_day\":true,\"hc_order:contact\":true}",
+          "ok": true
+        },
+        {
+          "what": "  routes answered as declared",
+          "observed": "[{\"path\":\"/submit\",\"method\":\"POST\",\"status\":200,\"ok\":true},{\"path\":\"/orders\",\"method\":\"GET\",\"status\":200,\"unauth_status\":401,\"ok\":true}]",
+          "ok": true
+        },
+        {
+          "what": "  uninstall leaves nothing behind",
+          "observed": "sandbox post-uninstall diff",
+          "ok": true
+        },
+        {
+          "what": "wp_schema_install succeeded",
+          "observed": "{\"slug\":\"orders\",\"version\":\"1.0.0\"}",
+          "ok": true
+        },
+        {
+          "what": "the epoch moved",
+          "observed": "e2bffb91ed4a… -> 369d370a3b27…",
+          "ok": true
+        },
+        {
+          "what": "data_model lists hc_order with source \"agent\"",
+          "observed": "{\"slug\":\"hc_order\",\"label\":\"Orders\",\"public\":false,\"show_in_rest\":true,\"rest_base\":\"hc_order\",\"supports\":[\"title\",\"custom-fields\"],\"taxonomies\":[],\"meta_keys\":[\"contact\",\"pickup_day\"],\"source\":\"agent\"}",
+          "ok": true
+        },
+        {
+          "what": "  meta keys visible in the model",
+          "observed": "[\"contact\",\"pickup_day\"]",
+          "ok": true
+        },
+        {
+          "what": "anonymous nonce’d submit answers 201/200",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "the route created an order",
+          "observed": "{\"created\":6}",
+          "ok": true
+        },
+        {
+          "what": "the same route without a nonce is refused",
+          "observed": "403",
+          "ok": true
+        },
+        {
+          "what": "order status is moderated (pending)",
+          "observed": "pending",
+          "ok": true
+        },
+        {
+          "what": "pickup_day meta round-tripped",
+          "observed": "Saturday",
+          "ok": true
+        },
+        {
+          "what": "ZERO comments created by the ordering flow",
+          "observed": "1",
+          "ok": true
+        },
+        {
+          "what": "binding to the package source validates",
+          "observed": "true",
+          "ok": true
+        },
+        {
+          "what": "a bogus source is E_BINDING_UNKNOWN",
+          "observed": "[\"E_BINDING_UNKNOWN\",\"W_STATIC_NEEDS_HARNESS\"]",
+          "ok": true
+        }
+      ],
+      "ms": 10837
     },
     {
       "id": "P10",
@@ -1105,7 +1200,7 @@
           "ok": true
         }
       ],
-      "ms": 3361
+      "ms": 4320
     }
   ]
 }

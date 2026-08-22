@@ -150,9 +150,22 @@ an opaque string from `wp_connect`/`wp_manifest`, not something you compute.
 Your own actions move the epoch. `wp_tokens_apply`, `wp_block_install` and `wp_pattern_save`
 all return a **new** `fingerprint`; adopt it in the very next tree.
 
-### R4 — Styling ONLY via theme tokens (preset slugs / supports attributes: `backgroundColor`, `fontSize`, spacing presets, `layout`). Raw CSS/HTML styling is forbidden; if tokens can't express it, that is a vocabulary gap → R7 ladder, not an inline style.
+### R4 — Style through the EXPRESSION LADDER, rung by rung. State the rung you land on and why each lower rung failed; landing on rung 5 or 6 without that citation is a defect, exactly as hand-written markup is.
 
-This is where most of the craft lives, so be concrete about what "tokens" means.
+The ladder, every rung readable from the instance (interfaces v2):
+
+| rung | what | read from |
+|---|---|---|
+| 1 | **block supports** — preset attributes: `backgroundColor`, `fontSize`, spacing, `layout`, align, elements | `wp_manifest` blocks[].supports |
+| 2 | **global styles / tokens** — DesignTokens → theme.json settings; per-block and per-element styles | `manifest.theme_tokens`, section `global_styles` |
+| 3 | **registered block styles** — `className: "is-style-…"` from theme, plugins, or an installed artifact | blocks[].styles (`W_STYLE_UNKNOWN` flags a stranger) |
+| 4 | **block variations** — named attribute/innerBlocks presets, server- and client-registered | blocks[].variations (harness capture supplies `source: "client"`) |
+| 5 | **custom css in global styles** — `wp_tokens_apply`'s `css: {global?, blocks?}` section; canon's own escape hatch since WP 6.2, theme-update-safe, rejections itemized in `css_rejected` | section `global_styles.custom_css`, `features.per_block_css` |
+| 6 | **a block-owned stylesheet** — `style.css` shipped by the factory, token custom properties only (R11) | the factory; last rung |
+
+Raw inline CSS and hand-rolled class-plus-stylesheet styling remain forbidden at every rung.
+This section's tables below are rungs 1–2 in detail — where most of the craft lives, so be
+concrete about what "tokens" means.
 
 **Use the preset slugs the instance publishes** in `manifest.theme_tokens`:
 
@@ -314,6 +327,28 @@ request time, so iteration is free. The scaffold cannot produce a static block a
 rejects a package whose `block.json` has no `render` entry (422 `block_policy`). Do not look for
 the constant that turns this off.
 
+**Rung 3½ — THE HANDOFF.** If the gap is *storage, backend behavior, or an admin surface* —
+orders, bookings, submissions, inventory, anything with a lifecycle — **stop climbing this
+ladder**. That is **wp-schema** territory (the sibling skill): a schema package registers the
+post types, meta, routes and bindings; the block you then build here is the *view* of that
+package, never its database. A block whose `render.php` writes comments, options or transients
+to fake a data store is this discipline's equivalent of hand-written markup.
+
+**Front-end interactivity has its own two rungs — declare the one you take and why.**
+`wp_block_scaffold` accepts `interactivity`:
+
+- `"view-script"` (default rung): a plain vanilla `view.js`, no build, no framework —
+  progressive enhancement only (submit-over-fetch, toggles, client-side state). Everything the
+  block *does* must work without it.
+- `"interactivity-api"`: an ES module store via `viewScriptModule`, resolved by WordPress's own
+  import map — only when state must flow server→client (hydration via
+  `wp_interactivity_state`, context shared across blocks), and only when
+  `manifest.features.interactivity_api` says the instance has it (checked; refused otherwise).
+
+React or any framework on the front end is outside canon and never an option. The gate grows to
+match: a block shipping front assets is smoked in a real browser — `view.js` must execute,
+`style.css` must enqueue, and any console error fails `wp_block_build_test`.
+
 **Rung 3 is a real cost.** A new block is code someone has to own. Say so when you take it.
 
 ### R8 — Posture awareness: extend-tier tools fail on `production` posture by design. For structural work on a production site: `wp_snapshot` → work in a sandbox instance → promote artifacts. Never look for a way around the gate.
@@ -366,6 +401,15 @@ quoting a value you obtained some other way.
 
 If a credential is missing or wrong, say which field is missing and where it should go. That is
 all the user needs.
+
+### R11 — A block-owned stylesheet spends TOKENS, not literals. Build `style.css` exclusively on the instance's custom properties (`var(--wp--preset--color--…)`, `--wp--preset--spacing--…`, `--wp--preset--font-size--…`); a hardcoded color or size that a token can express is a defect `wp_block_build_test` already names in `style_warnings`.
+
+Rung 6 exists so a signature component can own layout mechanics core cannot express — grid
+wiring, overlaps, transitions. It does not exist to mint a second design system. Every color is
+a palette token, every space a spacing token, every size a font-size token; what remains in
+`style.css` is *structure*. The build test lints this (warnings, line-numbered) — review every
+entry, and either spend a token or say out loud why structure needs that literal (a `1px`
+border, a `50%` transform — fine; a `#a45a2a` — never).
 
 ---
 
@@ -1035,8 +1079,16 @@ promote the artifact. R8.
 
 ## 7. Tool index
 
-Eighteen tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
+Twenty-one tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
 may be passed to any connected tool to override the config chain, and are omitted below.
+
+Interfaces-v2 surfaces worth knowing before the table: `wp_manifest` serves `section:
+"styles" | "variations" | "global_styles" | "bindings" | "data_model" | "features"` and, on a v2
+instance, merges client-registered variations/styles captured from the warm harness page
+(`source: "client"`, cached per fingerprint; opt out with `client_capture: false`).
+`wp_tokens_apply` accepts the rung-5 `css` section. `wp_block_scaffold` accepts
+`interactivity` and `stylesheet`. The three `wp_schema_*` tools are the backend factory —
+their discipline lives in the sibling **wp-schema** skill.
 
 | Tool | Args | Returns |
 |---|---|---|
@@ -1058,6 +1110,9 @@ may be passed to any connected tool to override the config chain, and are omitte
 | `wp_snapshot` | `out_path?` | `zip_path, bytes, fingerprint, site_url` |
 | `wp_placeholder` | `color` (hex or palette slug), `width?, height?` | `id, url, color, slug, reused` |
 | `wp_pattern_save` | `slug (agent/…), title, content (compiled markup), categories?, description?` | `saved, replaced, total, fingerprint` (NEW epoch — adopt it) |
+| `wp_schema_scaffold` | `slug, intent, post_types[], taxonomies[]?, routes[]?, bindings[]?` | `dir, slug, files[]` — see the wp-schema skill |
+| `wp_schema_build_test` | `dir` | `built, smoke{types_registered, meta_in_rest, routes[], bindings_registered, uninstall_clean}, zip_path?` — THE schema gate |
+| `wp_schema_install` | `zip_path` | `installed{slug,version}, fingerprint (NEW epoch), replaced_previous` |
 
 `wp_validate`, `wp_compile`, `wp_spec_validate` and `wp_tokens_apply` take their payload
 **flattened into the tool arguments** — send `{version, epoch, blocks}`, not `{tree: {...}}`.

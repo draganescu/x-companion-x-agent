@@ -784,12 +784,16 @@ export async function schemaBuildTest(
       .map((p) => p.error_text)
       .join(' | ') || undefined;
 
+  // PHP's empty assoc array serializes as [], not {} — coerce every map.
+  const asRecord = (v: unknown): Record<string, boolean> =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, boolean>) : {};
+
   const smoke: SchemaSmoke = {
     booted: true,
-    types_registered: (model?.types ?? {}) as Record<string, boolean>,
-    meta_in_rest: (model?.meta ?? {}) as Record<string, boolean>,
-    taxonomies_registered: (model?.taxonomies ?? {}) as Record<string, boolean>,
-    bindings_registered: (model?.bindings ?? {}) as Record<string, boolean>,
+    types_registered: asRecord(model?.types),
+    meta_in_rest: asRecord(model?.meta),
+    taxonomies_registered: asRecord(model?.taxonomies),
+    bindings_registered: asRecord(model?.bindings),
     routes: Array.isArray(routes)
       ? routes.map((r: any) => ({
           path: String(r.path),
