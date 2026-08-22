@@ -20,6 +20,7 @@ export const ERROR_CODES = [
   'companion_error',
   'invalid_input',
   'build_failed',
+  'schema_policy',
   'smoke_failed',
   // agent-local additions, not on the wire to the companion:
   'not_implemented',

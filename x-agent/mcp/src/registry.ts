@@ -88,6 +88,8 @@ import { tools as tokensTools } from './tools/tokens.js';
 import { tools as snapshotTools } from './tools/snapshot.js';
 import { tools as pixelPlaceholderTools } from './tools/placeholder.js';
 import { tools as patternSaveTools } from './tools/patternSave.js';
+import { tools as schemaScaffoldTools } from './tools/schemaScaffold.js';
+import { tools as schemaBuildTestTools } from './tools/schemaBuildTest.js';
 
 /* -------------------------- externally implemented (session/oracle/factory) */
 
@@ -301,6 +303,8 @@ export const TOOLS: ToolDef[] = [
   ...snapshotTools,
   ...pixelPlaceholderTools,
   ...patternSaveTools,
+  ...schemaScaffoldTools,
+  ...schemaBuildTestTools,
   ...EXTERNAL_TOOLS.map(placeholder),
 ];
 

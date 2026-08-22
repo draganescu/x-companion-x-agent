@@ -942,7 +942,7 @@ export function packageBlock(blockDir: string, zipPath: string): string {
 /* Build                                                                      */
 /* ========================================================================== */
 
-interface RunResult {
+export interface RunResult {
   code: number | null;
   signal: NodeJS.Signals | null;
   stdout: string;
@@ -951,7 +951,7 @@ interface RunResult {
   ms: number;
 }
 
-function run(cmd: string, args: string[], opts: { cwd: string; timeoutMs: number; env?: NodeJS.ProcessEnv }): Promise<RunResult> {
+export function run(cmd: string, args: string[], opts: { cwd: string; timeoutMs: number; env?: NodeJS.ProcessEnv }): Promise<RunResult> {
   return new Promise((resolve) => {
     const started = Date.now();
     const child = spawn(cmd, args, {
@@ -1107,7 +1107,7 @@ export function resolvePlaygroundCli(): string {
   );
 }
 
-async function freePort(preferred?: number): Promise<number> {
+export async function freePort(preferred?: number): Promise<number> {
   const check = (p: number) =>
     new Promise<boolean>((resolve) => {
       const srv = net.createServer();
@@ -1135,8 +1135,12 @@ export interface SmokeConfig {
   wp: string;
   pluginDir: string;
   pluginSlug: string;
-  registerCode: string;
-  renderCode: string;
+  /** Main plugin file inside pluginDir; defaults to `${pluginSlug}.php`. */
+  pluginFile?: string;
+  registerCode?: string;
+  renderCode?: string;
+  /** Arbitrary named PHP probes, run in order after the two legacy ones. */
+  probes?: Record<string, string>;
 }
 
 /** One PHP probe as the runner reports it back. */
@@ -1152,6 +1156,7 @@ export interface SmokeRunnerResult {
   boot_ms: number;
   register?: ProbeOutcome;
   render?: ProbeOutcome;
+  probes?: Record<string, ProbeOutcome>;
   error: string;
 }
 
@@ -1178,7 +1183,7 @@ export interface SmokeOutcome {
  * transport and Playground is under no obligation to keep quiet on it, and
  * because a PHP-wasm fatal is a real crash that must not reach the server.
  */
-const SMOKE_RUNNER_SOURCE = [
+export const SMOKE_RUNNER_SOURCE = [
   "import fs from 'node:fs';",
   "import { pathToFileURL } from 'node:url';",
   '',
@@ -1218,7 +1223,7 @@ const SMOKE_RUNNER_SOURCE = [
   '\t\t\tpreferredVersions: { php: cfg.php, wp: cfg.wp },',
   '\t\t\tsteps: [ {',
   "\t\t\t\tstep: 'activatePlugin',",
-  "\t\t\t\tpluginPath: cfg.pluginSlug + '/' + cfg.pluginSlug + '.php',",
+  "\t\t\t\tpluginPath: cfg.pluginSlug + '/' + ( cfg.pluginFile || cfg.pluginSlug + '.php' ),",
   '\t\t\t\tpluginName: cfg.pluginSlug,',
   '\t\t\t} ],',
   '\t\t},',
@@ -1226,8 +1231,14 @@ const SMOKE_RUNNER_SOURCE = [
   '\tresult.booted = true;',
   '\tresult.boot_ms = Date.now() - t0;',
   '',
-  '\tresult.register = await probe( server, cfg.registerCode );',
-  '\tresult.render = await probe( server, cfg.renderCode );',
+  '\tif ( cfg.registerCode ) result.register = await probe( server, cfg.registerCode );',
+  '\tif ( cfg.renderCode ) result.render = await probe( server, cfg.renderCode );',
+  '\tif ( cfg.probes ) {',
+  '\t\tresult.probes = {};',
+  '\t\tfor ( const [ id, code ] of Object.entries( cfg.probes ) ) {',
+  '\t\t\tresult.probes[ id ] = await probe( server, code );',
+  '\t\t}',
+  '\t}',
   '} catch ( e ) {',
   "\tresult.error = String( e?.stack ?? e?.message ?? e );",
   '} finally {',
@@ -1238,7 +1249,7 @@ const SMOKE_RUNNER_SOURCE = [
   '',
 ].join('\n');
 
-const TAG = '<<<XSMOKE>>>';
+export const TAG = '<<<XSMOKE>>>';
 
 /** PHP that asserts the block is in `/wp/v2/block-types`. */
 export function registrationProbePhp(blockName: string): string {
@@ -1329,7 +1340,7 @@ echo "\\n${TAG}" . wp_json_encode(
 }
 
 /** A PHP literal for a string, via JSON — safe for anything we generate. */
-function phpJson(value: string): string {
+export function phpJson(value: string): string {
   return JSON.stringify(value).replace(/\$/g, '\\$');
 }
 
