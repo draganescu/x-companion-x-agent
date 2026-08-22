@@ -40,13 +40,28 @@ const InputSchema = z.looseObject({
   port: z.number().optional().describe('Fixed port for the throwaway sandbox; otherwise the first free port in the configured range.'),
 });
 
+const FrontSmokeSchema = z.object({
+  url: z.string().optional(),
+  console_errors: z.array(z.string()).optional(),
+  style_enqueued: z.boolean().optional(),
+  view_ready: z.boolean().optional(),
+  module_present: z.boolean().optional(),
+  block_present: z.boolean().optional(),
+  error: z.string().optional(),
+});
+
 const OutputSchema = z.object({
   built: z.boolean(),
   smoke: z.object({
     registered: z.boolean(),
     rendered_html: z.string(),
     php_error: z.string().optional(),
+    front: FrontSmokeSchema.optional().describe('Real-browser front-end smoke, present when the block ships viewScript/viewScriptModule/style.'),
   }),
+  style_warnings: z
+    .array(z.object({ line: z.number(), literal: z.string(), text: z.string() }))
+    .optional()
+    .describe('R11 lint: hardcoded color/size literals in style.css not spent through var(--wp--preset--*). Warnings — review each one.'),
   zip_path: z.string().optional().describe('Present ONLY when the build and the smoke test both passed. This is the only input wp_block_install accepts.'),
   build_log: z.string().optional(),
   failure: z

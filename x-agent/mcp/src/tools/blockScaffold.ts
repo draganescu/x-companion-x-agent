@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import type { Ctx } from '../context.js';
 import { getFactory } from '../context.js';
+import { XError } from '../errors.js';
 import { asFactory, type ScaffoldAttribute } from '../factory.js';
 import { defineTool } from './_shared.js';
 
@@ -40,6 +41,16 @@ const InputSchema = z.looseObject({
   description: z.string().optional(),
   version: z.string().optional().describe('block.json version; defaults to 0.1.0.'),
   force: z.boolean().optional().describe('Overwrite an existing non-empty scaffold directory.'),
+  interactivity: z
+    .enum(['none', 'view-script', 'interactivity-api'])
+    .optional()
+    .describe(
+      "Front-end interactivity rung. 'view-script' (default rung for enhancement): a plain vanilla view.js, no build, no framework. 'interactivity-api': an ES module store via viewScriptModule — ONLY when state must flow server->client, and only when the target instance's features.interactivity_api is available (checked; refused otherwise). Declare the rung and why.",
+    ),
+  stylesheet: z
+    .boolean()
+    .optional()
+    .describe('Ship a block-owned style.css — rung 6 of the expression ladder, only after supports/tokens/styles/variations/per-block css failed. R11: token custom properties only; literals are flagged by the build test.'),
 });
 
 const OutputSchema = z.object({
@@ -58,6 +69,34 @@ export const wpBlockScaffold = defineTool({
   local: true,
   handler: async (input: unknown, ctx: Ctx) => {
     const args = InputSchema.parse(input ?? {});
+
+    // The interactivity-api rung exists only where the platform provides it.
+    // The check reads the target's feature matrix; every other mode stays
+    // fully local.
+    if (args.interactivity === 'interactivity-api') {
+      const { connectionArgs } = await import('./_shared.js');
+      let available: boolean | undefined;
+      try {
+        const live = ctx.runtime.ctx(connectionArgs(input));
+        const manifest = await live.manifestCache.get();
+        const feature = (manifest.features as Record<string, { available?: boolean }> | undefined)?.interactivity_api;
+        available = feature?.available;
+      } catch (e) {
+        throw new XError(
+          'invalid_input',
+          `interactivity:"interactivity-api" needs a connected instance to verify features.interactivity_api, and none is reachable: ${(e as Error).message}`,
+          'Connect an instance (wp_connect) or use interactivity:"view-script" — the vanilla rung needs no platform feature.',
+        );
+      }
+      if (available === false) {
+        throw new XError(
+          'invalid_input',
+          'The target instance does not provide the Interactivity API (manifest features.interactivity_api.available = false).',
+          'Use interactivity:"view-script" — the vanilla rung works everywhere. The Interactivity API rung requires WordPress 6.5+.',
+        );
+      }
+    }
+
     const factory = asFactory(await getFactory(ctx));
     const scaffoldArgs: Parameters<typeof factory.scaffold>[0] = {
       slug: args.slug,
@@ -69,6 +108,8 @@ export const wpBlockScaffold = defineTool({
     if (args.description) scaffoldArgs.description = args.description;
     if (args.version) scaffoldArgs.version = args.version;
     if (args.force) scaffoldArgs.force = true;
+    if (args.interactivity) scaffoldArgs.interactivity = args.interactivity;
+    if (args.stylesheet) scaffoldArgs.stylesheet = true;
     return factory.scaffold(scaffoldArgs);
   },
 });

@@ -75,6 +75,8 @@ export interface ScaffoldAttribute {
   options?: { label: string; value: string }[];
 }
 
+export type InteractivityMode = 'none' | 'view-script' | 'interactivity-api';
+
 export interface ScaffoldInput {
   slug: string;
   title: string;
@@ -86,6 +88,15 @@ export interface ScaffoldInput {
   version?: string;
   /** Overwrite an existing scaffold directory instead of refusing. */
   force?: boolean;
+  /**
+   * Front-end interactivity rung. 'view-script' ships a plain vanilla
+   * view.js (block.json viewScript, unbuilt); 'interactivity-api' ships a
+   * plain ES module store (block.json viewScriptModule — WP's import map
+   * resolves @wordpress/interactivity at runtime, no bundling). Default none.
+   */
+  interactivity?: InteractivityMode;
+  /** Ship a block-owned style.css (token custom properties only — R11). */
+  stylesheet?: boolean;
 }
 
 export interface ScaffoldResult {
@@ -111,6 +122,8 @@ export interface SmokeResult {
   registered: boolean;
   rendered_html: string;
   php_error?: string;
+  /** M6: real-browser front-end smoke, present when the block ships front assets. */
+  front?: FrontSmoke;
 }
 
 export interface PackageEntry {
@@ -127,6 +140,8 @@ export interface BuildTestResult {
   package?: { entries: PackageEntry[]; zip_bytes: number; uncompressed_bytes: number };
   timings_ms?: Record<string, number>;
   deviations?: string[];
+  /** M6 R11 lint: hardcoded literals in style.css not spent through tokens. */
+  style_warnings?: StyleWarning[];
 }
 
 /* ========================================================================== */
@@ -681,6 +696,36 @@ export function scaffold(input: ScaffoldInput): ScaffoldResult {
     written.push(rel);
   }
 
+  // Interactivity + stylesheet rungs: generated files referenced from
+  // block.json as UNBUILT roots — a viewScript IIFE and a viewScriptModule
+  // ES module need no bundling (WordPress's import map resolves
+  // @wordpress/interactivity at runtime), so the build pipeline is untouched.
+  const mode: InteractivityMode = input.interactivity ?? 'none';
+  {
+    const blockJsonPath0 = path.join(dir, 'block.json');
+    const blockJson = JSON.parse(fs.readFileSync(blockJsonPath0, 'utf8')) as Record<string, unknown>;
+
+    if (input.stylesheet) {
+      fs.writeFileSync(path.join(dir, 'style.css'), stylesheetSource(cssClass, slug), 'utf8');
+      blockJson.style = 'file:./style.css';
+      written.push('style.css');
+    }
+    if (mode === 'view-script') {
+      fs.writeFileSync(path.join(dir, 'view.js'), viewScriptSource(slug), 'utf8');
+      blockJson.viewScript = 'file:./view.js';
+      written.push('view.js');
+    } else if (mode === 'interactivity-api') {
+      fs.writeFileSync(path.join(dir, 'view.js'), interactivityViewSource(slug), 'utf8');
+      blockJson.viewScriptModule = 'file:./view.js';
+      const supports = (blockJson.supports ?? {}) as Record<string, unknown>;
+      supports.interactivity = true;
+      blockJson.supports = supports;
+    }
+    if (input.stylesheet || mode !== 'none') {
+      fs.writeFileSync(blockJsonPath0, JSON.stringify(blockJson, null, '\t') + '\n', 'utf8');
+    }
+  }
+
   // Fail loudly rather than ship a block.json that WordPress will reject.
   const blockJsonPath = path.join(dir, 'block.json');
   let parsedBlockJson: Record<string, unknown>;
@@ -721,6 +766,129 @@ export interface BlockMetadata {
 }
 
 const FILE_REF_KEYS = ['render', 'editorScript', 'script', 'viewScript', 'viewScriptModule', 'editorStyle', 'style', 'viewStyle'];
+
+/* ========================================================================== */
+/* Interactivity + stylesheet generation (M6)                                 */
+/* ========================================================================== */
+
+/**
+ * Vanilla viewScript template. Progressive enhancement only: it finds every
+ * front-end instance of the block, stamps a readiness marker the build-test
+ * front smoke asserts, and leaves a single place to hang behavior.
+ */
+export function viewScriptSource(slug: string): string {
+  return `/**
+ * Front-end behavior for agent/${slug} — the 'view-script' rung.
+ *
+ * Vanilla JS, no build, no framework. Enhance progressively: everything the
+ * block DOES must work without this file; everything here is polish
+ * (submit-over-fetch, toggles, purely client-side state). State that must
+ * flow server->client is the 'interactivity-api' rung instead.
+ */
+( function () {
+	'use strict';
+
+	function enhance( el ) {
+		// Marker asserted by wp_block_build_test's front smoke. Keep it.
+		el.dataset.xAgentView = 'ready';
+
+		// Implement the block's front-end behavior here.
+	}
+
+	function boot() {
+		document.querySelectorAll( '.wp-block-agent-${slug}' ).forEach( enhance );
+	}
+
+	if ( 'loading' === document.readyState ) {
+		document.addEventListener( 'DOMContentLoaded', boot );
+	} else {
+		boot();
+	}
+} )();
+`;
+}
+
+/**
+ * Interactivity API store template. A plain ES module: WordPress registers
+ * viewScriptModule entries in its import map, so the bare
+ * @wordpress/interactivity import resolves at runtime with no bundling.
+ * render.php must carry data-wp-interactive="agent/${'{slug}'}" and the
+ * directives that consume this store.
+ */
+export function interactivityViewSource(slug: string): string {
+  return `/**
+ * Interactivity API store for agent/${slug} — the 'interactivity-api' rung.
+ *
+ * Use this rung only when state flows server->client (hydration via
+ * wp_interactivity_state in render.php, context shared across blocks).
+ * Purely client-side polish belongs on the cheaper 'view-script' rung.
+ */
+import { store, getContext } from '@wordpress/interactivity';
+
+store( 'agent/${slug}', {
+	state: {
+		// Server-hydrated via wp_interactivity_state( 'agent/${slug}', [ ... ] ) in render.php.
+	},
+	actions: {
+		// data-wp-on--click="actions.example" in render.php reaches here.
+		example() {
+			const context = getContext();
+			context.open = ! context.open;
+		},
+	},
+} );
+`;
+}
+
+/**
+ * Block-owned stylesheet template — the LAST rung of the expression ladder.
+ * Token custom properties only (R11): a literal that a token can express is
+ * flagged by the build test.
+ */
+export function stylesheetSource(cssClass: string, slug: string): string {
+  return `/**
+ * Block-owned styles for agent/${slug} — rung 6 of the expression ladder.
+ *
+ * R11: build EXCLUSIVELY on the instance's token custom properties
+ * (var(--wp--preset--color--*), --wp--preset--spacing--*, --wp--preset--font-size--*).
+ * A hardcoded color or size that a token can express is a defect the build
+ * test warns about. Layout mechanics (display, grid, gap wiring) are fine.
+ */
+.wp-block-agent-${slug} {
+	/* Example, spending tokens only:
+	display: grid;
+	gap: var( --wp--preset--spacing--30 );
+	*/
+}
+`;
+}
+
+export interface StyleWarning {
+  line: number;
+  literal: string;
+  text: string;
+}
+
+/**
+ * R11 lint: hardcoded color/size literals in style.css that are not spent
+ * through a token custom property. Warnings, not failures — layout mechanics
+ * legitimately use small px values; the agent reviews each one.
+ */
+export function styleLintWarnings(dir: string): StyleWarning[] {
+  const p = path.join(dir, 'style.css');
+  if (!fs.existsSync(p)) return [];
+  const warnings: StyleWarning[] = [];
+  const lines = fs.readFileSync(p, 'utf8').split('\n');
+  lines.forEach((text, i) => {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('*') || trimmed.startsWith('/*') || trimmed.includes('var(--wp--preset')) return;
+    const hex = /#[0-9a-fA-F]{3,8}\b/.exec(text);
+    const size = /(?<![\w-])\d+(?:\.\d+)?(?:px|rem|em)\b/.exec(text);
+    const hit = hex?.[0] ?? size?.[0];
+    if (hit) warnings.push({ line: i + 1, literal: hit, text: trimmed.slice(0, 120) });
+  });
+  return warnings;
+}
 
 export function readBlockMetadata(dir: string): BlockMetadata {
   const p = path.join(dir, 'block.json');
@@ -1141,6 +1309,18 @@ export interface SmokeConfig {
   renderCode?: string;
   /** Arbitrary named PHP probes, run in order after the two legacy ones. */
   probes?: Record<string, string>;
+  /** Front smoke: publish the markup and drive the real front end in a browser. */
+  front?: { publishCode: string; tag: string; slug: string; playwrightEntry: string };
+}
+
+export interface FrontSmoke {
+  url?: string;
+  console_errors?: string[];
+  style_enqueued?: boolean;
+  view_ready?: boolean;
+  module_present?: boolean;
+  block_present?: boolean;
+  error?: string;
 }
 
 /** One PHP probe as the runner reports it back. */
@@ -1157,6 +1337,7 @@ export interface SmokeRunnerResult {
   register?: ProbeOutcome;
   render?: ProbeOutcome;
   probes?: Record<string, ProbeOutcome>;
+  front?: FrontSmoke;
   error: string;
 }
 
@@ -1170,6 +1351,7 @@ export interface SmokeOutcome {
   render_source: string;
   php_error: string;
   php_notices: string[];
+  front?: FrontSmoke;
   error: string;
 }
 
@@ -1237,6 +1419,34 @@ export const SMOKE_RUNNER_SOURCE = [
   '\t\tresult.probes = {};',
   '\t\tfor ( const [ id, code ] of Object.entries( cfg.probes ) ) {',
   '\t\t\tresult.probes[ id ] = await probe( server, code );',
+  '\t\t}',
+  '\t}',
+  '',
+  '\t// Front smoke (M6): publish the markup, load the real front end in a',
+  '\t// browser, and report console errors + asset presence. This is the one',
+  '\t// place the runner parses probe text — a tag split, not a regex.',
+  '\tif ( cfg.front ) {',
+  '\t\ttry {',
+  '\t\t\tconst pub = await probe( server, cfg.front.publishCode );',
+  '\t\t\tconst info = JSON.parse( String( pub.text ?? \'\' ).split( cfg.front.tag )[ 1 ] ?? \'{}\' );',
+  '\t\t\tconst pw = await import( pathToFileURL( cfg.front.playwrightEntry ).href );',
+  '\t\t\tconst chromium = pw.chromium ?? pw.default?.chromium;',
+  '\t\t\tconst browser = await chromium.launch( { headless: true } );',
+  '\t\t\tconst page = await browser.newPage();',
+  '\t\t\tconst consoleErrors = [];',
+  "\t\t\tpage.on( 'console', ( m ) => { if ( m.type() === 'error' ) consoleErrors.push( m.text() ); } );",
+  "\t\t\tpage.on( 'pageerror', ( e ) => consoleErrors.push( 'pageerror: ' + e.message ) );",
+  "\t\t\tawait page.goto( info.url, { waitUntil: 'networkidle', timeout: 60000 } );",
+  '\t\t\tconst checks = await page.evaluate( ( slug ) => ( {',
+  '\t\t\t\tstyle_enqueued: Boolean( document.querySelector( \'link[id^="agent-\' + slug + \'"],style[id^="agent-\' + slug + \'"]\' ) ),',
+  '\t\t\t\tview_ready: Boolean( document.querySelector( \'[data-x-agent-view="ready"]\' ) ),',
+  '\t\t\t\tmodule_present: Boolean( document.querySelector( \'script[type="module"][src*="\' + slug + \'"]\' ) ),',
+  '\t\t\t\tblock_present: Boolean( document.querySelector( \'.wp-block-agent-\' + slug ) ),',
+  '\t\t\t} ), cfg.front.slug );',
+  '\t\t\tawait browser.close();',
+  '\t\t\tresult.front = { url: info.url, console_errors: consoleErrors, ...checks };',
+  '\t\t} catch ( e ) {',
+  "\t\t\tresult.front = { error: String( e?.message ?? e ) };",
   '\t\t}',
   '\t}',
   '} catch ( e ) {',
@@ -1398,6 +1608,10 @@ export function interpretSmoke(raw: SmokeRunnerResult): SmokeOutcome {
     error: raw.error ?? '',
   };
 
+  if (raw.front) {
+    out.front = raw.front;
+  }
+
   if (raw.register) {
     const info = readTagged(raw.register.text);
     if (info) {
@@ -1468,6 +1682,28 @@ export async function smokeTest(
     registerCode: registrationProbePhp(stage.meta.name),
     renderCode: renderProbePhp(stage.meta.name, markup, attributes, vfsBlockDir),
   };
+
+  // M6: a block that ships front-end assets (viewScript, viewScriptModule,
+  // style) is additionally smoked in a real browser against the sandbox's
+  // published front end.
+  const hasFrontAssets = ['viewScript', 'viewScriptModule', 'style'].some((k) => typeof stage.meta.raw[k] === 'string');
+  if (hasFrontAssets) {
+    let playwrightEntry = '';
+    try {
+      playwrightEntry = localRequire.resolve('playwright');
+    } catch {
+      /* playwright not installed: front smoke silently unavailable */
+    }
+    if (playwrightEntry) {
+      config.front = {
+        publishCode: publishProbePhp(markup),
+        tag: TAG,
+        slug: stage.slug,
+        playwrightEntry,
+      };
+    }
+  }
+
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
 
   opts.logger?.info(`smoke-testing ${stage.meta.name} in a throwaway WordPress on port ${port}`);
@@ -1494,6 +1730,30 @@ export async function smokeTest(
     };
   }
   return { result: interpretSmoke(raw), log, ms, port, markup, attributes };
+}
+
+/** PHP that publishes the smoke markup as a post and echoes its permalink. */
+export function publishProbePhp(markup: string): string {
+  return `<?php
+require_once '/wordpress/wp-load.php';
+wp_set_current_user( 1 );
+
+$post_id = wp_insert_post(
+	array(
+		'post_title'   => 'x-agent front smoke',
+		'post_status'  => 'publish',
+		'post_type'    => 'post',
+		'post_content' => ${phpJson(markup)},
+	),
+	true
+);
+
+echo "\\n${TAG}" . wp_json_encode(
+	is_wp_error( $post_id )
+		? array( 'error' => $post_id->get_error_message() )
+		: array( 'url' => get_permalink( (int) $post_id ), 'id' => (int) $post_id )
+) . "${TAG}";
+`;
 }
 
 /** Sample attributes, with block.json defaults filling every gap. */
@@ -1591,8 +1851,41 @@ export class BlockFactory {
 
     const smokeOut: SmokeResult = { registered: smoke.result.registered, rendered_html: smoke.result.rendered_html };
     if (smoke.result.php_error) smokeOut.php_error = smoke.result.php_error;
+    if (smoke.result.front) smokeOut.front = smoke.result.front;
 
     const log = [build.log, smoke.log].filter(Boolean).join('\n');
+
+    // M6: R11 lint — surfaced always, never a failure by itself.
+    const styleWarnings = styleLintWarnings(dir);
+
+    // M6: front-end assets must actually work in a real browser. A viewScript
+    // that never executed, a stylesheet that never enqueued, or any console
+    // error on the sandbox front end fails the gate.
+    const front = smoke.result.front;
+    if (front) {
+      const meta = stage.meta.raw;
+      const frontFailures: string[] = [];
+      if (front.error) frontFailures.push(`front smoke could not run: ${front.error}`);
+      if (front.console_errors && front.console_errors.length) frontFailures.push(`console errors on the front end: ${front.console_errors.slice(0, 3).join(' | ')}`);
+      if (typeof meta.viewScript === 'string' && front.view_ready === false) frontFailures.push('view.js never marked a block instance ready (data-x-agent-view)');
+      if (typeof meta.style === 'string' && front.style_enqueued === false) frontFailures.push('style.css was not enqueued on the front end');
+      if (typeof meta.viewScriptModule === 'string' && front.module_present === false) frontFailures.push('the view module was not present on the front end');
+      if (frontFailures.length) {
+        return {
+          built: true,
+          smoke: smokeOut,
+          build_log: log,
+          failure: {
+            code: 'smoke_failed',
+            message: frontFailures.join('; '),
+            hint: 'The block registered and rendered, but its front-end assets failed in a real browser. Fix view.js / style.css / the module and rerun wp_block_build_test.',
+          },
+          timings_ms: timings,
+          deviations,
+          ...(styleWarnings.length ? { style_warnings: styleWarnings } : {}),
+        };
+      }
+    }
 
     if (smoke.result.php_error || !smoke.result.registered || !smoke.result.rendered_html) {
       return {
@@ -1643,6 +1936,7 @@ export class BlockFactory {
       package: { entries: inspection.entries, zip_bytes: inspection.zip_bytes, uncompressed_bytes: inspection.uncompressed_bytes },
       timings_ms: timings,
       deviations,
+      ...(styleWarnings.length ? { style_warnings: styleWarnings } : {}),
     };
   }
 }
