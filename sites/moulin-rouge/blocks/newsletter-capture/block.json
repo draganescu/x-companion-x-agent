@@ -1,0 +1,72 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/newsletter-capture",
+	"version": "0.1.0",
+	"title": "Newsletter signup",
+	"category": "design",
+	"icon": "layout",
+	"description": "Collects email addresses for the newsletter. Show it in the page, or as a polite popup that appears when a visitor tries to leave.",
+	"textdomain": "agent-newsletter-capture",
+	"keywords": [
+		"newsletter-capture"
+	],
+	"supports": {
+		"html": false,
+		"anchor": true,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true
+		},
+		"color": {
+			"background": true,
+			"text": true
+		}
+	},
+	"attributes": {
+		"mode": {
+			"type": "string",
+			"default": "inline",
+			"enum": [
+				"inline",
+				"exit"
+			]
+		},
+		"heading": {
+			"type": "string",
+			"default": "Don’t miss the next show"
+		},
+		"message": {
+			"type": "string",
+			"default": "Join the newsletter for stories, tips and secrets of Parisian nights."
+		},
+		"placeholder": {
+			"type": "string",
+			"default": "your@email.com"
+		},
+		"button_label": {
+			"type": "string",
+			"default": "Count me in"
+		},
+		"success_message": {
+			"type": "string",
+			"default": "Merci ! You’re on the list."
+		},
+		"decline_label": {
+			"type": "string",
+			"default": "Non merci, je pars"
+		}
+	},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php",
+	"style": "file:./style.css",
+	"viewScript": "file:./view.js"
+}

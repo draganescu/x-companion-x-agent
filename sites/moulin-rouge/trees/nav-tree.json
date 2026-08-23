@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "epoch": "f0b9d302c283c9b918180fdc863137554fa5b1bb94c3cc106059fcb83219ab44",
+    "blocks": [
+        {
+            "name": "core/navigation",
+            "innerBlocks": [
+                { "name": "core/navigation-link", "attributes": { "label": "Histoire", "url": "/#histoire", "kind": "custom" } },
+                { "name": "core/navigation-link", "attributes": { "label": "Le Cancan", "url": "/#cancan", "kind": "custom" } },
+                { "name": "core/navigation-link", "attributes": { "label": "Secrets", "url": "/#secrets", "kind": "custom" } },
+                { "name": "core/navigation-link", "attributes": { "label": "Newsletter", "url": "/#newsletter", "kind": "custom" } }
+            ]
+        }
+    ]
+}

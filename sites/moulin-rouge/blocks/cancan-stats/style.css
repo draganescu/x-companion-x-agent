@@ -1,0 +1,40 @@
+/**
+ * Block-owned styles for agent/cancan-stats — rung 6 of the expression ladder.
+ *
+ * Rungs 1–4 cannot target the block's internal stat items (supports style the
+ * wrapper only); rung 5 would detach the rules from the block's lifecycle.
+ * Colors, sizes and spaces are tokens; the literals below are structure.
+ */
+.wp-block-agent-cancan-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: var(--wp--preset--spacing--50);
+	text-align: center;
+}
+
+.wp-block-agent-cancan-stats .mr-stat {
+	display: grid;
+	gap: var(--wp--preset--spacing--20);
+	justify-items: center;
+}
+
+.wp-block-agent-cancan-stats .mr-stat__figure {
+	font-family: var(--wp--preset--font-family--boulevard);
+	font-size: var(--wp--preset--font-size--display);
+	line-height: 1;
+	color: var(--wp--preset--color--gold);
+	font-variant-numeric: tabular-nums;
+}
+
+.wp-block-agent-cancan-stats .mr-stat__suffix {
+	color: var(--wp--preset--color--rouge);
+}
+
+.wp-block-agent-cancan-stats .mr-stat__label {
+	font-family: var(--wp--preset--font-family--affiche);
+	font-size: var(--wp--preset--font-size--small);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--wp--preset--color--poudre);
+	max-width: 22em;
+}

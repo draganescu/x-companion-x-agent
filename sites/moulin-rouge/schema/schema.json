@@ -1,0 +1,31 @@
+{
+  "slug": "newsletter",
+  "version": "1.0.1",
+  "intent": "Tourism newsletter signups collected on the Moulin Rouge landing page: visitors submit their email through a public nonce-guarded route (from the end-of-page inline form or the exit-intent modal); each signup is stored as a pending mr_subscriber record with the email and which form captured it, and staff review the list in the standard admin table.",
+  "provides": {
+    "post_types": [
+      "mr_subscriber"
+    ],
+    "taxonomies": [],
+    "meta_keys": [
+      {
+        "post_type": "mr_subscriber",
+        "key": "email"
+      },
+      {
+        "post_type": "mr_subscriber",
+        "key": "signup_source"
+      }
+    ],
+    "binding_sources": [],
+    "routes": [
+      {
+        "path": "/subscribe",
+        "methods": [
+          "POST"
+        ],
+        "auth": "public-nonce"
+      }
+    ]
+  }
+}

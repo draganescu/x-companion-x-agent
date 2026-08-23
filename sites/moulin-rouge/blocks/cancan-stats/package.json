@@ -1,0 +1,14 @@
+{
+	"name": "agent-cancan-stats",
+	"version": "0.1.0",
+	"private": true,
+	"description": "A row of large numbers that count up from zero when the visitor reaches them, each with a short label underneath.",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^34.0.0"
+	}
+}

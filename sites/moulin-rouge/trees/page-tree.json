@@ -1,0 +1,369 @@
+{
+    "version": 1,
+    "epoch": "f0b9d302c283c9b918180fdc863137554fa5b1bb94c3cc106059fcb83219ab44",
+    "blocks": [
+        {
+            "name": "agent/moulin-sails",
+            "attributes": {
+                "align": "full",
+                "kicker": "Paris · Montmartre · Depuis 1889",
+                "heading": "Moulin Rouge",
+                "tagline": "One red windmill. A dance that scandalised Paris. 135 years of feathers, froth and light.",
+                "spin_seconds": 14
+            }
+        },
+        {
+            "name": "agent/gaslight-marquee",
+            "attributes": {
+                "align": "full",
+                "phrases": ["Le French Cancan", "Depuis 1889", "La Belle Époque", "Toulouse-Lautrec", "La Goulue", "Le Quadrille", "Champagne", "Montmartre"],
+                "speed_seconds": 32
+            }
+        },
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "section",
+                "align": "full",
+                "anchor": "histoire",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|80", "bottom": "var:preset|spacing|80" }, "blockGap": "var:preset|spacing|50" } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/columns",
+                    "attributes": {
+                        "align": "wide",
+                        "verticalAlignment": "center",
+                        "style": { "spacing": { "blockGap": { "left": "var:preset|spacing|60" } } }
+                    },
+                    "innerBlocks": [
+                        {
+                            "name": "core/column",
+                            "attributes": { "width": "58%" },
+                            "innerBlocks": [
+                                {
+                                    "name": "core/paragraph",
+                                    "attributes": {
+                                        "content": "1889 — La Belle Époque",
+                                        "textColor": "gold",
+                                        "fontSize": "small",
+                                        "fontFamily": "affiche",
+                                        "style": { "typography": { "textTransform": "uppercase", "letterSpacing": "0.28em" } }
+                                    }
+                                },
+                                {
+                                    "name": "core/heading",
+                                    "attributes": {
+                                        "level": 2,
+                                        "content": "A windmill that never milled a grain",
+                                        "fontSize": "xx-large",
+                                        "fontFamily": "boulevard"
+                                    }
+                                },
+                                {
+                                    "name": "core/paragraph",
+                                    "attributes": {
+                                        "content": "On 6 October 1889 — the same year the Eiffel Tower rose — showmen Joseph Oller and Charles Zidler opened a cabaret at the foot of Montmartre and crowned it with a bright red windmill. It never milled a single grain: the sails were pure theatre, built to be seen from every corner of the boulevard."
+                                    }
+                                },
+                                {
+                                    "name": "core/paragraph",
+                                    "attributes": {
+                                        "content": "Inside, novelty ruled. The hall glowed with the brand-new electric light, mirrors doubled the crowd, and for the price of one ticket a clerk could share the floor with a countess. Paris nicknamed it <em>Le Premier Palais des Femmes</em> — the first palace of women."
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "core/column",
+                            "attributes": { "width": "42%" },
+                            "innerBlocks": [
+                                {
+                                    "name": "core/image",
+                                    "attributes": {
+                                        "id": 6,
+                                        "url": "http://127.0.0.1:9400/wp-content/uploads/2026/08/x-pixel-d9a441.gif",
+                                        "alt": "The Moulin Rouge windmill glowing at dusk",
+                                        "width": "100%",
+                                        "aspectRatio": "3/4",
+                                        "scale": "cover",
+                                        "metadata": { "imageIntent": "Belle Époque poster-style illustration of the red windmill at dusk: gaslights along Boulevard de Clichy, warm gold sky behind deep red sails, crowds in top hats and gowns below." }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "section",
+                "align": "full",
+                "anchor": "cancan",
+                "backgroundColor": "velvet",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|80", "bottom": "var:preset|spacing|80" }, "blockGap": "var:preset|spacing|50" } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/columns",
+                    "attributes": {
+                        "align": "wide",
+                        "verticalAlignment": "center",
+                        "style": { "spacing": { "blockGap": { "left": "var:preset|spacing|60" } } }
+                    },
+                    "innerBlocks": [
+                        {
+                            "name": "core/column",
+                            "attributes": { "width": "42%" },
+                            "innerBlocks": [
+                                {
+                                    "name": "core/image",
+                                    "attributes": {
+                                        "id": 7,
+                                        "url": "http://127.0.0.1:9400/wp-content/uploads/2026/08/x-pixel-edcfc3.gif",
+                                        "alt": "Cancan dancers mid-kick in a whirl of petticoats",
+                                        "width": "100%",
+                                        "aspectRatio": "3/4",
+                                        "scale": "cover",
+                                        "metadata": { "imageIntent": "Toulouse-Lautrec-inspired lithograph of cancan dancers mid-kick: black stockings, white petticoat foam, one dancer silhouetted against a mustard stage light." }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "core/column",
+                            "attributes": { "width": "58%" },
+                            "innerBlocks": [
+                                {
+                                    "name": "core/paragraph",
+                                    "attributes": {
+                                        "content": "Le French Cancan",
+                                        "textColor": "gold",
+                                        "fontSize": "small",
+                                        "fontFamily": "affiche",
+                                        "style": { "typography": { "textTransform": "uppercase", "letterSpacing": "0.28em" } }
+                                    }
+                                },
+                                {
+                                    "name": "core/heading",
+                                    "attributes": {
+                                        "level": 2,
+                                        "content": "The dance that shocked, then conquered",
+                                        "fontSize": "xx-large",
+                                        "fontFamily": "boulevard"
+                                    }
+                                },
+                                {
+                                    "name": "core/paragraph",
+                                    "attributes": {
+                                        "content": "The cancan began as the <em>chahut</em> — a rowdy, improvised quadrille from the working-class dance halls. At the Moulin Rouge it became a profession: high kicks, cartwheels, jump-splits, and petticoats whipped up like sea foam."
+                                    }
+                                },
+                                {
+                                    "name": "core/paragraph",
+                                    "attributes": {
+                                        "content": "Its stars went by legend-names — La Goulue (“The Glutton”), Jane Avril, Nini Pattes-en-l’Air — and a painter named Henri de Toulouse-Lautrec printed them into immortality. His 1891 poster for the house remains one of the most famous images ever made."
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "section",
+                "align": "full",
+                "anchor": "chiffres",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|80", "bottom": "var:preset|spacing|80" }, "blockGap": "var:preset|spacing|60" } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/paragraph",
+                    "attributes": {
+                        "content": "En chiffres",
+                        "textColor": "gold",
+                        "fontSize": "small",
+                        "fontFamily": "affiche",
+                        "align": "center",
+                        "style": { "typography": { "textTransform": "uppercase", "letterSpacing": "0.28em" } }
+                    }
+                },
+                {
+                    "name": "agent/cancan-stats",
+                    "attributes": {
+                        "align": "wide",
+                        "duration_ms": 1800,
+                        "stats": [
+                            { "value": 1889, "suffix": "", "label": "The year the sails first turned" },
+                            { "value": 60, "suffix": "", "label": "Artists on stage every night" },
+                            { "value": 1000, "suffix": "+", "label": "Costumes of feathers and rhinestones" },
+                            { "value": 240000, "suffix": "", "label": "Bottles of champagne each year" }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "section",
+                "align": "full",
+                "anchor": "secrets",
+                "backgroundColor": "velvet",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|80", "bottom": "var:preset|spacing|80" }, "blockGap": "var:preset|spacing|50" } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/heading",
+                    "attributes": {
+                        "level": 2,
+                        "content": "Trois secrets du Moulin",
+                        "fontSize": "xx-large",
+                        "fontFamily": "boulevard",
+                        "style": { "typography": { "textAlign": "center" } }
+                    }
+                },
+                {
+                    "name": "core/columns",
+                    "attributes": {
+                        "align": "wide",
+                        "style": { "spacing": { "blockGap": { "left": "var:preset|spacing|50" } } }
+                    },
+                    "innerBlocks": [
+                        {
+                            "name": "core/column",
+                            "innerBlocks": [
+                                {
+                                    "name": "core/group",
+                                    "attributes": {
+                                        "backgroundColor": "base",
+                                        "layout": { "type": "constrained" },
+                                        "style": { "spacing": { "padding": { "top": "var:preset|spacing|40", "bottom": "var:preset|spacing|40", "left": "var:preset|spacing|40", "right": "var:preset|spacing|40" }, "blockGap": "var:preset|spacing|20" }, "border": { "radius": "12px" } }
+                                    },
+                                    "innerBlocks": [
+                                        { "name": "core/heading", "attributes": { "level": 3, "content": "An elephant in the garden", "fontSize": "large", "fontFamily": "boulevard", "textColor": "gold" } },
+                                        { "name": "core/paragraph", "attributes": { "content": "Through the 1890s a giant stucco elephant towered over the garden. A spiral staircase inside one leg led to a private salon in its belly — gentlemen only, admission one franc.", "fontSize": "medium" } }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "name": "core/column",
+                            "attributes": { "style": { "spacing": { "padding": { "top": "var:preset|spacing|50" } } } },
+                            "innerBlocks": [
+                                {
+                                    "name": "core/group",
+                                    "attributes": {
+                                        "backgroundColor": "base",
+                                        "layout": { "type": "constrained" },
+                                        "style": { "spacing": { "padding": { "top": "var:preset|spacing|40", "bottom": "var:preset|spacing|40", "left": "var:preset|spacing|40", "right": "var:preset|spacing|40" }, "blockGap": "var:preset|spacing|20" }, "border": { "radius": "12px" } }
+                                    },
+                                    "innerBlocks": [
+                                        { "name": "core/heading", "attributes": { "level": 3, "content": "A mill of pure theatre", "fontSize": "large", "fontFamily": "boulevard", "textColor": "gold" } },
+                                        { "name": "core/paragraph", "attributes": { "content": "Montmartre’s real windmills ground flour and pressed grapes higher up the hill. This one was a folly from day one — and painting it red made it the most recognisable rooftop in Paris.", "fontSize": "medium" } }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "name": "core/column",
+                            "innerBlocks": [
+                                {
+                                    "name": "core/group",
+                                    "attributes": {
+                                        "backgroundColor": "base",
+                                        "layout": { "type": "constrained" },
+                                        "style": { "spacing": { "padding": { "top": "var:preset|spacing|40", "bottom": "var:preset|spacing|40", "left": "var:preset|spacing|40", "right": "var:preset|spacing|40" }, "blockGap": "var:preset|spacing|20" }, "border": { "radius": "12px" } }
+                                    },
+                                    "innerBlocks": [
+                                        { "name": "core/heading", "attributes": { "level": 3, "content": "Champagne by the quarter-million", "fontSize": "large", "fontFamily": "boulevard", "textColor": "gold" } },
+                                        { "name": "core/paragraph", "attributes": { "content": "The house claims the world record for champagne: around 240,000 bottles are uncorked every year between the evening’s two shows.", "fontSize": "medium" } }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "section",
+                "align": "full",
+                "backgroundColor": "rouge",
+                "textColor": "contrast",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|70", "bottom": "var:preset|spacing|70" } } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/pullquote",
+                    "attributes": {
+                        "align": "wide",
+                        "value": "Paris climbed the hill to forget tomorrow — and the red sails are turning still.",
+                        "citation": "Montmartre, 1889 → tonight",
+                        "fontFamily": "boulevard",
+                        "fontSize": "x-large"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "section",
+                "align": "full",
+                "anchor": "newsletter",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|80", "bottom": "var:preset|spacing|80" }, "blockGap": "var:preset|spacing|50" } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/paragraph",
+                    "attributes": {
+                        "content": "Le rideau tombe",
+                        "textColor": "gold",
+                        "fontSize": "small",
+                        "fontFamily": "affiche",
+                        "align": "center",
+                        "style": { "typography": { "textTransform": "uppercase", "letterSpacing": "0.28em" } }
+                    }
+                },
+                {
+                    "name": "agent/newsletter-capture",
+                    "attributes": {
+                        "mode": "inline",
+                        "heading": "Don’t miss the next show",
+                        "message": "You reached the end of the boulevard — take the newsletter with you. Stories of Paris nights, travel tips, and the occasional secret address. One letter a month, no noise.",
+                        "placeholder": "your@email.com",
+                        "button_label": "Count me in",
+                        "success_message": "Merci ! You’re on the list — à bientôt.",
+                        "decline_label": "Non merci"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "agent/newsletter-capture",
+            "attributes": {
+                "mode": "exit",
+                "heading": "One more dance before you go?",
+                "message": "Leave with something: a monthly letter of Paris stories, cabaret secrets and travel tips.",
+                "placeholder": "your@email.com",
+                "button_label": "Yes — sign me up",
+                "success_message": "Merci ! À bientôt.",
+                "decline_label": "Non merci, je pars"
+            }
+        }
+    ]
+}

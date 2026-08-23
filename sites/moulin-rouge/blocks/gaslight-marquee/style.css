@@ -1,0 +1,56 @@
+/**
+ * Block-owned styles for agent/gaslight-marquee — rung 6 of the expression ladder.
+ *
+ * Rungs 1–4 cannot express an infinite translateX animation over duplicated
+ * rows; rung 5 would detach the rules from the block's lifecycle. Colors,
+ * sizes and spaces are tokens; the literals below are structure.
+ */
+.wp-block-agent-gaslight-marquee {
+	overflow: hidden;
+	background: var(--wp--preset--color--rouge);
+	color: var(--wp--preset--color--contrast);
+	border-top: 1px solid color-mix(in srgb, var(--wp--preset--color--gold) 55%, transparent);
+	border-bottom: 1px solid color-mix(in srgb, var(--wp--preset--color--gold) 55%, transparent);
+	padding: var(--wp--preset--spacing--30) 0;
+}
+
+.wp-block-agent-gaslight-marquee .mr-marquee__track {
+	display: flex;
+	width: max-content;
+	animation: mr-marquee-glide var(--mr-glide, 30s) linear infinite;
+}
+
+.wp-block-agent-gaslight-marquee:hover .mr-marquee__track {
+	animation-play-state: paused;
+}
+
+.wp-block-agent-gaslight-marquee .mr-marquee__row {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.wp-block-agent-gaslight-marquee .mr-marquee__item {
+	font-family: var(--wp--preset--font-family--affiche);
+	font-size: var(--wp--preset--font-size--large);
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	padding: 0 var(--wp--preset--spacing--40);
+}
+
+.wp-block-agent-gaslight-marquee .mr-marquee__star {
+	color: var(--wp--preset--color--gold);
+	font-size: var(--wp--preset--font-size--medium);
+}
+
+@keyframes mr-marquee-glide {
+	from { transform: translateX(0); }
+	to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wp-block-agent-gaslight-marquee .mr-marquee__track {
+		animation: none;
+	}
+}

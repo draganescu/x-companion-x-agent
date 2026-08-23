@@ -1,0 +1,52 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/gaslight-marquee",
+	"version": "0.1.0",
+	"title": "Scrolling ribbon",
+	"category": "design",
+	"icon": "layout",
+	"description": "A ribbon of short phrases that glides across the page like a lit theatre sign. It pauses when the pointer rests on it.",
+	"textdomain": "agent-gaslight-marquee",
+	"keywords": [
+		"gaslight-marquee"
+	],
+	"supports": {
+		"html": false,
+		"anchor": true,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true
+		},
+		"color": {
+			"background": true,
+			"text": true
+		}
+	},
+	"attributes": {
+		"phrases": {
+			"type": "array",
+			"default": [
+				"Le French Cancan",
+				"Depuis 1889",
+				"La Belle Époque",
+				"Montmartre, Paris"
+			]
+		},
+		"speed_seconds": {
+			"type": "number",
+			"default": 30
+		}
+	},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php",
+	"style": "file:./style.css"
+}

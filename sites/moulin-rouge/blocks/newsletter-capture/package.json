@@ -1,0 +1,14 @@
+{
+	"name": "agent-newsletter-capture",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Collects email addresses for the newsletter. Show it in the page, or as a polite popup that appears when a visitor tries to leave.",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^34.0.0"
+	}
+}

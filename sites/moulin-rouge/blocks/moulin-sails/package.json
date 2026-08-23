@@ -1,0 +1,14 @@
+{
+	"name": "agent-moulin-sails",
+	"version": "0.1.0",
+	"private": true,
+	"description": "A full-screen opening scene with the red windmill's sails slowly turning above a large title and tagline.",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^34.0.0"
+	}
+}

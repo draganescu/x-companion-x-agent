@@ -1,0 +1,48 @@
+{
+    "version": 1,
+    "epoch": "f0b9d302c283c9b918180fdc863137554fa5b1bb94c3cc106059fcb83219ab44",
+    "blocks": [
+        {
+            "name": "core/group",
+            "attributes": {
+                "tagName": "footer",
+                "align": "full",
+                "backgroundColor": "velvet",
+                "layout": { "type": "constrained" },
+                "style": { "spacing": { "padding": { "top": "var:preset|spacing|60", "bottom": "var:preset|spacing|60" }, "blockGap": "var:preset|spacing|20" } }
+            },
+            "innerBlocks": [
+                {
+                    "name": "core/paragraph",
+                    "attributes": {
+                        "content": "Moulin Rouge",
+                        "align": "center",
+                        "fontFamily": "boulevard",
+                        "fontSize": "x-large",
+                        "textColor": "rouge"
+                    }
+                },
+                {
+                    "name": "core/paragraph",
+                    "attributes": {
+                        "content": "82 Boulevard de Clichy · 75018 Paris · Montmartre",
+                        "align": "center",
+                        "fontSize": "small",
+                        "textColor": "poudre",
+                        "fontFamily": "affiche",
+                        "style": { "typography": { "textTransform": "uppercase", "letterSpacing": "0.2em" } }
+                    }
+                },
+                {
+                    "name": "core/paragraph",
+                    "attributes": {
+                        "content": "An unofficial love letter to the most famous cabaret in the world.",
+                        "align": "center",
+                        "fontSize": "small",
+                        "textColor": "poudre"
+                    }
+                }
+            ]
+        }
+    ]
+}

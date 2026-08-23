@@ -1,0 +1,64 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/cancan-stats",
+	"version": "0.1.0",
+	"title": "Numbers that dance",
+	"category": "design",
+	"icon": "layout",
+	"description": "A row of large numbers that count up from zero when the visitor reaches them, each with a short label underneath.",
+	"textdomain": "agent-cancan-stats",
+	"keywords": [
+		"cancan-stats"
+	],
+	"supports": {
+		"html": false,
+		"anchor": true,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true
+		},
+		"color": {
+			"background": true,
+			"text": true
+		}
+	},
+	"attributes": {
+		"stats": {
+			"type": "array",
+			"default": [
+				{
+					"value": 1889,
+					"suffix": "",
+					"label": "The year the windmill first turned"
+				},
+				{
+					"value": 60,
+					"suffix": "",
+					"label": "Dancers on stage every night"
+				},
+				{
+					"value": 800,
+					"suffix": "+",
+					"label": "Pairs of dancing shoes a year"
+				}
+			]
+		},
+		"duration_ms": {
+			"type": "number",
+			"default": 1600
+		}
+	},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php",
+	"style": "file:./style.css",
+	"viewScript": "file:./view.js"
+}

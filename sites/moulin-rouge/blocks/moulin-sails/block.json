@@ -1,0 +1,55 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "agent/moulin-sails",
+	"version": "0.1.0",
+	"title": "Windmill hero",
+	"category": "design",
+	"icon": "layout",
+	"description": "A full-screen opening scene with the red windmill's sails slowly turning above a large title and tagline.",
+	"textdomain": "agent-moulin-sails",
+	"keywords": [
+		"moulin-sails"
+	],
+	"supports": {
+		"html": false,
+		"anchor": true,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true
+		},
+		"color": {
+			"background": true,
+			"text": true
+		}
+	},
+	"attributes": {
+		"kicker": {
+			"type": "string",
+			"default": "Paris · Montmartre · Depuis 1889"
+		},
+		"heading": {
+			"type": "string",
+			"default": "Moulin Rouge"
+		},
+		"tagline": {
+			"type": "string",
+			"default": "The most famous cabaret in the world."
+		},
+		"spin_seconds": {
+			"type": "number",
+			"default": 16
+		}
+	},
+	"editorScript": "file:./build/index.js",
+	"render": "file:./render.php",
+	"style": "file:./style.css"
+}

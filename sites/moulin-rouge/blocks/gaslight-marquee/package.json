@@ -1,0 +1,14 @@
+{
+	"name": "agent-gaslight-marquee",
+	"version": "0.1.0",
+	"private": true,
+	"description": "A ribbon of short phrases that glides across the page like a lit theatre sign. It pauses when the pointer rests on it.",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^34.0.0"
+	}
+}

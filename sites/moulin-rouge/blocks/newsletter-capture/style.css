@@ -1,0 +1,140 @@
+/**
+ * Block-owned styles for agent/newsletter-capture — rung 6 of the expression ladder.
+ *
+ * Rungs 1–4 cannot style the block's internal form, card and native <dialog>;
+ * rung 5 would detach the rules from the block's lifecycle. Colors, sizes and
+ * spaces are tokens; the literals below are structure.
+ *
+ * The blanket [hidden] rule below is load-bearing: elements this sheet gives a
+ * display value would otherwise defeat the UA's [hidden]{display:none}.
+ */
+.wp-block-agent-newsletter-capture [hidden] {
+	display: none !important;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__card {
+	display: grid;
+	gap: var(--wp--preset--spacing--30);
+	justify-items: center;
+	text-align: center;
+	max-width: 560px;
+	margin: 0 auto;
+	padding: var(--wp--preset--spacing--50);
+	background: var(--wp--preset--color--velvet);
+	border: 1px solid color-mix(in srgb, var(--wp--preset--color--gold) 45%, transparent);
+	border-radius: 14px;
+	box-shadow: 0 24px 60px color-mix(in srgb, var(--wp--preset--color--base) 65%, transparent);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__heading {
+	margin: 0;
+	font-family: var(--wp--preset--font-family--boulevard);
+	font-size: var(--wp--preset--font-size--xx-large);
+	color: var(--wp--preset--color--contrast);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__message {
+	margin: 0;
+	font-size: var(--wp--preset--font-size--medium);
+	color: var(--wp--preset--color--poudre);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__form {
+	display: grid;
+	gap: var(--wp--preset--spacing--20);
+	width: 100%;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__hp {
+	position: absolute;
+	left: -9999px;
+	margin: 0;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__email-label {
+	font-family: var(--wp--preset--font-family--affiche);
+	font-size: var(--wp--preset--font-size--small);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--wp--preset--color--gold);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__row {
+	display: flex;
+	gap: var(--wp--preset--spacing--20);
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__email {
+	flex: 1 1 220px;
+	padding: var(--wp--preset--spacing--20) var(--wp--preset--spacing--30);
+	font-size: var(--wp--preset--font-size--medium);
+	color: var(--wp--preset--color--contrast);
+	background: color-mix(in srgb, var(--wp--preset--color--base) 70%, transparent);
+	border: 1px solid color-mix(in srgb, var(--wp--preset--color--poudre) 40%, transparent);
+	border-radius: 8px;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__email::placeholder {
+	color: color-mix(in srgb, var(--wp--preset--color--poudre) 65%, transparent);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__submit {
+	padding: var(--wp--preset--spacing--20) var(--wp--preset--spacing--40);
+	font-family: var(--wp--preset--font-family--affiche);
+	font-size: var(--wp--preset--font-size--medium);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--wp--preset--color--contrast);
+	background: var(--wp--preset--color--rouge);
+	border: 1px solid var(--wp--preset--color--gold);
+	border-radius: 8px;
+	cursor: pointer;
+	transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__submit:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 10px 24px color-mix(in srgb, var(--wp--preset--color--rouge) 55%, transparent);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__submit:disabled {
+	opacity: 0.6;
+	cursor: wait;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__error {
+	margin: 0;
+	color: var(--wp--preset--color--gold);
+	font-size: var(--wp--preset--font-size--small);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__success {
+	margin: 0;
+	color: var(--wp--preset--color--gold);
+	font-family: var(--wp--preset--font-family--boulevard);
+	font-size: var(--wp--preset--font-size--large);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__decline {
+	background: none;
+	border: none;
+	padding: 0;
+	color: var(--wp--preset--color--poudre);
+	font-size: var(--wp--preset--font-size--small);
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__dialog {
+	padding: 0;
+	background: transparent;
+	border: none;
+	max-width: min(92vw, 620px);
+}
+
+.wp-block-agent-newsletter-capture .mr-capture__dialog::backdrop {
+	background: rgba(10, 2, 5, 0.82);
+	backdrop-filter: blur(3px);
+}

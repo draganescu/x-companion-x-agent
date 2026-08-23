@@ -1,0 +1,120 @@
+/**
+ * Block-owned styles for agent/moulin-sails — rung 6 of the expression ladder.
+ *
+ * Rungs 1–4 cannot express keyframe rotation or the hero's internal element
+ * structure; rung 5 (site-global custom css) would detach these rules from the
+ * block's install/uninstall lifecycle. Colors, sizes and spaces are tokens;
+ * the literals below are structure (transforms, stroke widths, viewport units).
+ */
+.wp-block-agent-moulin-sails {
+	display: grid;
+	justify-items: center;
+	align-content: center;
+	text-align: center;
+	gap: var(--wp--preset--spacing--30);
+	min-height: 100svh;
+	padding: var(--wp--preset--spacing--60) var(--wp--preset--spacing--50);
+	box-sizing: border-box;
+	background:
+		radial-gradient(ellipse 120% 70% at 50% 12%, color-mix(in srgb, var(--wp--preset--color--rouge) 26%, transparent), transparent 70%),
+		linear-gradient(180deg, var(--wp--preset--color--velvet), var(--wp--preset--color--base));
+	color: var(--wp--preset--color--contrast);
+	overflow: hidden;
+}
+
+.wp-block-agent-moulin-sails .mr-windmill {
+	width: clamp(220px, 34vw, 400px);
+	height: auto;
+	filter: drop-shadow(0 18px 40px color-mix(in srgb, var(--wp--preset--color--rouge) 45%, transparent));
+}
+
+.wp-block-agent-moulin-sails .mr-mill__tower,
+.wp-block-agent-moulin-sails .mr-mill__dome {
+	fill: var(--wp--preset--color--rouge);
+}
+
+.wp-block-agent-moulin-sails .mr-mill__band {
+	fill: var(--wp--preset--color--gold);
+}
+
+.wp-block-agent-moulin-sails .mr-mill__window {
+	fill: var(--wp--preset--color--gold);
+	opacity: 0.9;
+}
+
+.wp-block-agent-moulin-sails .mr-rotor {
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: mr-rotor-spin var(--mr-spin, 16s) linear infinite;
+}
+
+.wp-block-agent-moulin-sails .mr-sail__arm {
+	fill: var(--wp--preset--color--rouge);
+}
+
+.wp-block-agent-moulin-sails .mr-sail__web {
+	fill: none;
+	stroke: var(--wp--preset--color--gold);
+	stroke-width: 2.5;
+}
+
+.wp-block-agent-moulin-sails .mr-sail__rung {
+	stroke: var(--wp--preset--color--gold);
+	stroke-width: 2;
+}
+
+.wp-block-agent-moulin-sails .mr-rotor__hub {
+	fill: var(--wp--preset--color--gold);
+	stroke: var(--wp--preset--color--rouge);
+	stroke-width: 3;
+}
+
+@keyframes mr-rotor-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+.wp-block-agent-moulin-sails .agent-moulin-sails__kicker {
+	margin: 0;
+	font-family: var(--wp--preset--font-family--affiche);
+	font-size: var(--wp--preset--font-size--small);
+	letter-spacing: 0.32em;
+	text-transform: uppercase;
+	color: var(--wp--preset--color--gold);
+}
+
+.wp-block-agent-moulin-sails .agent-moulin-sails__heading {
+	margin: 0;
+	font-family: var(--wp--preset--font-family--boulevard);
+	font-size: var(--wp--preset--font-size--display);
+	line-height: 1.02;
+	color: var(--wp--preset--color--contrast);
+	text-wrap: balance;
+}
+
+.wp-block-agent-moulin-sails .agent-moulin-sails__tagline {
+	margin: 0;
+	max-width: 38em;
+	font-family: var(--wp--preset--font-family--affiche);
+	font-size: var(--wp--preset--font-size--large);
+	color: var(--wp--preset--color--poudre);
+}
+
+.wp-block-agent-moulin-sails .agent-moulin-sails__scroll-hint {
+	margin-top: var(--wp--preset--spacing--40);
+	font-size: var(--wp--preset--font-size--x-large);
+	color: var(--wp--preset--color--gold);
+	animation: mr-scroll-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes mr-scroll-bob {
+	0%, 100% { transform: translateY(0); opacity: 0.55; }
+	50% { transform: translateY(10px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wp-block-agent-moulin-sails .mr-rotor,
+	.wp-block-agent-moulin-sails .agent-moulin-sails__scroll-hint {
+		animation: none;
+	}
+}
