@@ -8,7 +8,7 @@
 	"icon": "layout",
 	"description": "{{description}}",
 	"textdomain": "{{textdomain}}",
-	"keywords": ["agent", "{{slug}}"],
+	"keywords": ["{{slug}}"],
 	"supports": {
 		"html": false,
 		"anchor": true,

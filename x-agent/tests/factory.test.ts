@@ -30,7 +30,7 @@ import {
   inspectPackage,
   interpolate,
   loadAdmZip,
-  loaderPlugin,
+  pluginMainSource,
   mergedSampleAttributes,
   packageBlock,
   readBlockMetadata,
@@ -226,13 +226,13 @@ describe('wp_block_scaffold — generated files', () => {
     }
   });
 
-  it('src/edit.js edits images inline via MediaPlaceholder/MediaUpload', () => {
+  it('src/edit.js picks images in the inspector via MediaUpload (the canvas shows the server render)', () => {
     const js = fs.readFileSync(path.join(dir, 'src/edit.js'), 'utf8');
     expect(js).toContain('<MediaUploadCheck>');
-    expect(js).toContain('<MediaPlaceholder');
+    expect(js).toContain('<MediaUpload');
     expect(js).toContain('setAttributes( { photoUrl: media.url } )');
-    // Image attributes get no sidebar control; they are edited on the canvas.
-    expect(js).not.toContain('label={ __( "Photo url"');
+    // No inline media slot: the image is visible in the ServerSideRender preview.
+    expect(js).not.toContain('<MediaPlaceholder');
   });
 
   it('render.php outputs image attributes through esc_url inside an <img>', () => {
@@ -240,21 +240,86 @@ describe('wp_block_scaffold — generated files', () => {
     expect(php).toContain('esc_url( (string) $photo_url )');
   });
 
-  it('src/edit.js edits text inline via RichText and keeps non-text controls in the sidebar', () => {
+  it('src/edit.js previews through ServerSideRender and keeps every control in the inspector', () => {
     const js = fs.readFileSync(path.join(dir, 'src/edit.js'), 'utf8');
     expect(js).not.toContain('{{');
     expect(js).toContain('useBlockProps');
     expect(js).toContain('<InspectorControls>');
-    // Text attributes are edited INLINE on the canvas, not in the sidebar.
-    expect(js).toContain('<RichText');
+    // The canvas IS render.php: no hand-maintained preview markup that can drift.
+    expect(js).toContain('<ServerSideRender');
+    expect(js).toContain('block="agent/pricing-card"');
+    expect(js).not.toContain('<RichText');
+    // Every attribute gets a sidebar control with a user-facing label.
+    expect(js).toContain('label={ __( "Plan name", "agent-pricing-card" ) }');
     expect(js).toContain('setAttributes( { planName: value } )');
-    expect(js).toContain('allowedFormats={ [] }');
-    expect(js).not.toContain('<TextareaControl');
-    // Non-text attributes keep their sidebar controls.
+    expect(js).toContain('<TextareaControl');
     expect(js).toContain('type="number"');
     expect(js).toContain('<ToggleControl');
     expect(js).toContain('<SelectControl');
     expect(js).toContain("{ label: __( \"Pro\", \"agent-pricing-card\" ), value: \"pro\" }");
+  });
+
+  it('block.json and edit.js carry user-facing copy only — no toolchain vocabulary', () => {
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'block.json'), 'utf8')) as Record<string, unknown>;
+    // The description defaults to the title, never to provenance chatter.
+    expect(meta.description).toBe('Pricing Card');
+    expect(meta.keywords).toEqual(['pricing-card']);
+    expect(JSON.stringify(meta)).not.toContain('x-agent');
+    expect(JSON.stringify(meta)).not.toContain('scaffolded');
+  });
+
+  it('a supplied description and per-attribute label/help flow into block.json and the inspector', () => {
+    const out = scaffold({
+      slug: 'labeled-card',
+      title: 'Labeled Card',
+      description: 'A card with a friendly description.',
+      render_intent: INTENT,
+      dir: WS,
+      force: true,
+      attributes: [{ name: 'ctaText', type: 'string', control: 'text', label: 'Button text', help: 'Shown on the card’s button.' }],
+    });
+    const meta = JSON.parse(fs.readFileSync(path.join(out.dir, 'block.json'), 'utf8')) as Record<string, unknown>;
+    expect(meta.description).toBe('A card with a friendly description.');
+    const js = fs.readFileSync(path.join(out.dir, 'src/edit.js'), 'utf8');
+    expect(js).toContain('label={ __( "Button text", "agent-labeled-card" ) }');
+    expect(js).toContain('help={ __( "Shown on the card’s button.", "agent-labeled-card" ) }');
+  });
+
+  it('an array attribute with control textarea is edited one item per line and stays an array', () => {
+    const out = scaffold({
+      slug: 'lines-block',
+      title: 'Lines Block',
+      render_intent: INTENT,
+      dir: WS,
+      force: true,
+      attributes: [{ name: 'items', type: 'array', default: [], control: 'textarea', help: 'One fact per line.' }],
+    });
+    const js = fs.readFileSync(path.join(out.dir, 'src/edit.js'), 'utf8');
+    expect(js).toContain("( attributes.items ?? [] ).join( '\\n' )");
+    expect(js).toContain("setAttributes( { items: value.split( '\\n' ) } )");
+    // Never a raw value dump: the array is not bound to a control as-is.
+    expect(js).not.toContain('value={ attributes.items }');
+  });
+
+  it('a structured attribute scaffolds the JSON fallback flagged for replacement before install', () => {
+    const out = scaffold({
+      slug: 'structured-block',
+      title: 'Structured Block',
+      render_intent: INTENT,
+      dir: WS,
+      force: true,
+      attributes: [{ name: 'rows', type: 'array', default: [] }],
+    });
+    const js = fs.readFileSync(path.join(out.dir, 'src/edit.js'), 'utf8');
+    expect(js).toContain('<StructuredFallbackControl');
+    expect(js).toContain('Replace its usage below');
+    expect(js).toContain("import { useState } from '@wordpress/element';");
+  });
+
+  it('render.php exposes $is_editor_preview for front-hidden output', () => {
+    const php = fs.readFileSync(path.join(dir, 'render.php'), 'utf8');
+    expect(php).toContain('$is_editor_preview');
+    expect(php).toContain("'edit' === sanitize_key");
   });
 
   it('is DYNAMIC by construction — save returns null and there is no static path', () => {
@@ -361,27 +426,35 @@ describe('packaging — CONTRACT.md §5 install policy, asserted by reading the 
     const dir = scaffoldWithFakeBuild('packaged-card');
     const stage = stagePackage(dir);
     expect(stage.missing).toEqual([]);
+    expect(stage.pluginDirName).toBe('agent-block-packaged-card');
     blockDir = stage.blockDir;
-    zipPath = packageBlock(stage.blockDir, path.join(WS, 'packaged-card.zip'));
+    zipPath = packageBlock(stage.stageDir, path.join(WS, 'packaged-card.zip'), stage.pluginDirName);
   });
 
-  it('stages the loader plugin next to the block, wrapping register_block_type', () => {
-    const loader = fs.readFileSync(path.join(path.dirname(blockDir), 'x-agent-smoke.php'), 'utf8');
-    expect(loader).toContain('Plugin Name:');
-    expect(loader).toContain("register_block_type( __DIR__ . '/packaged-card' )");
-    expect(loaderPlugin('x', 'agent/x')).toContain('register_block_type');
+  it('stages the plugin main file next to the block, wrapping register_block_type', () => {
+    const main = fs.readFileSync(path.join(path.dirname(blockDir), 'agent-block-packaged-card.php'), 'utf8');
+    expect(main).toContain('Plugin Name:');
+    expect(main).toContain("register_block_type( __DIR__ . '/packaged-card' )");
+    expect(pluginMainSource('x', { name: 'agent/x', version: '1.0.0', render: 'file:./render.php', fileRefs: [], raw: {} })).toContain('register_block_type');
   });
 
-  it('has exactly one top-level directory', () => {
+  it('is a standard plugin zip: one top-level agent-block-{slug}/ directory', () => {
     const Zip = loadAdmZip();
     const entries = new Zip(zipPath).getEntries().filter((e) => !e.isDirectory);
     const tops = new Set(entries.map((e) => e.entryName.split('/')[0]));
-    expect([...tops]).toEqual(['packaged-card']);
+    expect([...tops]).toEqual(['agent-block-packaged-card']);
   });
 
-  it('has block.json at the block root, parsing, with an agent/ name', () => {
+  it('carries the plugin main file with a real header', () => {
     const Zip = loadAdmZip();
-    const entry = new Zip(zipPath).getEntries().find((e) => e.entryName === 'packaged-card/block.json');
+    const entry = new Zip(zipPath).getEntries().find((e) => e.entryName === 'agent-block-packaged-card/agent-block-packaged-card.php');
+    expect(entry).toBeDefined();
+    expect(entry!.getData().toString('utf8')).toMatch(/Plugin Name\s*:/);
+  });
+
+  it('has block.json at the block directory root, parsing, with an agent/ name', () => {
+    const Zip = loadAdmZip();
+    const entry = new Zip(zipPath).getEntries().find((e) => e.entryName === 'agent-block-packaged-card/packaged-card/block.json');
     expect(entry).toBeDefined();
     const meta = JSON.parse(entry!.getData().toString('utf8')) as Record<string, unknown>;
     expect(BLOCK_NAME_RE.test(String(meta.name))).toBe(true);
@@ -395,16 +468,16 @@ describe('packaging — CONTRACT.md §5 install policy, asserted by reading the 
     const meta = JSON.parse(entries.find((e) => e.entryName.endsWith('block.json'))!.getData().toString('utf8')) as { render: string };
     expect(meta.render.startsWith('file:')).toBe(true);
     const rel = meta.render.slice('file:'.length).replace(/^\.\//, '');
-    expect(names.has(`packaged-card/${rel}`)).toBe(true);
+    expect(names.has(`agent-block-packaged-card/packaged-card/${rel}`)).toBe(true);
   });
 
   it('includes every file referenced by block.json, and the editor script asset file', () => {
     const Zip = loadAdmZip();
     const entries = new Zip(zipPath).getEntries().filter((e) => !e.isDirectory);
     const names = new Set(entries.map((e) => e.entryName));
-    expect(names).toContain('packaged-card/build/index.js');
-    expect(names).toContain('packaged-card/build/index.asset.php');
-    expect(names).toContain('packaged-card/render.php');
+    expect(names).toContain('agent-block-packaged-card/packaged-card/build/index.js');
+    expect(names).toContain('agent-block-packaged-card/packaged-card/build/index.asset.php');
+    expect(names).toContain('agent-block-packaged-card/packaged-card/render.php');
   });
 
   it('carries no ../ and no absolute zip entries', () => {
@@ -432,7 +505,7 @@ describe('packaging — CONTRACT.md §5 install policy, asserted by reading the 
     const report = inspectPackage(zipPath);
     expect(report.reasons).toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.root).toBe('packaged-card');
+    expect(report.root).toBe('agent-block-packaged-card');
     expect(report.zip_bytes).toBeLessThan(MAX_PACKAGE_BYTES);
   });
 });
@@ -447,68 +520,97 @@ describe('inspectPackage — catches every policy violation before the companion
     return p;
   };
   const goodBlockJson = JSON.stringify({ apiVersion: 3, name: 'agent/x', render: 'file:./render.php', editorScript: 'file:./build/index.js' });
+  const MAIN = '<?php\n/**\n * Plugin Name: Agent block: x\n */\n';
+  const good = (blockJson: string = goodBlockJson): Record<string, string> => ({
+    'agent-block-x/agent-block-x.php': MAIN,
+    'agent-block-x/x/block.json': blockJson,
+    'agent-block-x/x/render.php': '<?php',
+    'agent-block-x/x/build/index.js': '',
+  });
 
   // adm-zip normalises entry names on write, so it cannot *produce* a hostile
   // package. A hand-rolled writer can — which is the case the policy is for:
   // the zip arrives from somewhere else and the entry names are attacker-chosen.
   it('flags a traversal entry', () => {
-    const p = writeHostileZip('bad-traversal.zip', { 'x/block.json': goodBlockJson, 'x/render.php': '<?php', 'x/../../evil.php': '<?php' });
+    const p = writeHostileZip('bad-traversal.zip', { ...good(), 'agent-block-x/../../evil.php': '<?php' });
     const r = inspectPackage(p);
     expect(r.ok).toBe(false);
-    expect(r.reasons.join(' ')).toMatch(/traversal segment in zip entry: x\/\.\.\/\.\.\/evil\.php/);
+    expect(r.reasons.join(' ')).toMatch(/traversal segment in zip entry: agent-block-x\/\.\.\/\.\.\/evil\.php/);
   });
 
   it('flags an absolute entry', () => {
-    const p = writeHostileZip('bad-absolute.zip', { 'x/block.json': goodBlockJson, 'x/render.php': '<?php', '/etc/evil.php': '<?php' });
+    const p = writeHostileZip('bad-absolute.zip', { ...good(), '/etc/evil.php': '<?php' });
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/absolute path in zip entry: \/etc\/evil\.php/);
   });
 
   it('flags two top-level directories', () => {
-    const p = write('bad-two-tops.zip', { 'x/block.json': goodBlockJson, 'x/render.php': '<?php', 'y/other.php': '<?php' });
+    const p = write('bad-two-tops.zip', { ...good(), 'y/other.php': '<?php' });
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/top-level/);
   });
 
-  it('flags a missing block.json at the block root', () => {
-    const p = write('bad-nested.zip', { 'x/inner/block.json': goodBlockJson, 'x/inner/render.php': '<?php' });
-    expect(inspectPackage(p).reasons.join(' ')).toMatch(/block\.json is not at the block root/);
+  it('flags a root that is not an agent-block-{slug} plugin directory', () => {
+    const p = write('bad-root.zip', { 'x/block.json': goodBlockJson, 'x/render.php': '<?php', 'x/build/index.js': '' });
+    expect(inspectPackage(p).reasons.join(' ')).toMatch(/does not start with "agent-block-"/);
+  });
+
+  it('flags a missing plugin main file', () => {
+    const files = good();
+    delete files['agent-block-x/agent-block-x.php'];
+    const p = write('bad-no-main.zip', files);
+    expect(inspectPackage(p).reasons.join(' ')).toMatch(/plugin main file/);
+  });
+
+  it('flags a main file without a Plugin Name header', () => {
+    const p = write('bad-headerless.zip', { ...good(), 'agent-block-x/agent-block-x.php': '<?php // no header' });
+    expect(inspectPackage(p).reasons.join(' ')).toMatch(/no "Plugin Name:" header/);
+  });
+
+  it('flags a missing block.json at the block directory root', () => {
+    const p = write('bad-nested.zip', { 'agent-block-x/agent-block-x.php': MAIN, 'agent-block-x/inner/block.json': goodBlockJson });
+    expect(inspectPackage(p).reasons.join(' ')).toMatch(/block\.json is not at agent-block-x\/x\//);
   });
 
   it('flags a block.json that does not parse', () => {
-    const p = write('bad-json.zip', { 'x/block.json': '{ not json', 'x/render.php': '<?php' });
+    const p = write('bad-json.zip', { ...good('{ not json') });
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/does not parse/);
   });
 
   it('flags a name outside the agent/ namespace', () => {
-    const p = write('bad-ns.zip', { 'x/block.json': JSON.stringify({ name: 'core/x', render: 'file:./render.php' }), 'x/render.php': '<?php' });
+    const p = write('bad-ns.zip', { ...good(JSON.stringify({ name: 'core/x', render: 'file:./render.php' })) });
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/does not match \^agent/);
   });
 
+  it('flags a name that disagrees with the plugin directory', () => {
+    const p = write('bad-mismatch.zip', { ...good(JSON.stringify({ name: 'agent/other', render: 'file:./render.php' })) });
+    expect(inspectPackage(p).reasons.join(' ')).toMatch(/does not match the plugin directory/);
+  });
+
   it('flags a missing render entry — a static block never gets packaged', () => {
-    const p = write('bad-static.zip', { 'x/block.json': JSON.stringify({ name: 'agent/x' }) });
+    const p = write('bad-static.zip', { ...good(JSON.stringify({ name: 'agent/x' })) });
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/no "render" entry/);
   });
 
   it('flags a referenced file that is not in the zip', () => {
-    const p = write('bad-missing-ref.zip', { 'x/block.json': goodBlockJson, 'x/render.php': '<?php' });
+    const files = good();
+    delete files['agent-block-x/x/build/index.js'];
+    const p = write('bad-missing-ref.zip', files);
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/build\/index\.js is not in the zip/);
   });
 
   it('flags a package over 5 MB', () => {
     const p = write('bad-big.zip', {
-      'x/block.json': goodBlockJson,
-      'x/render.php': '<?php',
-      'x/build/index.js': '',
+      ...good(),
       // Random bytes so the zip cannot compress its way under the limit.
-      'x/big.bin': Array.from({ length: MAX_PACKAGE_BYTES + 1024 }, () => String.fromCharCode(32 + Math.floor(Math.random() * 94))).join(''),
+      'agent-block-x/x/big.bin': Array.from({ length: MAX_PACKAGE_BYTES + 1024 }, () => String.fromCharCode(32 + Math.floor(Math.random() * 94))).join(''),
     });
     expect(inspectPackage(p).reasons.join(' ')).toMatch(/over the 5 MB install limit/);
   });
 
-  it('accepts flat files with block.json at the root', () => {
-    const p = write('flat-ok.zip', { 'block.json': JSON.stringify({ name: 'agent/x', render: 'file:./render.php' }), 'render.php': '<?php' });
+  it('refuses flat files at the zip root — a package is a plugin directory', () => {
+    const p = write('flat-not-ok.zip', { 'block.json': JSON.stringify({ name: 'agent/x', render: 'file:./render.php' }), 'render.php': '<?php' });
     const r = inspectPackage(p);
-    expect(r.reasons).toEqual([]);
-    expect(r.root).toBe('');
+    expect(r.ok).toBe(false);
+    expect(r.reasons.join(' ')).toMatch(/exactly one plugin directory/);
   });
 });
 

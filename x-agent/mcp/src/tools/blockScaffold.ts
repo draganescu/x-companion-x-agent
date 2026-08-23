@@ -25,8 +25,15 @@ const AttributeSchema = z.object({
   name: z.string().describe('Attribute key; becomes a block.json attribute and a control in the inspector.'),
   type: z.enum(['string', 'number', 'integer', 'boolean', 'array', 'object']),
   default: z.unknown().optional(),
-  control: z.enum(['text', 'textarea', 'number', 'toggle', 'select']),
-  options: z.array(z.object({ label: z.string(), value: z.string() })).optional().describe('Required when control is "select"; also becomes the block.json enum.'),
+  control: z
+    .enum(['text', 'textarea', 'number', 'toggle', 'select', 'image'])
+    .optional()
+    .describe(
+      'Inspector control. Omit to infer from type (array/object then scaffold a raw-JSON fallback you MUST replace with a purpose-built control before install). "textarea" on an array edits it as one item per line.',
+    ),
+  options: z.array(z.object({ label: z.string(), value: z.string() })).optional().describe('Required when control is "select"; also becomes the block.json enum. Labels are user-facing.'),
+  label: z.string().optional().describe('User-facing control label shown to site editors; defaults to a title-cased version of name.'),
+  help: z.string().optional().describe('User-facing help text under the control. Write for site editors — plain language, never toolchain vocabulary.'),
 });
 
 const InputSchema = z.looseObject({
@@ -38,7 +45,10 @@ const InputSchema = z.looseObject({
   attributes: z.array(AttributeSchema).optional(),
   render_intent: z.string().describe('Natural-language description of what render.php must output. Embedded verbatim as the docblock you then implement against.'),
   dir: z.string().optional().describe('Parent directory for the scaffold; defaults to a temp workspace.'),
-  description: z.string().optional(),
+  description: z
+    .string()
+    .optional()
+    .describe('User-facing description shown in the inserter and block card. Write it for site editors — what the block shows, never how it was made. Defaults to the title.'),
   version: z.string().optional().describe('block.json version; defaults to 0.1.0.'),
   force: z.boolean().optional().describe('Overwrite an existing non-empty scaffold directory.'),
   interactivity: z

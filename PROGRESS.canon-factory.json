@@ -1,15 +1,48 @@
 {
     "spec": "specs/canon-factory.spec.json",
     "milestones": {
-        "M1_manifest_lsp": { "status": "done", "evidence": "core-only 9410: GET /manifest?section=bindings -> sources incl core/post-meta (+post-data/term-data/pattern-overrides), bindable_attributes['core/paragraph']=['content']; section=data_model -> post/page with rest_base+meta_keys, taxonomies listed; mu-plugin CPT hc_test_cpt: fingerprint 68793da8->bec0ba15 (moved), removal reverts to 68793da8 exactly; ajv: fat manifest valid against manifest.schema.json v2; interfaces_version '2'; offline suites 216/216 manifest, 140/140 validator, 35/35 tokens, 62/62 install.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M2_harness_capture": { "status": "done", "evidence": "core-plus-suite (kadence) 9420, new build via bridge 9491: wp_manifest section=variations -> client_capture {performed:true, from_cache:false, harness_loads:1, blocks_with_client_variations:21, blocks_with_client_styles:15}; core/embed carries 33 source='client' variations absent from the server registry; second read -> {from_cache:true, harness_loads:0} (zero harness navigations, output-asserted); styles section serves client-captured styles (core/image rounded etc. source plugin); vitest 267 passed incl. 5 new merge tests.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M3_rung5_css": { "status": "done", "evidence": "suite 9420: wp_tokens_apply css.blocks['core/button'] -> css_written:true, css_rejected itemizes core/paragraph 'markup is not allowed in css', fingerprint b8aecdb8->6f3344b0; published proof page: verified button link computes background rgb(1,2,3) via wp_verify(url); global custom_css section shows the write merged beside TT5's own per-block css; live wp_validate flags W_STYLE_UNKNOWN (/blocks/0/attributes/className), E_BINDING_UNKNOWN and E_BINDING_UNBINDABLE with valid=false; offline validator 155/155, vitest 267.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M4_schema_factory": { "status": "done", "evidence": "m4-accept.mjs: orders package (hc_order CPT + pickup_day/contact meta + ready/picked-up statuses + public-nonce /submit + capability /orders + pickup-day binding) -> gate green: types true, meta_in_rest both true, /submit 200 anonymous-nonce, /orders 200 admin + 401 unauth, binding registered, uninstall_clean true, zip produced. Sabotage meta-without-show_in_rest -> smoke_failed naming 'hc_order:pickup_day not REST-visible', no zip. Sabotage $wpdb -> schema_policy 'routes.php:73 — direct $wpdb use', no sandbox boot, no zip. vitest 267.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M5_schema_install": { "status": "done", "evidence": "toolchain 9420: wp_schema_install(orders 1.0.0) -> fingerprint 6f3344b0->88887a3e, manifest_refreshed; data_model lists hc_order source='agent' with meta_keys [contact, pickup_day]; GET /wp/v2/hc_order answers 200; GET /schema/installed lists {orders, 1.0.0, provides hc_order}. Production 9410 direct multipart POST /schema/install -> 403 posture_forbidden. Regated 1.0.1 zip -> replaced_previous:true (fingerprint unchanged — identical registrations, correct epoch semantics). vitest 267 with 21 tools.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M6_block_factory_upgrades": { "status": "done", "evidence": "m6-accept.mjs: scaffold interactivity=view-script + stylesheet -> block.json refs viewScript file:./view.js + style file:./style.css (both UNBUILT roots — no build-pipeline change); gate green with front smoke on the sandbox's real front end: view_ready:true (view.js executed, data marker), style_enqueued:true, console_errors:[], zip produced. Appended #ff0000 -> style_warnings names line 16 + literal, still green (warning not failure). interactivity-api with features.interactivity_api.available=false -> structured invalid_input refusal; without a connection -> refusal naming the requirement. vitest 267.", "updated_at": "2026-08-22T00:00:00Z" },
-        "M7_skills_and_e2e": { "status": "done", "evidence": "skills/wp-schema/SKILL.md shipped (S1-S8 + ordering worked example with transcripts recorded from proof P16); wp-blocks amended (R4 -> expression ladder with per-rung read-sources, R7 rung-3.5 handoff + interactivity rungs, R11 token-only stylesheets, 21-tool index). tests/e2e/ordering.sh green via P16: gate green, install moves epoch 68793da8->b09c47b7, hc_order source 'agent', anonymous nonce'd submit -> 200 {created:5}, no-nonce -> 403, order pending with meta pickup_day=Saturday, ZERO comments created, binding to agent-orders/pickup-day validates + bogus source E_BINDING_UNKNOWN. Full proof suite 16/16, 206 observations, 66.9s, REPORT.md regenerated. Final sweep: validator 155/155, manifest 216/216, tokens 35/35, install 62/62, vitest 267.", "updated_at": "2026-08-22T00:00:00Z" }
+        "M1_manifest_lsp": {
+            "status": "done",
+            "evidence": "core-only 9410: GET /manifest?section=bindings -> sources incl core/post-meta (+post-data/term-data/pattern-overrides), bindable_attributes['core/paragraph']=['content']; section=data_model -> post/page with rest_base+meta_keys, taxonomies listed; mu-plugin CPT hc_test_cpt: fingerprint 68793da8->bec0ba15 (moved), removal reverts to 68793da8 exactly; ajv: fat manifest valid against manifest.schema.json v2; interfaces_version '2'; offline suites 216/216 manifest, 140/140 validator, 35/35 tokens, 62/62 install.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        },
+        "M2_harness_capture": {
+            "status": "done",
+            "evidence": "core-plus-suite (kadence) 9420, new build via bridge 9491: wp_manifest section=variations -> client_capture {performed:true, from_cache:false, harness_loads:1, blocks_with_client_variations:21, blocks_with_client_styles:15}; core/embed carries 33 source='client' variations absent from the server registry; second read -> {from_cache:true, harness_loads:0} (zero harness navigations, output-asserted); styles section serves client-captured styles (core/image rounded etc. source plugin); vitest 267 passed incl. 5 new merge tests.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        },
+        "M3_rung5_css": {
+            "status": "done",
+            "evidence": "suite 9420: wp_tokens_apply css.blocks['core/button'] -> css_written:true, css_rejected itemizes core/paragraph 'markup is not allowed in css', fingerprint b8aecdb8->6f3344b0; published proof page: verified button link computes background rgb(1,2,3) via wp_verify(url); global custom_css section shows the write merged beside TT5's own per-block css; live wp_validate flags W_STYLE_UNKNOWN (/blocks/0/attributes/className), E_BINDING_UNKNOWN and E_BINDING_UNBINDABLE with valid=false; offline validator 155/155, vitest 267.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        },
+        "M4_schema_factory": {
+            "status": "done",
+            "evidence": "m4-accept.mjs: orders package (hc_order CPT + pickup_day/contact meta + ready/picked-up statuses + public-nonce /submit + capability /orders + pickup-day binding) -> gate green: types true, meta_in_rest both true, /submit 200 anonymous-nonce, /orders 200 admin + 401 unauth, binding registered, uninstall_clean true, zip produced. Sabotage meta-without-show_in_rest -> smoke_failed naming 'hc_order:pickup_day not REST-visible', no zip. Sabotage $wpdb -> schema_policy 'routes.php:73 — direct $wpdb use', no sandbox boot, no zip. vitest 267.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        },
+        "M5_schema_install": {
+            "status": "done",
+            "evidence": "toolchain 9420: wp_schema_install(orders 1.0.0) -> fingerprint 6f3344b0->88887a3e, manifest_refreshed; data_model lists hc_order source='agent' with meta_keys [contact, pickup_day]; GET /wp/v2/hc_order answers 200; GET /schema/installed lists {orders, 1.0.0, provides hc_order}. Production 9410 direct multipart POST /schema/install -> 403 posture_forbidden. Regated 1.0.1 zip -> replaced_previous:true (fingerprint unchanged — identical registrations, correct epoch semantics). vitest 267 with 21 tools.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        },
+        "M6_block_factory_upgrades": {
+            "status": "done",
+            "evidence": "m6-accept.mjs: scaffold interactivity=view-script + stylesheet -> block.json refs viewScript file:./view.js + style file:./style.css (both UNBUILT roots — no build-pipeline change); gate green with front smoke on the sandbox's real front end: view_ready:true (view.js executed, data marker), style_enqueued:true, console_errors:[], zip produced. Appended #ff0000 -> style_warnings names line 16 + literal, still green (warning not failure). interactivity-api with features.interactivity_api.available=false -> structured invalid_input refusal; without a connection -> refusal naming the requirement. vitest 267.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        },
+        "M7_skills_and_e2e": {
+            "status": "done",
+            "evidence": "skills/wp-schema/SKILL.md shipped (S1-S8 + ordering worked example with transcripts recorded from proof P16); wp-blocks amended (R4 -> expression ladder with per-rung read-sources, R7 rung-3.5 handoff + interactivity rungs, R11 token-only stylesheets, 21-tool index). tests/e2e/ordering.sh green via P16: gate green, install moves epoch 68793da8->b09c47b7, hc_order source 'agent', anonymous nonce'd submit -> 200 {created:5}, no-nonce -> 403, order pending with meta pickup_day=Saturday, ZERO comments created, binding to agent-orders/pickup-day validates + bogus source E_BINDING_UNKNOWN. Full proof suite 16/16, 206 observations, 66.9s, REPORT.md regenerated. Final sweep: validator 155/155, manifest 216/216, tokens 35/35, install 62/62, vitest 267.",
+            "updated_at": "2026-08-22T00:00:00Z"
+        }
     },
     "decisions": [
+        {
+            "when": "2026-08-22",
+            "what": "Canonical packaging: agent packages are standard WordPress plugins. Factory zips carry a plugin directory (agent-block-{slug}/ with a generated plugin main file; agent-schema-{slug}/), the companion installs them into wp-content/plugins/ and activates via activate_plugin(), rollback copies live in wp-content/upgrade-temp-backup/plugins/. Deleted: the schema require_once loader + crash-loop option (core fatal-error recovery covers it), the plugins_url rewrite filter, both private option registries (library listings derive from disk + active_plugins), and every write of PHP under uploads.",
+            "why": "Executable PHP under wp-content/uploads is a hardening violation and invisible to plugins.php, and a sideband loader breaks the site owner's mental model of what runs on the site. Canon means the artifact is an installable plugin a human could upload from wp-admin; the block gate's smoke sandbox already activated packages as plugins, so the proof transfers 1:1."
+        },
         {
             "when": "2026-08-22",
             "what": "W_STYLE_UNKNOWN fires only when the block has at least one server-registered style; markup-mode wp_verify does not see per-block custom css unless the harvested page contains that block.",
@@ -47,6 +80,12 @@
             "spec_ref": "M5 acceptance: 'uninstall leaves no registrations (asserted via data_model diff)'",
             "what": "Live uninstall is asserted by the gate's sandbox probes (deactivate -> fresh-request data-model diff, per package, every build), not by a live delete route — the spec's rest_api_additions define install + installed only.",
             "why": "A DELETE /schema/{slug} route is real surface area the spec deliberately did not include; adding it silently would be scope growth. The uninstall guarantee is still proven on every gate run."
+        },
+        {
+            "when": "2026-08-22",
+            "spec_ref": "companion-plugin.spec.json: 'Install target: wp_upload_dir()/x-agent-blocks/{slug}/' + registrar globbing uploads; 'writes only under wp-content/uploads'",
+            "what": "Install target moved to wp-content/plugins/agent-{block,schema}-{slug}/ activated through core plugin APIs; the uploads registrar/loader mechanisms are removed. Packages previously installed under uploads are no longer read (breaking; reinstall through the routes).",
+            "why": "Owner directive: be canonical. PHP under uploads is a security-scanner violation, and a non-WordPress loader makes the system impossible to reason about from wp-admin. The spec's shared-hosting constraint is preserved: WP_Filesystem is used for all writes, and plugins dirs are writable wherever plugin installs work at all."
         }
     ]
 }

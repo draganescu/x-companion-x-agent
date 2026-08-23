@@ -618,19 +618,15 @@ final class X_Companion_Theme_Tokens {
 			self::copy_recursive( get_stylesheet_directory(), $theme_dir );
 		}
 
-		$library = X_Companion_Block_Library::base_dir();
+		// Installed agent packages are standard plugins; export each one whole,
+		// so the artifact re-installs on the target exactly as it ran here.
+		$prefixes = array( X_Companion_Block_Library::PLUGIN_PREFIX, X_Companion_Block_Library::SCHEMA_PLUGIN_PREFIX );
 
-		if ( '' !== $library && is_dir( $library ) ) {
-			$slugs = glob( $library . '/*', GLOB_ONLYDIR );
+		foreach ( $prefixes as $prefix ) {
+			$plugin_dirs = glob( rtrim( (string) WP_PLUGIN_DIR, '/\\' ) . '/' . $prefix . '*', GLOB_ONLYDIR );
 
-			foreach ( is_array( $slugs ) ? $slugs : array() as $slug_dir ) {
-				$slug = basename( $slug_dir );
-
-				if ( X_Companion_Block_Library::PREV_SUFFIX === substr( $slug, -strlen( X_Companion_Block_Library::PREV_SUFFIX ) ) ) {
-					continue;
-				}
-
-				self::copy_recursive( $slug_dir, $blocks_dir . '/' . $slug );
+			foreach ( is_array( $plugin_dirs ) ? $plugin_dirs : array() as $plugin_dir ) {
+				self::copy_recursive( $plugin_dir, $blocks_dir . '/' . basename( $plugin_dir ) );
 			}
 		}
 

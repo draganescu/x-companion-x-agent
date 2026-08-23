@@ -75,6 +75,8 @@ export interface LibraryEntry {
   name: string;
   version: string;
   installed_at: string;
+  /** Canonical install: whether the package's plugin is active in WordPress. */
+  active?: boolean;
   has_prev: boolean;
 }
 

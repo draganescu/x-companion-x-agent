@@ -8,14 +8,19 @@
 # generated here. Python's zipfile is used rather than the `zip` CLI because one
 # fixture needs an entry name (`../evil.php`) that no sane archiver will write.
 #
+# A valid package is a standard WordPress plugin zip: one top-level directory
+# `agent-block-{slug}/` holding the plugin main file `agent-block-{slug}.php`
+# and the block directory `{slug}/` with block.json at its root.
+#
 # Produces, next to this script:
 #
-#   agent-testimonial.zip      valid dynamic block, single top-level dir
+#   agent-testimonial.zip      valid plugin package (agent-block-testimonial/)
 #   agent-testimonial-v2.zip   same block name, different render output
-#   agent-static-card.zip      no "render" entry           -> 422 block_policy
-#   agent-traversal.zip        carries a ../ zip entry     -> 422 block_policy
-#   wrong-namespace.zip        name is evil/testimonial    -> 422 block_policy
-#   agent-testimonial-flat.zip the valid block, flat (block.json at zip root)
+#   agent-testimonial-flat.zip block files at the zip root  -> 422 block_policy
+#   agent-static-card.zip      no "render" entry            -> 422 block_policy
+#   agent-traversal.zip        carries a ../ zip entry      -> 422 block_policy
+#   wrong-namespace.zip        name is evil/testimonial     -> 422 block_policy
+#   agent-no-main.zip          plugin main file missing     -> 422 block_policy
 
 set -euo pipefail
 
@@ -31,11 +36,25 @@ import os
 import pathlib
 import zipfile
 
-HERE = pathlib.Path(__file__).parent if '__file__' in dir() else pathlib.Path('.')
 HERE = pathlib.Path(os.getcwd())
 
 # Fixed timestamp so a rebuild is byte-identical.
 DATE = (2026, 1, 1, 0, 0, 0)
+
+PLUGIN_MAIN = """<?php
+/**
+ * Plugin Name:       Agent block: {title}
+ * Description:       Test fixture package for the x-companion block library.
+ * Version:           {version}
+ * Requires at least: 6.5
+ * Requires PHP:      8.1
+ * License:           GPL-2.0-or-later
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+add_action( 'init', static function () {{ register_block_type( __DIR__ . '/{slug}' ); }} );
+"""
 
 
 def entries(source: pathlib.Path):
@@ -55,9 +74,15 @@ def write(zip_name: str, members: list[tuple[str, bytes]]):
     print(f'{zip_name}: {len(members)} entries, {target.stat().st_size} bytes')
 
 
-def wrapped(source_dir: str, top: str) -> list[tuple[str, bytes]]:
+def plugin(source_dir: str, slug: str, version: str, with_main: bool = True) -> list[tuple[str, bytes]]:
+    """Canonical plugin layout: agent-block-{slug}/agent-block-{slug}.php + agent-block-{slug}/{slug}/..."""
     source = HERE / source_dir
-    return [(f'{top}/{rel}', path.read_bytes()) for path, rel in entries(source)]
+    root = f'agent-block-{slug}'
+    members = [(f'{root}/{slug}/{rel}', path.read_bytes()) for path, rel in entries(source)]
+    if with_main:
+        main = PLUGIN_MAIN.format(title=slug, version=version, slug=slug)
+        members.insert(0, (f'{root}/{root}.php', main.encode()))
+    return members
 
 
 def flat(source_dir: str) -> list[tuple[str, bytes]]:
@@ -65,15 +90,25 @@ def flat(source_dir: str) -> list[tuple[str, bytes]]:
     return [(rel, path.read_bytes()) for path, rel in entries(source)]
 
 
-write('agent-testimonial.zip', wrapped('agent-testimonial', 'agent-testimonial'))
-write('agent-testimonial-v2.zip', wrapped('agent-testimonial-v2', 'agent-testimonial'))
-write('agent-testimonial-flat.zip', flat('agent-testimonial'))
-write('agent-static-card.zip', wrapped('agent-static-card', 'agent-static-card'))
-write('wrong-namespace.zip', wrapped('wrong-namespace', 'wrong-namespace'))
+write('agent-testimonial.zip', plugin('agent-testimonial', 'testimonial', '1.0.0'))
+write('agent-testimonial-v2.zip', plugin('agent-testimonial-v2', 'testimonial', '2.0.0'))
 
-# The traversal package: a well-formed block plus one entry that tries to climb
-# out of the extraction root.
-traversal = wrapped('agent-traversal', 'agent-traversal')
-traversal.append(('agent-traversal/../../evil.php', b"<?php // should never be written to disk\n"))
+# Flat block files at the zip root: no longer a valid package — a package is a
+# plugin directory. Kept as a policy fixture.
+write('agent-testimonial-flat.zip', flat('agent-testimonial'))
+
+write('agent-static-card.zip', plugin('agent-static-card', 'static-card', '1.0.0'))
+
+# The namespace fixture uses a canonical root so analysis reaches the
+# block.json name check (the reason under test).
+write('wrong-namespace.zip', plugin('wrong-namespace', 'testimonial', '1.0.0'))
+
+# The plugin main file is required.
+write('agent-no-main.zip', plugin('agent-testimonial', 'testimonial', '1.0.0', with_main=False))
+
+# The traversal package: a well-formed package plus one entry that tries to
+# climb out of the extraction root.
+traversal = plugin('agent-traversal', 'traversal', '1.0.0')
+traversal.append(('agent-block-traversal/../../evil.php', b"<?php // should never be written to disk\n"))
 write('agent-traversal.zip', traversal)
 PY

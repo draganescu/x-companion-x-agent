@@ -832,12 +832,14 @@ export async function schemaBuildTest(
     };
   }
 
-  // 3. Zip — the only artifact wp_schema_install accepts.
+  // 3. Zip — the only artifact wp_schema_install accepts. Entries live under
+  // the canonical plugin directory (agent-schema-{slug}/), so the zip is a
+  // standard WordPress plugin zip — the exact layout the sandbox just proved.
   const AdmZip = loadAdmZip();
   const zip = new AdmZip();
   for (const file of fs.readdirSync(dir)) {
     if (file.endsWith('.php') || file === SCHEMA_META_FILE) {
-      zip.addFile(file, fs.readFileSync(path.join(dir, file)));
+      zip.addFile(`${pluginSlug}/${file}`, fs.readFileSync(path.join(dir, file)));
     }
   }
   const buffer = zip.toBuffer();

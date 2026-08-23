@@ -314,15 +314,15 @@ against the file:
 
 **Deliberately left in place**
 
-> ⚠️ **Installed agent blocks are not deleted.** Everything under
-> `wp-content/uploads/x-agent-blocks/` — including `{slug}.prev/` rollback copies — survives
-> uninstall.
+> ⚠️ **Installed agent packages are not deleted.** They are standard, independently activated
+> plugins under `wp-content/plugins/` (`agent-block-*`, `agent-schema-*`) and keep running
+> after x-companion is uninstalled, exactly like any other plugin.
 
 That is not an oversight. Published content may still contain `<!-- wp:agent/... -->` delimiters,
 and deleting the block that renders them turns those posts into "This block has encountered an
-error" — permanently, and with no undo. Removing them has to be a deliberate act.
+error" — permanently, and with no undo. Removing a package has to be a deliberate act.
 
-To remove them properly, **before** deleting the plugin:
+To remove packages properly, **before** deleting the plugin:
 
 1. `GET /blocks/library` to list what is installed.
 2. `DELETE /blocks/library/{slug}` for each. That route refuses with **409 `in_use`** and
@@ -330,8 +330,9 @@ To remove them properly, **before** deleting the plugin:
    want.
 3. Edit or remove the referencing posts, then delete again.
 
-After the plugin is gone, the only remaining route is manual: delete
-`wp-content/uploads/x-agent-blocks/` from the filesystem, knowing what it breaks.
+After x-companion is gone, every agent package is still a normal row in plugins.php: deactivate
+and delete it there, like any plugin — a schema package's own `uninstall.php` runs on delete,
+exactly as WordPress intends.
 
 Users created for the agent are **not** deleted either — WordPress never deletes users on plugin
 uninstall, and their application passwords go with them. Delete the `x_agent` user yourself if you

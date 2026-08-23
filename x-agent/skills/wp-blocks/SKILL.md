@@ -321,6 +321,21 @@ wp_block_install    → POST the zip. Returns the NEW fingerprint.
 adopt the new fingerprint as the epoch of every subsequent tree; the block is now vocabulary
 ```
 
+**The editor is part of the deliverable.** The scaffolded `edit.js` previews the block through
+`ServerSideRender` — the canvas IS `render.php`, so the editor can never drift from the front
+end. Every setting sits in the inspector; nothing invisible is ever printed on the canvas. All
+inserter copy, labels and help text are written for the **site editor**, in plain language about
+what the reader sees — never toolchain vocabulary (no "agent", no "x-agent", no attribute
+names): pass a real `description`, and per-attribute `label`/`help`, to `wp_block_scaffold`.
+Two finishing obligations before `wp_block_install`:
+
+1. If part of the render is hidden on the front by default (a closed modal, a success state),
+   reveal it in `render.php` when `$is_editor_preview` is true so the canvas shows what is
+   being edited.
+2. A structured attribute (array/object) scaffolds with a raw-JSON fallback control. Replace it
+   with a purpose-built control (one field per property, add/remove rows) before install —
+   shipping raw JSON to a site editor is a defect, exactly as a hardcoded color is.
+
 **Static blocks are never created.** A static block freezes its `save()` output into every post
 that used it; change the block and that content is invalid forever. Dynamic blocks render at
 request time, so iteration is free. The scaffold cannot produce a static block and the companion
@@ -1104,7 +1119,7 @@ their discipline lives in the sibling **wp-schema** skill.
 | `wp_screenshot` | `markup? \| url?, viewport?, out_path?, nav_timeout_ms?, wait?` | `path_to_png, viewport, bytes` |
 | `wp_spec_validate` | a DesignSpecIR, flattened: `version, source, tokens_candidates, content, regions` | `valid, diagnostics[]` |
 | `wp_tokens_apply` | `palette, spacing, typography, layout, dry_run?` | `applied, dry_run, adapters_applied[], fingerprint, theme_json_written?, theme_json_preview, diff_against_instance[]` |
-| `wp_block_scaffold` | `slug, title, attributes[]?, render_intent, dir?` | `dir, name, files[]` |
+| `wp_block_scaffold` | `slug, title, description?, attributes[]? (each: name, type, control?, default?, options?, label?, help?), render_intent, dir?` | `dir, name, files[]` |
 | `wp_block_build_test` | `dir, sample_attributes?` | `built, smoke{registered, rendered_html, php_error?}, zip_path?, build_log?` |
 | `wp_block_install` | `zip_path` | `installed{slug,name,version}, fingerprint, replaced_previous` |
 | `wp_snapshot` | `out_path?` | `zip_path, bytes, fingerprint, site_url` |

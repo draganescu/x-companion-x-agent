@@ -210,18 +210,21 @@ const EXTERNAL_TOOLS: Omit<ToolDef, 'handler'>[] = [
     name: 'wp_block_scaffold',
     title: 'Scaffold a new dynamic block',
     description:
-      'Step 3 of the vocabulary-gap ladder, and only after composition and block styles/patterns have been ruled out. Copies templates/dynamic-block and interpolates slug/title/attributes. ALWAYS dynamic — static blocks freeze save() output into content and are never generated. render_intent is embedded as a comment for you to implement render.php against.',
+      'Step 3 of the vocabulary-gap ladder, and only after composition and block styles/patterns have been ruled out. Copies templates/dynamic-block and interpolates slug/title/attributes. ALWAYS dynamic — static blocks freeze save() output into content and are never generated. render_intent is embedded as a comment for you to implement render.php against. The generated editor UI previews render.php through ServerSideRender and keeps every setting in the inspector; description, labels and help are user-facing copy for site editors.',
     inputSchema: z.looseObject({
       slug: z.string().regex(/^[a-z0-9-]+$/).describe('Block slug; the block name becomes agent/{slug}.'),
       title: z.string(),
+      description: z.string().optional().describe('User-facing description shown in the inserter. Write for site editors; defaults to the title.'),
       attributes: z
         .array(
           z.object({
             name: z.string(),
             type: z.enum(['string', 'number', 'integer', 'boolean', 'array', 'object']),
             default: z.unknown().optional(),
-            control: z.enum(['text', 'textarea', 'number', 'toggle', 'select']),
+            control: z.enum(['text', 'textarea', 'number', 'toggle', 'select', 'image']).optional(),
             options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+            label: z.string().optional().describe('User-facing control label; defaults to a title-cased version of name.'),
+            help: z.string().optional().describe('User-facing help text under the control.'),
           }),
         )
         .optional(),

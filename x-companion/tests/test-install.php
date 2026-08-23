@@ -226,7 +226,7 @@ function x_library_entry( string $slug ): ?array {
 
 $packages = dirname( __DIR__ ) . '/fixtures/packages';
 
-foreach ( array( 'agent-testimonial', 'agent-testimonial-v2', 'agent-testimonial-flat', 'agent-static-card', 'agent-traversal', 'wrong-namespace' ) as $needed ) {
+foreach ( array( 'agent-testimonial', 'agent-testimonial-v2', 'agent-testimonial-flat', 'agent-static-card', 'agent-traversal', 'wrong-namespace', 'agent-no-main' ) as $needed ) {
 	if ( ! file_exists( $packages . '/' . $needed . '.zip' ) ) {
 		fwrite( STDERR, "Missing fixture zips; run: bash x-companion/fixtures/packages/build.sh\n" );
 		exit( 2 );
@@ -344,9 +344,11 @@ x_test(
 $library_before_policy = x_library_slugs();
 
 $policy_cases = array(
-	'a static package (no render entry)' => array( 'agent-static-card.zip', 'render' ),
-	'a package with a ../ zip entry'     => array( 'agent-traversal.zip', 'unsafe zip entries' ),
-	'a package outside the namespace'    => array( 'wrong-namespace.zip', 'must match agent/' ),
+	'a static package (no render entry)'      => array( 'agent-static-card.zip', 'render' ),
+	'a package with a ../ zip entry'          => array( 'agent-traversal.zip', 'unsafe zip entries' ),
+	'a package outside the namespace'         => array( 'wrong-namespace.zip', 'must match agent/' ),
+	'a flat package (not a plugin directory)' => array( 'agent-testimonial-flat.zip', 'plugin directory' ),
+	'a package without a plugin main file'    => array( 'agent-no-main.zip', 'plugin main file' ),
 );
 
 foreach ( $policy_cases as $label => $case ) {
@@ -451,15 +453,23 @@ x_test(
 );
 
 x_test(
-	'a flat package (block.json at the zip root) is accepted too',
-	function () use ( $packages ) {
-		$response = x_call( 'POST', '/x-companion/v1/blocks/install', array( 'upload' => $packages . '/agent-testimonial-flat.zip' ) );
+	'the installed package is an active WordPress plugin, visible to core',
+	function () {
+		$entry = x_library_entry( 'testimonial' );
 
-		x_assert( 200 === $response['status'], 'expected 200, got ' . x_show( $response ) );
-		x_assert_same( true, $response['json']['replaced_previous'] ?? null, 'it replaced the installed copy' );
+		x_assert( is_array( $entry ), 'testimonial is in the library listing' );
+		x_assert_same( true, $entry['active'] ?? null, 'the library reports the package plugin as active' );
 
-		// Put the library back where the rest of the suite expects it.
-		x_call( 'POST', '/x-companion/v1/blocks/library/testimonial/rollback' );
+		$plugins = x_call( 'GET', '/wp/v2/plugins' );
+		$found   = null;
+		foreach ( (array) ( $plugins['json'] ?? array() ) as $plugin ) {
+			if ( 'agent-block-testimonial/agent-block-testimonial' === ( $plugin['plugin'] ?? '' ) ) {
+				$found = $plugin;
+			}
+		}
+
+		x_assert( is_array( $found ), 'the package appears in /wp/v2/plugins like any plugin: ' . x_show( $plugins ) );
+		x_assert_same( 'active', $found['status'] ?? null, 'and WordPress reports it active' );
 	}
 );
 

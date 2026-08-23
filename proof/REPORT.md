@@ -6,10 +6,10 @@ for what each scenario is meant to establish and why it was chosen.
 
 | | |
 |---|---|
-| generated | 2026-08-22T08:15:19.668Z |
+| generated | 2026-08-22T13:42:15.856Z |
 | WordPress | 7.1 |
 | instances | toolchain, production |
-| duration | 66.9s |
+| duration | 71.3s |
 | result | **16 passed, 0 failed, 0 skipped** of 16 |
 
 | scenario | status | proves |
@@ -36,7 +36,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P1 — Handshake and epoch agreement
 
 **Proves:** The client speaks the companion’s dialect and the epoch is one shared value, not two guesses.  
-**Instance:** toolchain  •  **Status:** pass  •  **10083 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **11027 ms**
 
 | observation | value |
 |---|---|
@@ -54,7 +54,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P2 — Auth and capability gating are real
 
 **Proves:** Tiering is enforced in code by the permission callback, not hidden in a UI.  
-**Instance:** toolchain  •  **Status:** pass  •  **1115 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **1205 ms**
 
 | observation | value |
 |---|---|
@@ -68,7 +68,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P3 — Tree → validate → compile → parse round trip
 
 **Proves:** The core loop is closed and idempotent; the markup came from WordPress’s own save(), not a model.  
-**Instance:** toolchain  •  **Status:** pass  •  **1467 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **1573 ms**
 
 | observation | value |
 |---|---|
@@ -90,7 +90,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P4 — The validator is grounded in this instance’s registry
 
 **Proves:** Validation catches, before a round trip, what the compiler would mishandle.  
-**Instance:** toolchain  •  **Status:** pass  •  **4465 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **4835 ms**
 
 | observation | value |
 |---|---|
@@ -126,7 +126,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P5 — Epoch invalidation is live, not cached optimism
 
 **Proves:** Ground truth moves and both sides notice — the whole reason epochs exist.  
-**Instance:** toolchain  •  **Status:** pass  •  **2845 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **3059 ms**
 
 | observation | value |
 |---|---|
@@ -144,17 +144,17 @@ for what each scenario is meant to establish and why it was chosen.
 ## P6 — Vocabulary gap ladder, end to end
 
 **Proves:** The agent can grow the instance’s block vocabulary and immediately use it. The headline claim of both specs.  
-**Instance:** toolchain  •  **Status:** pass  •  **3693 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **3892 ms**
 
 | observation | value |
 |---|---|
-| ✓ package | `agent-testimonial.zip (1.3 KB)` |
+| ✓ package | `agent-testimonial.zip (1.8 KB)` |
 | ✓ POST /blocks/install succeeded | `200` |
 | ✓ installed | `{"slug":"testimonial","name":"agent/testimonial","version":"1.0.0"}` |
-| ✓ install returned a NEW epoch | `2da356165acb… → e2bffb91ed4a…` |
-| ✓ wp_manifest answered with a blocks map | `{"fingerprint":"e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5","generated_at":"2026-08-22T08:14:33+00:00","wp_version":"7.1","site_url":"http://127.0.0.1:9460","posture":"toolchain"` |
+| ✓ install returned a NEW epoch | `2da356165acb… → 9dad359f6e06…` |
+| ✓ wp_manifest answered with a blocks map | `{"fingerprint":"9dad359f6e06fb10b0af2ea825b57ecb564c65600972028ddefed476f937e88d","generated_at":"2026-08-22T13:41:27+00:00","wp_version":"7.1","site_url":"http://127.0.0.1:9460","posture":"toolchain"` |
 | ✓ agent/testimonial is in the manifest | `["agent/testimonial"]` |
-| ✓ manifest epoch === install epoch | `e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5` |
+| ✓ manifest epoch === install epoch | `9dad359f6e06fb10b0af2ea825b57ecb564c65600972028ddefed476f937e88d` |
 | ✓ agent/testimonial is in window.__registry() | `114 client-registered blocks` |
 | ✓ every harness script URL resolves after a warm-session install | `59 scripts checked` |
 | ✓ tree using the new block validates | `[{"code":"W_ATTR_UNKNOWN","severity":"warning","path":"/blocks/0/attributes/author","message":"Attribute \"author\" is not declared by \"agent/testimonial\".","fix_hint":"drop it, or check GET /manifest for the block's declared attributes"}]` |
@@ -167,20 +167,20 @@ for what each scenario is meant to establish and why it was chosen.
 ## P7 — The local safety gate is the gate
 
 **Proves:** The division of labour is honoured: the agent stops bad packages, the companion does no PHP linting.  
-**Instance:** toolchain  •  **Status:** pass  •  **8274 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **9117 ms**
 
 | observation | value |
 |---|---|
-| ✓ scaffolded at | `proof/artifacts/sabotage-oJtxR6/proof-broken` |
+| ✓ scaffolded at | `proof/artifacts/sabotage-q2JRP3/proof-broken` |
 | ✓ render.php sabotaged | `syntax error injected` |
-| ✓ build_test did NOT succeed | `{"ok":true,"built":true,"php_error":"Parse error: syntax error, unexpected identifier \"is\" in /wordpress/wp-content/plugins/x-agent-smoke/proof-broken/render"}` |
+| ✓ build_test did NOT succeed | `{"ok":true,"built":true,"php_error":"Parse error: syntax error, unexpected identifier \"is\" in /wordpress/wp-content/plugins/agent-block-proof-broken/proof-br"}` |
 | ✓ no zip was produced | `none` |
 | ✓ nothing reached the instance | `1` |
 
 ## P8 — Install policy is enforced server-side
 
 **Proves:** The companion does not trust the agent, even though the agent is the safety gate.  
-**Instance:** toolchain  •  **Status:** pass  •  **2100 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **2263 ms**
 
 | observation | value |
 |---|---|
@@ -189,19 +189,19 @@ for what each scenario is meant to establish and why it was chosen.
 | ✓   reasons are itemised | `["block.json has no \"render\" entry; static blocks are refused unless X_COMPANION_ALLOW_STATIC_BLOCKS is defined true"]` |
 | ✓ a zip containing a ../ path traversal entry → 422 | `422` |
 | ✓   code | `block_policy` |
-| ✓   reasons are itemised | `["unsafe zip entries (path traversal or absolute path): agent-traversal/../../evil.php"]` |
+| ✓   reasons are itemised | `["unsafe zip entries (path traversal or absolute path): agent-block-traversal/../../evil.php"]` |
 | ✓ a block named outside the agent/ namespace → 422 | `422` |
 | ✓   code | `block_policy` |
 | ✓   reasons are itemised | `["block.json name \"evil/testimonial\" must match agent/[a-z0-9-]+"]` |
 | ✓ re-installing a slug reports replaced_previous | `true` |
-| ✓ library reports has_prev | `{"slug":"testimonial","name":"agent/testimonial","version":"2.0.0","installed_at":"2026-08-22T08:14:46+00:00","has_prev":true}` |
+| ✓ library reports has_prev | `{"slug":"testimonial","name":"agent/testimonial","version":"2.0.0","installed_at":"2026-08-22T13:41:40+00:00","active":true,"has_prev":true}` |
 | ✓ rollback is 200 | `200` |
-| ✓ rollback returns a fingerprint | `e2bffb91ed4a3695…` |
+| ✓ rollback returns a fingerprint | `9dad359f6e06fb10…` |
 
 ## P9 — Numeric oracle, not screenshot squinting
 
 **Proves:** The oracle is sensitive and specific: it catches a one-step change and reports nothing else.  
-**Instance:** toolchain  •  **Status:** pass  •  **3091 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **3183 ms**
 
 | observation | value |
 |---|---|
@@ -216,7 +216,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P11 — Posture wall holds from the agent side
 
 **Proves:** R8: the agent surfaces the constraint instead of routing around it, and sends nothing that would mutate.  
-**Instance:** production  •  **Status:** pass  •  **8606 ms**
+**Instance:** production  •  **Status:** pass  •  **9154 ms**
 
 | observation | value |
 |---|---|
@@ -237,17 +237,17 @@ for what each scenario is meant to establish and why it was chosen.
 ## P12 — Snapshot is a promotion gate
 
 **Proves:** The “production receives artifacts, not the toolchain” pipeline has a real wire format.  
-**Instance:** toolchain  •  **Status:** pass  •  **1321 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **1364 ms**
 
 | observation | value |
 |---|---|
-| ✓ snapshot written | `../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-e2bffb91ed4a-1787386498864.zip (8080.5 KB)` |
+| ✓ snapshot written | `../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-9dad359f6e06-1787406114169.zip (8081.2 KB)` |
 | ✓ snapshot contains theme/ | `["theme/","theme/assets/","theme/assets/css/"]` |
-| ✓ snapshot contains agent-blocks/ | `["agent-blocks/","agent-blocks/testimonial/","agent-blocks/testimonial/block.json"]` |
+| ✓ snapshot contains agent-blocks/ | `["agent-blocks/","agent-blocks/agent-block-testimonial/","agent-blocks/agent-block-testimonial/agent-block-testimonial.php"]` |
 | ✓ snapshot contains patterns.json | `["patterns.json"]` |
 | ✓ snapshot contains content.xml | `["content.xml"]` |
 | ✓ snapshot contains manifest.json | `["manifest.json"]` |
-| ✓ manifest.json fingerprint === live /fingerprint | `e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5` |
+| ✓ manifest.json fingerprint === live /fingerprint | `9dad359f6e06fb10b0af2ea825b57ecb564c65600972028ddefed476f937e88d` |
 
 ## P13 — Schema drift tripwire
 
@@ -281,7 +281,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P14 — End-to-end from-prompt demo (the R5 loop)
 
 **Proves:** The skill’s prescribed loop runs start to finish, and the screenshot is terminal evidence — taken exactly once, never inside the loop.  
-**Instance:** toolchain  •  **Status:** pass  •  **3032 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **3108 ms**
 
 | observation | value |
 |---|---|
@@ -296,7 +296,7 @@ for what each scenario is meant to establish and why it was chosen.
 | ✓ verify passes | `true` |
 | ✓ measured nodes / with a resolved block_name | `9 / 9` |
 | ✓ the three sections are present in the measured tree | `[0,105,210]` |
-| ✓ wp_screenshot produced a PNG | `/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787386501970.png` |
+| ✓ wp_screenshot produced a PNG | `/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787406117382.png` |
 | ✓   and it is a real PNG | `40.2 KB` |
 | ✓ artifact written | `proof/artifacts/p14-acceptance.png (40.2 KB)` |
 | ✓ exactly one screenshot in the whole run | `1` |
@@ -304,7 +304,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P15 — End-to-end from-design demo (lift → implement → attribute the delta)
 
 **Proves:** A design spec is validated before any tree is generated, and every residual difference is an itemised decision rather than a vibe.  
-**Instance:** toolchain  •  **Status:** pass  •  **1478 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **1530 ms**
 
 | observation | value |
 |---|---|
@@ -326,7 +326,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P16 — The ordering system, the canon way (schema factory end to end)
 
 **Proves:** Storage and backend behavior enter through a gated schema package, never through improvisation: model installed with source "agent", an anonymous nonce’d submit lands as a moderated CPT entry, the agent-created binding source validates, and zero comments are created.  
-**Instance:** toolchain  •  **Status:** pass  •  **10837 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **12455 ms**
 
 | observation | value |
 |---|---|
@@ -336,7 +336,7 @@ for what each scenario is meant to establish and why it was chosen.
 | ✓   routes answered as declared | `[{"path":"/submit","method":"POST","status":200,"ok":true},{"path":"/orders","method":"GET","status":200,"unauth_status":401,"ok":true}]` |
 | ✓   uninstall leaves nothing behind | `sandbox post-uninstall diff` |
 | ✓ wp_schema_install succeeded | `{"slug":"orders","version":"1.0.0"}` |
-| ✓ the epoch moved | `e2bffb91ed4a… -> 369d370a3b27…` |
+| ✓ the epoch moved | `9dad359f6e06… -> 7e06f91a7d19…` |
 | ✓ data_model lists hc_order with source "agent" | `{"slug":"hc_order","label":"Orders","public":false,"show_in_rest":true,"rest_base":"hc_order","supports":["title","custom-fields"],"taxonomies":[],"meta_keys":["contact","pickup_day"],"source":"agent"}` |
 | ✓   meta keys visible in the model | `["contact","pickup_day"]` |
 | ✓ anonymous nonce’d submit answers 201/200 | `true` |
@@ -351,7 +351,7 @@ for what each scenario is meant to establish and why it was chosen.
 ## P10 — Tokens flow through both sides to computed pixels
 
 **Proves:** The design-token system is one system across both plugins, all the way to rendered CSS.  
-**Instance:** toolchain  •  **Status:** pass  •  **4320 ms**
+**Instance:** toolchain  •  **Status:** pass  •  **3438 ms**
 
 | observation | value |
 |---|---|

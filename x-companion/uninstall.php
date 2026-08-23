@@ -5,9 +5,10 @@
  * Removes the x_agent role, revokes the three capabilities from every role
  * that holds them, and deletes plugin options/transients.
  *
- * It deliberately does NOT delete wp-uploads/x-agent-blocks/: installed agent
- * blocks may still be referenced by published content, and silently deleting
- * them would break that content. Removing them is a manual, deliberate act.
+ * It deliberately does NOT touch installed agent packages: they are standard,
+ * independently activated plugins under wp-content/plugins/ (agent-block-*,
+ * agent-schema-*) and may still be serving published content. Each one is
+ * removed on its own, canonically, from plugins.php.
  *
  * @package x-companion
  */

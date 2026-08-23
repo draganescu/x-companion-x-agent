@@ -1,9 +1,9 @@
 {
   "env": {
-    "generated": "2026-08-22T08:15:19.668Z",
+    "generated": "2026-08-22T13:42:15.856Z",
     "WordPress": "7.1",
     "instances": "toolchain, production",
-    "duration": "66.9s"
+    "duration": "71.3s"
   },
   "totals": {
     "pass": 16,
@@ -70,7 +70,7 @@
           "ok": true
         }
       ],
-      "ms": 10083
+      "ms": 11027
     },
     {
       "id": "P2",
@@ -110,7 +110,7 @@
           "ok": true
         }
       ],
-      "ms": 1115
+      "ms": 1205
     },
     {
       "id": "P3",
@@ -190,7 +190,7 @@
           "ok": true
         }
       ],
-      "ms": 1467
+      "ms": 1573
     },
     {
       "id": "P4",
@@ -340,7 +340,7 @@
           "ok": true
         }
       ],
-      "ms": 4465
+      "ms": 4835
     },
     {
       "id": "P5",
@@ -400,7 +400,7 @@
           "ok": true
         }
       ],
-      "ms": 2845
+      "ms": 3059
     },
     {
       "id": "P6",
@@ -411,7 +411,7 @@
       "steps": [
         {
           "what": "package",
-          "observed": "agent-testimonial.zip (1.3 KB)",
+          "observed": "agent-testimonial.zip (1.8 KB)",
           "ok": true
         },
         {
@@ -426,12 +426,12 @@
         },
         {
           "what": "install returned a NEW epoch",
-          "observed": "2da356165acb… → e2bffb91ed4a…",
+          "observed": "2da356165acb… → 9dad359f6e06…",
           "ok": true
         },
         {
           "what": "wp_manifest answered with a blocks map",
-          "observed": "{\"fingerprint\":\"e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5\",\"generated_at\":\"2026-08-22T08:14:33+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
+          "observed": "{\"fingerprint\":\"9dad359f6e06fb10b0af2ea825b57ecb564c65600972028ddefed476f937e88d\",\"generated_at\":\"2026-08-22T13:41:27+00:00\",\"wp_version\":\"7.1\",\"site_url\":\"http://127.0.0.1:9460\",\"posture\":\"toolchain\"",
           "ok": true
         },
         {
@@ -441,7 +441,7 @@
         },
         {
           "what": "manifest epoch === install epoch",
-          "observed": "e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5",
+          "observed": "9dad359f6e06fb10b0af2ea825b57ecb564c65600972028ddefed476f937e88d",
           "ok": true
         },
         {
@@ -485,7 +485,7 @@
           "ok": true
         }
       ],
-      "ms": 3693
+      "ms": 3892
     },
     {
       "id": "P7",
@@ -496,7 +496,7 @@
       "steps": [
         {
           "what": "scaffolded at",
-          "observed": "proof/artifacts/sabotage-oJtxR6/proof-broken",
+          "observed": "proof/artifacts/sabotage-q2JRP3/proof-broken",
           "ok": true
         },
         {
@@ -506,8 +506,8 @@
         },
         {
           "what": "build_test did NOT succeed",
-          "observed": "{\"ok\":true,\"built\":true,\"php_error\":\"Parse error: syntax error, unexpected identifier \\\"is\\\" in /wordpress/wp-content/plugins/x-agent-smoke/proof-broken/render\"}",
-          "ok": "Parse error: syntax error, unexpected identifier \"is\" in /wordpress/wp-content/plugins/x-agent-smoke/proof-broken/render.php on line 2"
+          "observed": "{\"ok\":true,\"built\":true,\"php_error\":\"Parse error: syntax error, unexpected identifier \\\"is\\\" in /wordpress/wp-content/plugins/agent-block-proof-broken/proof-br\"}",
+          "ok": "Parse error: syntax error, unexpected identifier \"is\" in /wordpress/wp-content/plugins/agent-block-proof-broken/proof-broken/render.php on line 2"
         },
         {
           "what": "no zip was produced",
@@ -520,7 +520,7 @@
           "ok": true
         }
       ],
-      "ms": 8274
+      "ms": 9117
     },
     {
       "id": "P8",
@@ -556,7 +556,7 @@
         },
         {
           "what": "  reasons are itemised",
-          "observed": "[\"unsafe zip entries (path traversal or absolute path): agent-traversal/../../evil.php\"]",
+          "observed": "[\"unsafe zip entries (path traversal or absolute path): agent-block-traversal/../../evil.php\"]",
           "ok": true
         },
         {
@@ -581,7 +581,7 @@
         },
         {
           "what": "library reports has_prev",
-          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-22T08:14:46+00:00\",\"has_prev\":true}",
+          "observed": "{\"slug\":\"testimonial\",\"name\":\"agent/testimonial\",\"version\":\"2.0.0\",\"installed_at\":\"2026-08-22T13:41:40+00:00\",\"active\":true,\"has_prev\":true}",
           "ok": true
         },
         {
@@ -591,11 +591,11 @@
         },
         {
           "what": "rollback returns a fingerprint",
-          "observed": "e2bffb91ed4a3695…",
+          "observed": "9dad359f6e06fb10…",
           "ok": true
         }
       ],
-      "ms": 2100
+      "ms": 2263
     },
     {
       "id": "P9",
@@ -640,7 +640,7 @@
           "ok": true
         }
       ],
-      "ms": 3091
+      "ms": 3183
     },
     {
       "id": "P11",
@@ -715,7 +715,7 @@
           "ok": true
         }
       ],
-      "ms": 8606
+      "ms": 9154
     },
     {
       "id": "P12",
@@ -726,7 +726,7 @@
       "steps": [
         {
           "what": "snapshot written",
-          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-e2bffb91ed4a-1787386498864.zip (8080.5 KB)",
+          "observed": "../../../../var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-snapshot-9dad359f6e06-1787406114169.zip (8081.2 KB)",
           "ok": true
         },
         {
@@ -736,7 +736,7 @@
         },
         {
           "what": "snapshot contains agent-blocks/",
-          "observed": "[\"agent-blocks/\",\"agent-blocks/testimonial/\",\"agent-blocks/testimonial/block.json\"]",
+          "observed": "[\"agent-blocks/\",\"agent-blocks/agent-block-testimonial/\",\"agent-blocks/agent-block-testimonial/agent-block-testimonial.php\"]",
           "ok": true
         },
         {
@@ -756,11 +756,11 @@
         },
         {
           "what": "manifest.json fingerprint === live /fingerprint",
-          "observed": "e2bffb91ed4a3695106e43045d7e7b35173cf5e765fa482a9d1af16f7f47c3d5",
+          "observed": "9dad359f6e06fb10b0af2ea825b57ecb564c65600972028ddefed476f937e88d",
           "ok": true
         }
       ],
-      "ms": 1321
+      "ms": 1364
     },
     {
       "id": "P13",
@@ -941,7 +941,7 @@
         },
         {
           "what": "wp_screenshot produced a PNG",
-          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787386501970.png",
+          "observed": "/var/folders/23/033xmnkn3ls_cnjbt965_45r0000gn/T/x-agent-shot-1787406117382.png",
           "ok": true
         },
         {
@@ -960,7 +960,7 @@
           "ok": true
         }
       ],
-      "ms": 3032
+      "ms": 3108
     },
     {
       "id": "P15",
@@ -1040,7 +1040,7 @@
           "ok": true
         }
       ],
-      "ms": 1478
+      "ms": 1530
     },
     {
       "id": "P16",
@@ -1081,7 +1081,7 @@
         },
         {
           "what": "the epoch moved",
-          "observed": "e2bffb91ed4a… -> 369d370a3b27…",
+          "observed": "9dad359f6e06… -> 7e06f91a7d19…",
           "ok": true
         },
         {
@@ -1135,7 +1135,7 @@
           "ok": true
         }
       ],
-      "ms": 10837
+      "ms": 12455
     },
     {
       "id": "P10",
@@ -1200,7 +1200,7 @@
           "ok": true
         }
       ],
-      "ms": 4320
+      "ms": 3438
     }
   ]
 }

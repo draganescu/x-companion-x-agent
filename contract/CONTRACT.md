@@ -196,19 +196,28 @@ uniform. See §6.
   "fingerprint": "<new epoch>", "replaced_previous": false }
 ```
 Policy (all violations → 422 `block_policy` with `data.reasons`):
-- exactly one top-level dir, or flat files, with `block.json` at the block root
+- the zip is a **standard WordPress plugin zip**: exactly one top-level directory
+  `agent-block-{slug}/`, holding the plugin main file `agent-block-{slug}.php`
+  (with a real `Plugin Name:` header) and the block directory `{slug}/` with
+  `block.json` at its root
 - `name` matches `^agent/[a-z0-9-]+$` (namespace filterable via `x_companion_block_namespace`)
+  and agrees with the plugin directory name
 - `render` entry present pointing at a file that exists in the zip, unless
   `X_COMPANION_ALLOW_STATIC_BLOCKS`
 - no `../` or absolute paths in any zip entry; total size ≤ 5 MB
 - `block.json` parses; every file referenced by `block.json` exists in the zip
 
 Structural validation only. **No `php -l`, no `exec`.** The safety gate lives on the agent side
-(Playground smoke-test before POSTing). Install target `wp_upload_dir()['basedir']/x-agent-blocks/{slug}/`;
-an existing slug is moved to `{slug}.prev/` first (single-level rollback).
+(Playground smoke-test before POSTing, against the identical plugin layout). Install target
+`wp-content/plugins/agent-block-{slug}/`, activated through `activate_plugin()` — the package
+is a normal plugin row in plugins.php from then on, loaded by WordPress itself in both
+postures. An existing install is moved to `wp-content/upgrade-temp-backup/plugins/` first
+(single-level rollback — the location core's own upgrader uses). No PHP is ever written under
+uploads, and there is no companion-side loader.
 
 ### `GET /blocks/library` — extend
-`[{ slug, name, version, installed_at, has_prev }]`
+`[{ slug, name, version, installed_at, active, has_prev }]` — derived from the plugins
+directory plus WordPress's own plugin state; there is no private registry.
 
 ### `POST /blocks/library/{slug}/rollback` — extend → `{ "fingerprint": "..." }`
 ### `DELETE /blocks/library/{slug}` — extend → `{ "fingerprint": "..." }`
@@ -254,23 +263,31 @@ pass to fulfil.
 
 ### `POST /schema/install` — extend (interfaces v2)
 Multipart field `package`: a schema-package zip produced by the agent-side gate
-(`wp_schema_build_test`). Structural policy: safe entries, ≤ 1 MB, `schema.json` with a slug at
-the root, `{slug}.php` present, and a forbidden-token scan (`$wpdb`, `eval`, `exec`, SQL
+(`wp_schema_build_test`) — a **standard WordPress plugin zip**: one top-level directory
+`agent-schema-{slug}/` holding `{slug}.php` (the plugin main file with a real `Plugin Name:`
+header), `schema.json`, and the package's other PHP files. Structural policy: safe entries,
+≤ 1 MB, the plugin layout above, and a forbidden-token scan (`$wpdb`, `eval`, `exec`, SQL
 drivers) — the same list the agent gate scans, enforced twice by design; violations answer 422
-`schema_policy` with itemized `reasons`. No PHP linting — the sandbox gate is THE gate. On
-success the package's registrations are applied in-request and the response carries the **new**
-fingerprint:
+`schema_policy` with itemized `reasons`. No PHP linting — the sandbox gate is THE gate.
+
+Install target `wp-content/plugins/agent-schema-{slug}/`, activated through
+`activate_plugin()`: the package is a normal plugin row in plugins.php, loaded by WordPress
+itself on every request, paused by core's own fatal-error recovery if it breaks, and its
+`uninstall.php` runs when it is deleted there. No PHP under uploads, no companion-side loader.
+On success the package's registrations are applied in-request and the response carries the
+**new** fingerprint:
 
 ```json
 { "installed": { "slug": "orders", "version": "1.0.0" }, "fingerprint": "<64 hex>", "replaced_previous": false }
 ```
 
-Installed packages load on every request (crash-loop breaker: a package that fataled while
-loading is skipped on the next request); their post types and taxonomies appear in the
-manifest's `data_model` with `source: "agent"`.
+Installed packages' post types and taxonomies appear in the manifest's `data_model` with
+`source: "agent"`.
 
 ### `GET /schema/installed` — extend (interfaces v2)
-`{ "packages": [ { "slug", "version", "installed_at", "provides": { post_types, taxonomies, meta_keys, binding_sources, routes } } ] }`
+`{ "packages": [ { "slug", "version", "installed_at", "active", "provides": { post_types, taxonomies, meta_keys, binding_sources, routes } } ] }`
+— derived from the plugins directory plus WordPress's own plugin state; there is no private
+registry.
 
 ## 6. Harness page contract
 

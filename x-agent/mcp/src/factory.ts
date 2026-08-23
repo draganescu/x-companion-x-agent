@@ -71,8 +71,18 @@ export interface ScaffoldAttribute {
   name: string;
   type: AttributeType;
   default?: unknown;
-  control: AttributeControl;
+  /**
+   * Editor control in the inspector. Omitted: inferred from type (string →
+   * text, number/integer → number, boolean → toggle, array/object → the
+   * structured fallback the agent replaces with a purpose-built control).
+   * 'textarea' on an array edits it as one item per line.
+   */
+  control?: AttributeControl;
   options?: { label: string; value: string }[];
+  /** User-facing control label; defaults to a title-cased version of name. */
+  label?: string;
+  /** User-facing help text under the control. Written for site editors. */
+  help?: string;
 }
 
 export type InteractivityMode = 'none' | 'view-script' | 'interactivity-api';
@@ -162,7 +172,8 @@ const DEFAULT_SMOKE_TIMEOUT_MS = 5 * 60_000;
 const DEFAULT_PORT_RANGE: [number, number] = [9440, 9449];
 
 const BUILD_DIRNAME = '.x-agent-build';
-const SMOKE_PLUGIN_SLUG = 'x-agent-smoke';
+/** Canonical plugin directory prefix: a block package installs as wp-content/plugins/agent-block-{slug}/. */
+export const BLOCK_PLUGIN_PREFIX = 'agent-block-';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const localRequire = createRequire(import.meta.url);
@@ -332,9 +343,9 @@ export function assertAttributes(input: unknown): ScaffoldAttribute[] {
     if (!['string', 'number', 'integer', 'boolean', 'array', 'object'].includes(type)) {
       throw errInvalidInput(`attributes[${i}].type "${String(type)}" is not a block attribute type.`, 'Use string|number|integer|boolean|array|object.');
     }
-    const control = a.control ?? 'text';
-    if (!['text', 'textarea', 'number', 'toggle', 'select', 'image'].includes(control)) {
-      throw errInvalidInput(`attributes[${i}].control "${String(control)}" is unknown.`, 'Use text|textarea|number|toggle|select|image.');
+    const control = a.control;
+    if (control !== undefined && !['text', 'textarea', 'number', 'toggle', 'select', 'image'].includes(control)) {
+      throw errInvalidInput(`attributes[${i}].control "${String(control)}" is unknown.`, 'Use text|textarea|number|toggle|select|image, or omit it to infer from type.');
     }
     if (control === 'image' && type !== 'string') {
       throw errInvalidInput(`attributes[${i}] uses control "image" but type "${String(type)}".`, 'An image attribute stores its URL: declare it type string.');
@@ -342,9 +353,18 @@ export function assertAttributes(input: unknown): ScaffoldAttribute[] {
     if (control === 'select' && (!Array.isArray(a.options) || a.options.length === 0)) {
       throw errInvalidInput(`attributes[${i}] uses control "select" but declares no options.`, 'Pass options: [{label, value}, ...].');
     }
-    const out: ScaffoldAttribute = { name: a.name, type: type as AttributeType, control: control as AttributeControl };
+    if (a.label !== undefined && typeof a.label !== 'string') {
+      throw errInvalidInput(`attributes[${i}].label must be a string.`, 'It is the user-facing control label.');
+    }
+    if (a.help !== undefined && typeof a.help !== 'string') {
+      throw errInvalidInput(`attributes[${i}].help must be a string.`, 'It is the user-facing help text under the control.');
+    }
+    const out: ScaffoldAttribute = { name: a.name, type: type as AttributeType };
+    if (control !== undefined) out.control = control as AttributeControl;
     if (a.default !== undefined) out.default = a.default;
     if (a.options) out.options = a.options;
+    if (a.label !== undefined) out.label = a.label;
+    if (a.help !== undefined) out.help = a.help;
     return out;
   });
 }
@@ -414,7 +434,7 @@ export function attributesJson(attrs: ScaffoldAttribute[]): Record<string, unkno
 
 /** Unique `$snake_case` PHP local per attribute. */
 function phpLocals(attrs: ScaffoldAttribute[]): Map<string, string> {
-  const used = new Set<string>(['attributes', 'content', 'block', 'wrapper_attributes']);
+  const used = new Set<string>(['attributes', 'content', 'block', 'wrapper_attributes', 'is_editor_preview']);
   const map = new Map<string, string>();
   for (const a of attrs) {
     let name = snake(a.name) || 'attr';
@@ -481,141 +501,194 @@ export function renderAttributeOutput(attrs: ScaffoldAttribute[], cssClass: stri
 
 const CTRL_INDENT = '\t\t\t\t\t';
 
-/**
- * String attributes edited as text (control `text`/`textarea`, or no control)
- * are edited INLINE on the canvas via RichText — see renderEditorPreview —
- * so they get no sidebar control. Everything else (number, toggle, select)
- * stays in the inspector.
- */
-export function isInlineTextAttribute(a: ScaffoldAttribute): boolean {
-  return a.type === 'string' && (a.control === 'text' || a.control === 'textarea' || a.control === undefined);
-}
-
-/** Image attributes (control `image`, string URL) are also edited inline, via MediaPlaceholder/MediaUpload. */
+/** Image attributes (control `image`, string URL) get a media picker in the inspector. */
 export function isImageAttribute(a: ScaffoldAttribute): boolean {
   return a.type === 'string' && a.control === 'image';
 }
 
+type ControlKind = 'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'image' | 'lines' | 'structured';
+
+/**
+ * The editor contract: the canvas previews render.php through
+ * ServerSideRender, and EVERY setting lives in the inspector with a
+ * user-facing label and help text. Structured attributes (arrays/objects
+ * with no better control) get a JSON fallback the agent must replace with a
+ * purpose-built control before install.
+ */
+export function controlKind(a: ScaffoldAttribute): ControlKind {
+  if (a.control === 'image') return 'image';
+  if (a.control === 'toggle' || a.type === 'boolean') return 'toggle';
+  if (a.control === 'select') return 'select';
+  if (a.type === 'array' && a.control === 'textarea') return 'lines';
+  if (a.type === 'array' || a.type === 'object') return 'structured';
+  if (a.control === 'number' || a.type === 'number' || a.type === 'integer') return 'number';
+  if (a.control === 'textarea') return 'textarea';
+  return 'text';
+}
+
 export function renderInspectorControls(attrs: ScaffoldAttribute[], textdomain: string): string {
+  const td = jsString(textdomain);
   if (attrs.length === 0) {
-    return `${CTRL_INDENT}<p>{ __( 'This block declares no attributes yet.', ${jsString(textdomain)} ) }</p>`;
+    return `${CTRL_INDENT}<p>{ __( 'This block has no settings.', ${td} ) }</p>`;
   }
-  const sidebar = attrs.filter((a) => !isInlineTextAttribute(a) && !isImageAttribute(a));
-  if (sidebar.length === 0) {
-    return `${CTRL_INDENT}<p>{ __( 'All of this block’s text and images are edited directly on the canvas.', ${jsString(textdomain)} ) }</p>`;
-  }
-  return sidebar
+  return attrs
     .map((a) => {
-      const label = jsString(labelFor(a.name));
-      const td = jsString(textdomain);
+      const label = jsString(a.label ?? labelFor(a.name));
       const set = (expr: string) => `setAttributes( { ${a.name}: ${expr} } )`;
-      if (a.control === 'toggle') {
-        return [
-          `${CTRL_INDENT}<ToggleControl`,
-          `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
-          `${CTRL_INDENT}\tchecked={ !! attributes.${a.name} }`,
-          `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-          `${CTRL_INDENT}/>`,
-        ].join('\n');
+      const helpLine = (fallback?: string): string[] => {
+        const text = a.help ?? fallback;
+        return text ? [`${CTRL_INDENT}\thelp={ __( ${jsString(text)}, ${td} ) }`] : [];
+      };
+      switch (controlKind(a)) {
+        case 'toggle':
+          return [
+            `${CTRL_INDENT}<ToggleControl`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...helpLine(),
+            `${CTRL_INDENT}\tchecked={ !! attributes.${a.name} }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
+        case 'select': {
+          const options = (a.options ?? []).map((o) => `{ label: __( ${jsString(o.label)}, ${td} ), value: ${jsString(o.value)} }`).join(', ');
+          return [
+            `${CTRL_INDENT}<SelectControl`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...helpLine(),
+            `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
+            `${CTRL_INDENT}\toptions={ [ ${options} ] }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
+        }
+        case 'lines':
+          return [
+            `${CTRL_INDENT}<TextareaControl`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...helpLine('One item per line.'),
+            `${CTRL_INDENT}\tvalue={ ( attributes.${a.name} ?? [] ).join( '\\n' ) }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set("value.split( '\\n' )")} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
+        case 'structured':
+          // The fallback a site editor should never meet: replace with a
+          // purpose-built control (a row per item, add/remove) before install.
+          return [
+            `${CTRL_INDENT}<StructuredFallbackControl`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...(a.help ? [`${CTRL_INDENT}\thelp={ __( ${jsString(a.help)}, ${td} ) }`] : []),
+            `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
+        case 'image':
+          // The canvas already shows the image (it is in the server render);
+          // the inspector only needs pick / replace / remove.
+          return [
+            `${CTRL_INDENT}<MediaUploadCheck>`,
+            `${CTRL_INDENT}\t<MediaUpload`,
+            `${CTRL_INDENT}\t\tallowedTypes={ [ 'image' ] }`,
+            `${CTRL_INDENT}\t\tonSelect={ ( media ) => ${set('media.url')} }`,
+            `${CTRL_INDENT}\t\trender={ ( { open } ) => (`,
+            `${CTRL_INDENT}\t\t\t<div>`,
+            `${CTRL_INDENT}\t\t\t\t<Button variant="secondary" onClick={ open }>`,
+            `${CTRL_INDENT}\t\t\t\t\t{ attributes.${a.name} ? __( ${jsString(`Replace: ${a.label ?? labelFor(a.name)}`)}, ${td} ) : __( ${jsString(`Select: ${a.label ?? labelFor(a.name)}`)}, ${td} ) }`,
+            `${CTRL_INDENT}\t\t\t\t</Button>`,
+            `${CTRL_INDENT}\t\t\t\t{ !! attributes.${a.name} && (`,
+            `${CTRL_INDENT}\t\t\t\t\t<Button variant="link" isDestructive onClick={ () => ${set("''")} }>`,
+            `${CTRL_INDENT}\t\t\t\t\t\t{ __( 'Remove', ${td} ) }`,
+            `${CTRL_INDENT}\t\t\t\t\t</Button>`,
+            `${CTRL_INDENT}\t\t\t\t) }`,
+            `${CTRL_INDENT}\t\t\t</div>`,
+            `${CTRL_INDENT}\t\t) }`,
+            `${CTRL_INDENT}\t/>`,
+            `${CTRL_INDENT}</MediaUploadCheck>`,
+          ].join('\n');
+        case 'number': {
+          const cast = a.type === 'integer' ? 'parseInt( value, 10 )' : 'Number( value )';
+          return [
+            `${CTRL_INDENT}<TextControl`,
+            `${CTRL_INDENT}\ttype="number"`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...helpLine(),
+            `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set(`value === '' ? undefined : ${cast}`)} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
+        }
+        case 'textarea':
+          return [
+            `${CTRL_INDENT}<TextareaControl`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...helpLine(),
+            `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
+        default:
+          return [
+            `${CTRL_INDENT}<TextControl`,
+            `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+            ...helpLine(),
+            `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
+            `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
+            `${CTRL_INDENT}/>`,
+          ].join('\n');
       }
-      if (a.control === 'select') {
-        const options = (a.options ?? []).map((o) => `{ label: __( ${jsString(o.label)}, ${td} ), value: ${jsString(o.value)} }`).join(', ');
-        return [
-          `${CTRL_INDENT}<SelectControl`,
-          `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
-          `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-          `${CTRL_INDENT}\toptions={ [ ${options} ] }`,
-          `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-          `${CTRL_INDENT}/>`,
-        ].join('\n');
-      }
-      if (a.control === 'textarea') {
-        return [
-          `${CTRL_INDENT}<TextareaControl`,
-          `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
-          `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-          `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-          `${CTRL_INDENT}/>`,
-        ].join('\n');
-      }
-      if (a.control === 'number') {
-        const cast = a.type === 'integer' ? 'parseInt( value, 10 )' : 'Number( value )';
-        return [
-          `${CTRL_INDENT}<TextControl`,
-          `${CTRL_INDENT}\ttype="number"`,
-          `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
-          `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-          `${CTRL_INDENT}\tonChange={ ( value ) => ${set(`value === '' ? undefined : ${cast}`)} }`,
-          `${CTRL_INDENT}/>`,
-        ].join('\n');
-      }
-      return [
-        `${CTRL_INDENT}<TextControl`,
-        `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
-        `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-        `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-        `${CTRL_INDENT}/>`,
-      ].join('\n');
     })
     .join('\n');
 }
 
-const PREVIEW_INDENT = '\t\t\t\t';
+/** Imports for src/edit.js — exactly the components the generated controls use. */
+export function renderEditorImports(attrs: ScaffoldAttribute[]): string {
+  const kinds = new Set(attrs.map(controlKind));
+  const blockEditor = ['useBlockProps', 'InspectorControls'];
+  if (kinds.has('image')) blockEditor.push('MediaUpload', 'MediaUploadCheck');
+  const components = ['PanelBody'];
+  if (kinds.has('text') || kinds.has('number')) components.push('TextControl');
+  if (kinds.has('textarea') || kinds.has('lines') || kinds.has('structured')) components.push('TextareaControl');
+  if (kinds.has('toggle')) components.push('ToggleControl');
+  if (kinds.has('select')) components.push('SelectControl');
+  if (kinds.has('image')) components.push('Button');
+  const lines = [
+    `import { ${blockEditor.join(', ')} } from '@wordpress/block-editor';`,
+    `import { ${components.join(', ')} } from '@wordpress/components';`,
+  ];
+  if (kinds.has('structured')) lines.push(`import { useState } from '@wordpress/element';`);
+  return lines.join('\n');
+}
 
-export function renderEditorPreview(attrs: ScaffoldAttribute[], cssClass: string, title: string, textdomain = 'x-agent'): string {
-  if (attrs.length === 0) {
-    return `${PREVIEW_INDENT}<p className="${cssClass}__placeholder">{ ${jsString(title)} }</p>`;
-  }
-  return attrs
-    .map((a) => {
-      const cls = `${cssClass}__${kebab(a.name)}`;
-      if (isImageAttribute(a)) {
-        // Inline-editable media: an empty slot shows MediaPlaceholder, a
-        // filled one shows the image itself (click to replace).
-        return [
-          `${PREVIEW_INDENT}<MediaUploadCheck>`,
-          `${PREVIEW_INDENT}\t<MediaUpload`,
-          `${PREVIEW_INDENT}\t\tallowedTypes={ [ 'image' ] }`,
-          `${PREVIEW_INDENT}\t\tonSelect={ ( media ) => setAttributes( { ${a.name}: media.url } ) }`,
-          `${PREVIEW_INDENT}\t\trender={ ( { open } ) =>`,
-          `${PREVIEW_INDENT}\t\t\tattributes.${a.name} ? (`,
-          `${PREVIEW_INDENT}\t\t\t\t<img className="${cls}" src={ attributes.${a.name} } alt="" style={ { maxWidth: '100%', cursor: 'pointer' } } onClick={ open } title={ __( 'Click to replace', ${jsString(textdomain)} ) } />`,
-          `${PREVIEW_INDENT}\t\t\t) : (`,
-          `${PREVIEW_INDENT}\t\t\t\t<MediaPlaceholder`,
-          `${PREVIEW_INDENT}\t\t\t\t\ticon="format-image"`,
-          `${PREVIEW_INDENT}\t\t\t\t\tlabels={ { title: __( ${jsString(labelFor(a.name))}, ${jsString(textdomain)} ) } }`,
-          `${PREVIEW_INDENT}\t\t\t\t\tallowedTypes={ [ 'image' ] }`,
-          `${PREVIEW_INDENT}\t\t\t\t\tonSelect={ ( media ) => setAttributes( { ${a.name}: media.url } ) }`,
-          `${PREVIEW_INDENT}\t\t\t\t/>`,
-          `${PREVIEW_INDENT}\t\t\t)`,
-          `${PREVIEW_INDENT}\t\t}`,
-          `${PREVIEW_INDENT}\t/>`,
-          `${PREVIEW_INDENT}</MediaUploadCheck>`,
-        ].join('\n');
-      }
-      if (isInlineTextAttribute(a)) {
-        // Inline-editable on the canvas: the block editor contract is that
-        // text is edited where it is seen, not in a sidebar form.
-        return [
-          `${PREVIEW_INDENT}<RichText`,
-          `${PREVIEW_INDENT}\ttagName="div"`,
-          `${PREVIEW_INDENT}\tclassName="${cls}"`,
-          `${PREVIEW_INDENT}\tvalue={ attributes.${a.name} }`,
-          `${PREVIEW_INDENT}\tonChange={ ( value ) => setAttributes( { ${a.name}: value } ) }`,
-          `${PREVIEW_INDENT}\tplaceholder={ __( ${jsString(labelFor(a.name))}, ${jsString(textdomain)} ) }`,
-          `${PREVIEW_INDENT}\tallowedFormats={ [] }`,
-          `${PREVIEW_INDENT}\twithoutInteractiveFormatting`,
-          `${PREVIEW_INDENT}/>`,
-        ].join('\n');
-      }
-      let expr: string;
-      if (a.control === 'toggle' || a.type === 'boolean') expr = `String( !! attributes.${a.name} )`;
-      else if (a.type === 'array' || a.type === 'object') expr = `JSON.stringify( attributes.${a.name} )`;
-      else if (a.type === 'number' || a.type === 'integer') expr = `String( attributes.${a.name} )`;
-      else expr = `attributes.${a.name}`;
-      return `${PREVIEW_INDENT}<div className="${cls}">{ ${expr} }</div>`;
-    })
-    .join('\n');
+/** Helper components for src/edit.js, emitted only when a control needs them. */
+export function renderEditorHelpers(attrs: ScaffoldAttribute[], textdomain: string): string {
+  if (!attrs.some((a) => controlKind(a) === 'structured')) return '';
+  const td = jsString(textdomain);
+  return `
+/**
+ * FALLBACK for a structured attribute — a site editor should never meet raw
+ * JSON. Replace its usage below with a purpose-built control (one field per
+ * property, add/remove rows) before this block is installed.
+ */
+function StructuredFallbackControl( { label, help, value, onChange } ) {
+	const [ text, setText ] = useState( () => JSON.stringify( value ?? null, null, 2 ) );
+	const [ invalid, setInvalid ] = useState( false );
+	return (
+		<TextareaControl
+			label={ label }
+			help={ invalid ? __( 'Not applied yet — the value is not valid.', ${td} ) : help }
+			value={ text }
+			onChange={ ( next ) => {
+				setText( next );
+				try {
+					onChange( JSON.parse( next ) );
+					setInvalid( false );
+				} catch ( e ) {
+					setInvalid( true );
+				}
+			} }
+		/>
+	);
+}
+`;
 }
 
 function labelFor(name: string): string {
@@ -663,7 +736,9 @@ export function scaffold(input: ScaffoldInput): ScaffoldResult {
   const textdomain = `${BLOCK_NAMESPACE}-${slug}`;
   const cssClass = `${BLOCK_NAMESPACE}-${slug}`;
   const version = input.version ?? '0.1.0';
-  const description = input.description ?? `${title} — dynamic block scaffolded by x-agent.`;
+  // User-facing inserter copy: never toolchain vocabulary. The caller should
+  // supply real copy; the title is the honest fallback.
+  const description = input.description ?? title;
 
   const vars: Record<string, string> = {
     slug,
@@ -678,7 +753,8 @@ export function scaffold(input: ScaffoldInput): ScaffoldResult {
     attribute_locals: renderAttributeLocals(attrs),
     attribute_output: renderAttributeOutput(attrs, cssClass, textdomain),
     inspector_controls: renderInspectorControls(attrs, textdomain),
-    editor_preview: renderEditorPreview(attrs, cssClass, title, textdomain),
+    editor_imports: renderEditorImports(attrs),
+    editor_helpers: renderEditorHelpers(attrs, textdomain),
   };
 
   const tpl = templateDir();
@@ -950,6 +1026,8 @@ export interface StageResult {
   stageDir: string;
   blockDir: string;
   slug: string;
+  /** Canonical plugin directory name: agent-block-{slug}. Zip root, install dir and smoke mount all use it. */
+  pluginDirName: string;
   meta: BlockMetadata;
   files: string[];
   missing: string[];
@@ -957,12 +1035,14 @@ export interface StageResult {
 
 /**
  * Copy exactly the bytes that will ship into `<dir>/.x-agent-build/plugin/<slug>`,
- * alongside a one-line loader plugin. The smoke test mounts this directory, so
- * the sandbox exercises the package, not the working tree.
+ * alongside the package's plugin main file. The staged directory IS the plugin
+ * that ships: the smoke test mounts it under wp-content/plugins and the zip is
+ * built from it, so the sandbox exercises byte-for-byte what gets installed.
  */
 export function stagePackage(dir: string): StageResult {
   const meta = readBlockMetadata(dir);
   const slug = meta.name.slice(`${BLOCK_NAMESPACE}/`.length);
+  const pluginDirName = `${BLOCK_PLUGIN_PREFIX}${slug}`;
   const stageDir = path.join(dir, BUILD_DIRNAME, 'plugin');
   const blockDir = path.join(stageDir, slug);
 
@@ -982,20 +1062,30 @@ export function stagePackage(dir: string): StageResult {
     fs.copyFileSync(src, dest);
   }
 
-  fs.writeFileSync(path.join(stageDir, `${SMOKE_PLUGIN_SLUG}.php`), loaderPlugin(slug, meta.name), 'utf8');
-  return { stageDir, blockDir, slug, meta, files, missing };
+  fs.writeFileSync(path.join(stageDir, `${pluginDirName}.php`), pluginMainSource(slug, meta), 'utf8');
+  return { stageDir, blockDir, slug, pluginDirName, meta, files, missing };
 }
 
-/** The one-line loader plugin the smoke sandbox activates. */
-export function loaderPlugin(slug: string, blockName: string): string {
+/**
+ * The package's plugin main file. A standard WordPress plugin header plus one
+ * `register_block_type()` on `init` — the package installs, activates,
+ * deactivates and deletes exactly like any other plugin, and shows up in
+ * plugins.php under its own name.
+ */
+export function pluginMainSource(slug: string, meta: BlockMetadata): string {
+  const title = typeof meta.raw.title === 'string' && meta.raw.title ? (meta.raw.title as string) : meta.name;
+  const version = meta.version || '0.1.0';
   return `<?php
 /**
- * Plugin Name: x-agent smoke loader (${blockName})
- * Description: Generated by wp_block_build_test. Registers the staged block from
- *              the directory mounted next to this file, so the throwaway sandbox
- *              exercises exactly the bytes that go into the install package.
- * Version: 0.0.0
+ * Plugin Name:       Agent block: ${title.replace(/\*\//g, '')}
+ * Description:       Dynamic block ${meta.name}, fabricated and gated by the x-agent block factory (wp_block_build_test) and installed as a standard WordPress plugin.
+ * Version:           ${version}
+ * Requires at least: 6.5
+ * Requires PHP:      8.1
+ * License:           GPL-2.0-or-later
  */
+
+defined( 'ABSPATH' ) || exit;
 
 add_action( 'init', static function () { register_block_type( __DIR__ . '/${slug}' ); } );
 `;
@@ -1040,46 +1130,63 @@ export function inspectPackage(zipPath: string): PackageInspection {
   if (zipBytes > MAX_PACKAGE_BYTES) reasons.push(`package is ${zipBytes} bytes, over the 5 MB install limit`);
   if (uncompressed > MAX_PACKAGE_BYTES) reasons.push(`package expands to ${uncompressed} bytes, over the 5 MB install limit`);
 
-  // "exactly one top-level dir, or flat files, with block.json at the block root"
+  // Canonical plugin zip: exactly one top-level dir named agent-block-{slug},
+  // holding the plugin main file and the block directory.
   const tops = new Set(entries.map((e) => (e.name.includes('/') ? e.name.split('/')[0]! : '')));
   let root: string | null = null;
   if (tops.size === 1 && [...tops][0] !== '') {
     root = [...tops][0]!;
-  } else if (tops.size === 1 && [...tops][0] === '') {
-    root = '';
   } else {
-    reasons.push(`zip has ${tops.size} top-level entries (${[...tops].map((t) => t || '(flat)').join(', ')}); exactly one top-level dir, or flat files, is allowed`);
+    reasons.push(`zip has ${tops.size} top-level entries (${[...tops].map((t) => t || '(flat)').join(', ')}); a package is exactly one plugin directory`);
   }
 
-  const prefix = root ? `${root}/` : '';
-  const blockJsonEntry = entries.find((e) => e.name === `${prefix}block.json`);
   let blockJson: Record<string, unknown> | null = null;
-  if (!blockJsonEntry) {
-    reasons.push('block.json is not at the block root of the zip');
-  } else {
-    const data = rawEntries.find((e) => e.entryName === blockJsonEntry.name)!.getData().toString('utf8');
-    try {
-      blockJson = JSON.parse(data) as Record<string, unknown>;
-    } catch (e) {
-      reasons.push(`block.json does not parse: ${(e as Error).message}`);
+  if (root !== null) {
+    if (!root.startsWith(BLOCK_PLUGIN_PREFIX)) {
+      reasons.push(`zip root "${root}" does not start with "${BLOCK_PLUGIN_PREFIX}"; a block package is a standard plugin directory agent-block-{slug}/`);
     }
-  }
+    const slug = root.slice(BLOCK_PLUGIN_PREFIX.length);
+    const prefix = `${root}/`;
 
-  if (blockJson) {
-    const name = typeof blockJson.name === 'string' ? blockJson.name : '';
-    if (!BLOCK_NAME_RE.test(name)) reasons.push(`block.json name "${name}" does not match ^agent/[a-z0-9-]+$`);
-    const render = blockJson.render;
-    if (typeof render !== 'string' || !render.startsWith('file:')) {
-      reasons.push('block.json has no "render" entry pointing at a file (static blocks are never produced)');
+    const mainEntry = rawEntries.find((e) => e.entryName === `${prefix}${root}.php`);
+    if (!mainEntry) {
+      reasons.push(`${prefix}${root}.php (the plugin main file) is not in the zip`);
+    } else if (!/^\s*\*?\s*Plugin Name\s*:/m.test(mainEntry.getData().toString('utf8'))) {
+      reasons.push(`${prefix}${root}.php has no "Plugin Name:" header; the package must be an installable WordPress plugin`);
     }
-    const present = new Set(entries.map((e) => e.name));
-    for (const key of FILE_REF_KEYS) {
-      const v = blockJson[key];
-      const list = Array.isArray(v) ? v : v === undefined ? [] : [v];
-      for (const item of list) {
-        if (typeof item !== 'string' || !item.startsWith('file:')) continue;
-        const rel = item.slice('file:'.length).replace(/^\.\//, '');
-        if (!present.has(`${prefix}${rel}`)) reasons.push(`block.json references "${item}" but ${prefix}${rel} is not in the zip`);
+
+    const blockPrefix = `${prefix}${slug}/`;
+    const blockJsonEntry = entries.find((e) => e.name === `${blockPrefix}block.json`);
+    if (!blockJsonEntry) {
+      reasons.push(`block.json is not at ${blockPrefix} inside the zip`);
+    } else {
+      const data = rawEntries.find((e) => e.entryName === blockJsonEntry.name)!.getData().toString('utf8');
+      try {
+        blockJson = JSON.parse(data) as Record<string, unknown>;
+      } catch (e) {
+        reasons.push(`block.json does not parse: ${(e as Error).message}`);
+      }
+    }
+
+    if (blockJson) {
+      const name = typeof blockJson.name === 'string' ? blockJson.name : '';
+      if (!BLOCK_NAME_RE.test(name)) reasons.push(`block.json name "${name}" does not match ^agent/[a-z0-9-]+$`);
+      if (name && name !== `${BLOCK_NAMESPACE}/${slug}`) {
+        reasons.push(`block.json name "${name}" does not match the plugin directory "${root}"`);
+      }
+      const render = blockJson.render;
+      if (typeof render !== 'string' || !render.startsWith('file:')) {
+        reasons.push('block.json has no "render" entry pointing at a file (static blocks are never produced)');
+      }
+      const present = new Set(entries.map((e) => e.name));
+      for (const key of FILE_REF_KEYS) {
+        const v = blockJson[key];
+        const list = Array.isArray(v) ? v : v === undefined ? [] : [v];
+        for (const item of list) {
+          if (typeof item !== 'string' || !item.startsWith('file:')) continue;
+          const rel = item.slice('file:'.length).replace(/^\.\//, '');
+          if (!present.has(`${blockPrefix}${rel}`)) reasons.push(`block.json references "${item}" but ${blockPrefix}${rel} is not in the zip`);
+        }
       }
     }
   }
@@ -1087,11 +1194,11 @@ export function inspectPackage(zipPath: string): PackageInspection {
   return { ok: reasons.length === 0, reasons, entries, zip_bytes: zipBytes, uncompressed_bytes: uncompressed, root, block_json: blockJson };
 }
 
-/** Zip `<blockDir>` as a single top-level directory named after the block slug. */
-export function packageBlock(blockDir: string, zipPath: string): string {
+/** Zip `<dir>` as a single top-level directory named `rootName` (defaults to the directory's own name). */
+export function packageBlock(blockDir: string, zipPath: string, rootName?: string): string {
   const Zip = loadAdmZip();
   const zip = new Zip();
-  const root = path.basename(blockDir);
+  const root = rootName ?? path.basename(blockDir);
   const walk = (abs: string, rel: string): void => {
     for (const entry of fs.readdirSync(abs, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const childAbs = path.join(abs, entry.name);
@@ -1662,7 +1769,7 @@ export async function smokeTest(
 
   const attributes = mergedSampleAttributes(stage.meta, sampleAttributes);
   const markup = blockMarkup(stage.meta.name, attributes);
-  const vfsBlockDir = `/wordpress/wp-content/plugins/${SMOKE_PLUGIN_SLUG}/${stage.slug}`;
+  const vfsBlockDir = `/wordpress/wp-content/plugins/${stage.pluginDirName}/${stage.slug}`;
 
   const runDir = path.join(path.dirname(stage.stageDir), 'smoke');
   fs.rmSync(runDir, { recursive: true, force: true });
@@ -1678,7 +1785,7 @@ export async function smokeTest(
     php: process.env.X_AGENT_SMOKE_PHP || '8.3',
     wp: process.env.X_AGENT_SMOKE_WP || 'latest',
     pluginDir: stage.stageDir,
-    pluginSlug: SMOKE_PLUGIN_SLUG,
+    pluginSlug: stage.pluginDirName,
     registerCode: registrationProbePhp(stage.meta.name),
     renderCode: renderProbePhp(stage.meta.name, markup, attributes, vfsBlockDir),
   };
@@ -1908,9 +2015,10 @@ export class BlockFactory {
       };
     }
 
-    // 4. Package — success path only. --------------------------------------
-    const zipPath = path.join(dir, BUILD_DIRNAME, `${stage.slug}-${stage.meta.version}.zip`);
-    packageBlock(stage.blockDir, zipPath);
+    // 4. Package — success path only. The zip is the staged plugin, verbatim:
+    // a standard WordPress plugin zip a human could install from plugins.php.
+    const zipPath = path.join(dir, BUILD_DIRNAME, `${stage.pluginDirName}-${stage.meta.version}.zip`);
+    packageBlock(stage.stageDir, zipPath, stage.pluginDirName);
     const inspection = inspectPackage(zipPath);
     if (!inspection.ok) {
       fs.rmSync(zipPath, { force: true });

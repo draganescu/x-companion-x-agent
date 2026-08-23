@@ -1,17 +1,25 @@
 <?php
 /**
- * The agent block library: install, list, rollback, delete, and the registrar.
+ * The agent block library: install, list, rollback, delete.
  *
- * CONTRACT.md §5. Blocks live in `wp_upload_dir()['basedir']/x-agent-blocks/{slug}/`
- * and are registered on `init` in **both** postures — an instance that took a
- * block in toolchain posture must keep rendering it after it is flipped to
- * production. Only the mutating routes are extend-tier, and the REST layer has
- * already refused those on a production instance before this class is reached.
+ * CONTRACT.md §5. A block package is a **standard WordPress plugin**: the zip
+ * contains one directory, `agent-block-{slug}/`, holding a plugin main file
+ * (`agent-block-{slug}.php`, a real plugin header plus one
+ * `register_block_type()` on `init`) and the block directory `{slug}/`.
+ * Install unpacks it into `wp-content/plugins/` and activates it through
+ * `activate_plugin()` — after which WordPress itself loads it on every
+ * request, in both postures, exactly like any other plugin. It appears in
+ * plugins.php, deactivates there, and deletes there. There is no sideband
+ * loader and no PHP under uploads, by design.
+ *
+ * Rollback copies live in `wp-content/upgrade-temp-backup/plugins/` — the
+ * location WordPress core's own upgrader uses for exactly this purpose.
  *
  * Validation is **structural only**: zip shape, block.json shape, referenced
  * files present, no traversal, size cap. There is no `php -l` and no `exec`.
  * The safety gate for "does this code actually work" is on the agent side,
- * which smoke-tests the package in a throwaway Playground before it POSTs.
+ * which smoke-tests the identical plugin layout in a throwaway Playground
+ * before it POSTs.
  *
  * @package x-companion
  */
@@ -23,17 +31,14 @@ defined( 'ABSPATH' ) || exit;
  */
 final class X_Companion_Block_Library {
 
-	/** Directory below wp-content/uploads that holds the library. */
-	const DIR = 'x-agent-blocks';
+	/** Plugin directory prefix for installed block packages. */
+	const PLUGIN_PREFIX = 'agent-block-';
 
-	/** Option holding install metadata keyed by slug. */
-	const OPTION = 'x_companion_block_library';
+	/** Plugin directory prefix for installed schema packages (shared path guard). */
+	const SCHEMA_PLUGIN_PREFIX = 'agent-schema-';
 
 	/** Hard size cap, compressed and uncompressed. */
 	const MAX_BYTES = 5242880;
-
-	/** Suffix of the single-level rollback copy. */
-	const PREV_SUFFIX = '.prev';
 
 	/**
 	 * block.json keys whose values may point at files in the package.
@@ -54,57 +59,19 @@ final class X_Companion_Block_Library {
 	);
 
 	/**
-	 * Hook the registrar and the four dispatched routes.
+	 * Hook the four dispatched routes.
+	 *
+	 * Registration needs no hook of its own any more: every installed package
+	 * is an active plugin, so WordPress loads it and the package's own `init`
+	 * callback registers the block.
 	 *
 	 * @return void
 	 */
 	public static function init(): void {
-		add_action( 'init', array( __CLASS__, 'register_installed_blocks' ), 20 );
-
-		add_filter( 'plugins_url', array( __CLASS__, 'filter_plugins_url' ), 10, 3 );
-
 		add_filter( 'x_companion_route_blocks_install', array( __CLASS__, 'route_install' ), 10, 2 );
 		add_filter( 'x_companion_route_blocks_library', array( __CLASS__, 'route_library' ), 10, 2 );
 		add_filter( 'x_companion_route_blocks_rollback', array( __CLASS__, 'route_rollback' ), 10, 2 );
 		add_filter( 'x_companion_route_blocks_delete', array( __CLASS__, 'route_delete' ), 10, 2 );
-	}
-
-	/**
-	 * Correct asset URLs for blocks installed under uploads/x-agent-blocks/.
-	 *
-	 * `register_block_type()` resolves each script/style handle's URL with
-	 * `plugins_url()` relative to the block.json path. Installed agent blocks
-	 * live inside `wp_upload_dir()`, not a plugin directory, so that fallback
-	 * produces a URL under wp-content/plugins/ that 404s — and the harness
-	 * page then cannot load the block's editor script. Rebuild the URL from
-	 * the uploads baseurl for exactly those files.
-	 *
-	 * @param string $url    URL as computed by plugins_url().
-	 * @param string $path   Path relative to $plugin.
-	 * @param string $plugin File the URL is being computed relative to.
-	 * @return string
-	 */
-	public static function filter_plugins_url( $url, $path, $plugin ) {
-		if ( ! is_string( $plugin ) || '' === $plugin ) {
-			return $url;
-		}
-
-		$base = wp_normalize_path( self::base_dir() );
-		$file = wp_normalize_path( $plugin );
-
-		if ( 0 !== strpos( $file, trailingslashit( $base ) ) ) {
-			return $url;
-		}
-
-		$uploads  = wp_get_upload_dir();
-		$rel_dir  = substr( wp_normalize_path( dirname( $file ) ), strlen( wp_normalize_path( $uploads['basedir'] ) ) );
-		$resolved = $uploads['baseurl'] . $rel_dir;
-
-		if ( is_string( $path ) && '' !== $path ) {
-			$resolved .= '/' . ltrim( $path, '/' );
-		}
-
-		return $resolved;
 	}
 
 	/*
@@ -144,12 +111,16 @@ final class X_Companion_Block_Library {
 	}
 
 	/**
-	 * Move a file or directory, overwriting the destination.
+	 * The plugin-management API (activate_plugin() and friends).
 	 *
-	 * @param string $source      Source path.
-	 * @param string $destination Destination path.
-	 * @return bool
+	 * @return void
 	 */
+	public static function plugin_api(): void {
+		if ( ! function_exists( 'activate_plugin' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+	}
+
 	/**
 	 * Move a file or directory into place, replacing whatever is there.
 	 *
@@ -218,35 +189,62 @@ final class X_Companion_Block_Library {
 	}
 
 	/**
-	 * Absolute path of the library root. Empty string when uploads are broken.
+	 * Where rollback copies live: core's own upgrade backup location.
 	 *
 	 * @return string
 	 */
-	public static function base_dir(): string {
-		$uploads = wp_upload_dir( null, false );
-
-		if ( ! is_array( $uploads ) || empty( $uploads['basedir'] ) ) {
-			return '';
-		}
-
-		return rtrim( (string) $uploads['basedir'], '/\\' ) . '/' . self::DIR;
+	public static function backup_root(): string {
+		return rtrim( (string) WP_CONTENT_DIR, '/\\' ) . '/upgrade-temp-backup/plugins';
 	}
 
 	/**
-	 * Absolute path of one installed block.
+	 * The plugin directory name for a block slug.
+	 *
+	 * @param string $slug Slug.
+	 * @return string
+	 */
+	public static function plugin_dir_name( string $slug ): string {
+		return self::PLUGIN_PREFIX . $slug;
+	}
+
+	/**
+	 * Absolute path of one installed block package (a real plugin directory).
+	 *
+	 * @param string $slug Slug.
+	 * @param bool   $prev Address the rollback copy instead.
+	 * @return string
+	 */
+	public static function plugin_dir( string $slug, bool $prev = false ): string {
+		if ( '' === $slug ) {
+			return '';
+		}
+
+		$root = $prev ? self::backup_root() : rtrim( (string) WP_PLUGIN_DIR, '/\\' );
+
+		return $root . '/' . self::plugin_dir_name( $slug );
+	}
+
+	/**
+	 * The plugin basename WordPress activates: agent-block-{slug}/agent-block-{slug}.php.
+	 *
+	 * @param string $slug Slug.
+	 * @return string
+	 */
+	public static function plugin_basename_for( string $slug ): string {
+		return self::plugin_dir_name( $slug ) . '/' . self::plugin_dir_name( $slug ) . '.php';
+	}
+
+	/**
+	 * Absolute path of one installed block's block directory (where block.json lives).
 	 *
 	 * @param string $slug Slug.
 	 * @param bool   $prev Address the rollback copy instead.
 	 * @return string
 	 */
 	public static function block_dir( string $slug, bool $prev = false ): string {
-		$base = self::base_dir();
+		$plugin = self::plugin_dir( $slug, $prev );
 
-		if ( '' === $base || '' === $slug ) {
-			return '';
-		}
-
-		return $base . '/' . $slug . ( $prev ? self::PREV_SUFFIX : '' );
+		return '' === $plugin ? '' : $plugin . '/' . $slug;
 	}
 
 	/**
@@ -265,46 +263,13 @@ final class X_Companion_Block_Library {
 		return ( is_string( $namespace ) && preg_match( '/^[a-z][a-z0-9-]*$/', $namespace ) ) ? $namespace : 'agent';
 	}
 
-	/*
-	 * -------------------------------------------------------------------
-	 * Registrar
-	 * -------------------------------------------------------------------
-	 */
-
-	/**
-	 * Register every installed block, one guarded step at a time.
-	 *
-	 * Runs on `init` in both postures. Every block is pre-checked
-	 * (`file_exists` + `json_decode` + declared render file present) and
-	 * registered inside try/catch, so a single broken package can never fatal
-	 * the site — it is skipped and logged, and `POST /blocks/library/{slug}/rollback`
-	 * is still there to undo it.
-	 *
-	 * @return void
-	 */
-	public static function register_installed_blocks(): void {
-		$base = self::base_dir();
-
-		if ( '' === $base || ! is_dir( $base ) ) {
-			return;
-		}
-
-		$manifests = glob( $base . '/*/block.json' );
-
-		foreach ( is_array( $manifests ) ? $manifests : array() as $manifest ) {
-			$dir = dirname( $manifest );
-
-			// Rollback copies are storage, not registrations.
-			if ( self::PREV_SUFFIX === substr( basename( $dir ), -strlen( self::PREV_SUFFIX ) ) ) {
-				continue;
-			}
-
-			self::register_one( $dir );
-		}
-	}
-
 	/**
 	 * Register a single block directory, defensively.
+	 *
+	 * Used only for same-request registration right after an install or a
+	 * rollback (the `init` hook has already fired by then, so the freshly
+	 * activated plugin's own callback will not run until the next request —
+	 * but the fingerprint returned to the agent must already cover the block).
 	 *
 	 * @param string $dir Absolute path of a directory containing block.json.
 	 * @return bool True when the block ended up registered.
@@ -357,7 +322,8 @@ final class X_Companion_Block_Library {
 	 */
 
 	/**
-	 * Install a package.
+	 * Install a package: unpack into wp-content/plugins/ and activate it as a
+	 * standard WordPress plugin.
 	 *
 	 * @param mixed           $result  Dispatcher seed.
 	 * @param WP_REST_Request $request Request.
@@ -403,29 +369,10 @@ final class X_Companion_Block_Library {
 			return $analysis;
 		}
 
-		$base = self::base_dir();
-
-		if ( '' === $base ) {
-			return new WP_Error(
-				'install_failed',
-				__( 'The uploads directory is not available, so the block library has nowhere to live.', 'x-companion' ),
-				array( 'status' => 500 )
-			);
-		}
-
-		if ( ! wp_mkdir_p( $base ) ) {
-			return new WP_Error(
-				'install_failed',
-				/* translators: %s: directory path. */
-				sprintf( __( 'Could not create %s.', 'x-companion' ), $base ),
-				array( 'status' => 500 )
-			);
-		}
-
 		$slug    = (string) $analysis['slug'];
-		$target  = self::block_dir( $slug );
-		$prev    = self::block_dir( $slug, true );
-		$staging = $base . '/.staging-' . $slug . '-' . (string) wp_rand( 100000, 999999 );
+		$target  = self::plugin_dir( $slug );
+		$prev    = self::plugin_dir( $slug, true );
+		$staging = rtrim( (string) WP_PLUGIN_DIR, '/\\' ) . '/.agent-staging-' . $slug . '-' . (string) wp_rand( 100000, 999999 );
 
 		$extracted = self::extract( $archive, $analysis, $staging );
 
@@ -443,7 +390,7 @@ final class X_Companion_Block_Library {
 		clearstatcache( true );
 
 		if ( is_dir( $target ) ) {
-			if ( ! self::rmdir_recursive( $prev ) ) {
+			if ( ! wp_mkdir_p( self::backup_root() ) || ! self::rmdir_recursive( $prev ) ) {
 				self::rmdir_recursive( $staging );
 
 				return self::filesystem_error(
@@ -457,7 +404,7 @@ final class X_Companion_Block_Library {
 
 				return self::filesystem_error(
 					'install_failed',
-					__( 'Could not move the existing block aside for rollback.', 'x-companion' )
+					__( 'Could not move the existing package aside for rollback.', 'x-companion' )
 				);
 			}
 
@@ -473,29 +420,47 @@ final class X_Companion_Block_Library {
 
 			return self::filesystem_error(
 				'install_failed',
-				__( 'Could not move the extracted block into the library.', 'x-companion' )
+				__( 'Could not move the extracted package into wp-content/plugins.', 'x-companion' )
 			);
 		}
 
-		$name    = (string) $analysis['name'];
-		$version = (string) $analysis['version'];
+		// Activate through core — the canonical mechanism. The package becomes a
+		// normal row in plugins.php and WordPress loads it on every request.
+		self::plugin_api();
+		$basename = self::plugin_basename_for( $slug );
 
-		self::remember(
-			$slug,
-			array(
-				'name'         => $name,
-				'version'      => $version,
-				'installed_at' => gmdate( 'c' ),
-			)
-		);
+		if ( ! is_plugin_active( $basename ) ) {
+			$activated = activate_plugin( $basename );
 
-		self::reregister( $name, $target );
+			if ( is_wp_error( $activated ) ) {
+				self::rmdir_recursive( $target );
+
+				if ( $replaced && is_dir( $prev ) ) {
+					self::move( $prev, $target );
+				}
+
+				return new WP_Error(
+					'install_failed',
+					sprintf(
+						/* translators: %s: activation error. */
+						__( 'WordPress refused to activate the package: %s', 'x-companion' ),
+						$activated->get_error_message()
+					),
+					array( 'status' => 500 )
+				);
+			}
+		}
+
+		// Same-request registration: init has already fired, so the plugin's own
+		// callback runs from the NEXT request on. The fingerprint handed back
+		// must already cover the block.
+		self::reregister( (string) $analysis['name'], self::block_dir( $slug ) );
 
 		return array(
 			'installed'         => array(
 				'slug'    => $slug,
-				'name'    => $name,
-				'version' => $version,
+				'name'    => (string) $analysis['name'],
+				'version' => (string) $analysis['version'],
 			),
 			'fingerprint'       => self::new_epoch(),
 			'replaced_previous' => $replaced,
@@ -509,47 +474,43 @@ final class X_Companion_Block_Library {
 	 */
 
 	/**
-	 * List installed blocks.
+	 * List installed block packages, straight from the plugins directory.
+	 *
+	 * No private registry: the filesystem plus WordPress's own plugin state is
+	 * the source of truth.
 	 *
 	 * @param mixed           $result  Dispatcher seed.
 	 * @param WP_REST_Request $request Request.
 	 * @return array
 	 */
 	public static function route_library( $result, WP_REST_Request $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		$base = self::base_dir();
+		self::plugin_api();
+
 		$out  = array();
+		$dirs = glob( rtrim( (string) WP_PLUGIN_DIR, '/\\' ) . '/' . self::PLUGIN_PREFIX . '*', GLOB_ONLYDIR );
 
-		if ( '' === $base || ! is_dir( $base ) ) {
-			return $out;
-		}
+		foreach ( is_array( $dirs ) ? $dirs : array() as $dir ) {
+			$slug     = substr( basename( $dir ), strlen( self::PLUGIN_PREFIX ) );
+			$manifest = $dir . '/' . $slug . '/block.json';
 
-		$meta      = self::remembered();
-		$manifests = glob( $base . '/*/block.json' );
-
-		foreach ( is_array( $manifests ) ? $manifests : array() as $manifest ) {
-			$dir  = dirname( $manifest );
-			$slug = basename( $dir );
-
-			if ( self::PREV_SUFFIX === substr( $slug, -strlen( self::PREV_SUFFIX ) ) ) {
+			if ( '' === $slug || ! file_exists( $manifest ) ) {
 				continue;
 			}
 
 			$metadata = json_decode( (string) file_get_contents( $manifest ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			$metadata = is_array( $metadata ) ? $metadata : array();
-			$recorded = isset( $meta[ $slug ] ) && is_array( $meta[ $slug ] ) ? $meta[ $slug ] : array();
 
-			$installed_at = (string) ( $recorded['installed_at'] ?? '' );
-			if ( '' === $installed_at ) {
-				$mtime        = filemtime( $manifest );
-				$installed_at = $mtime ? gmdate( 'c', (int) $mtime ) : '';
-			}
+			$main         = $dir . '/' . self::plugin_dir_name( $slug ) . '.php';
+			$mtime        = file_exists( $main ) ? filemtime( $main ) : filemtime( $manifest );
+			$installed_at = $mtime ? gmdate( 'c', (int) $mtime ) : '';
 
 			$out[] = array(
 				'slug'         => $slug,
-				'name'         => (string) ( $metadata['name'] ?? ( $recorded['name'] ?? '' ) ),
-				'version'      => (string) ( $metadata['version'] ?? ( $recorded['version'] ?? '' ) ),
+				'name'         => (string) ( $metadata['name'] ?? '' ),
+				'version'      => (string) ( $metadata['version'] ?? '' ),
 				'installed_at' => $installed_at,
-				'has_prev'     => is_dir( self::block_dir( $slug, true ) ),
+				'active'       => is_plugin_active( self::plugin_basename_for( $slug ) ),
+				'has_prev'     => is_dir( self::plugin_dir( $slug, true ) ),
 			);
 		}
 
@@ -570,7 +531,10 @@ final class X_Companion_Block_Library {
 	 */
 
 	/**
-	 * Restore the previous version of a block.
+	 * Restore the previous version of a block package.
+	 *
+	 * The plugin directory name is stable across versions, so the plugin stays
+	 * active through the swap — exactly how core's own upgrader rolls back.
 	 *
 	 * @param mixed           $result  Dispatcher seed.
 	 * @param WP_REST_Request $request Request.
@@ -578,8 +542,8 @@ final class X_Companion_Block_Library {
 	 */
 	public static function route_rollback( $result, WP_REST_Request $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
 		$slug   = (string) $request->get_param( 'slug' );
-		$target = self::block_dir( $slug );
-		$prev   = self::block_dir( $slug, true );
+		$target = self::plugin_dir( $slug );
+		$prev   = self::plugin_dir( $slug, true );
 
 		if ( '' === $target || ( ! is_dir( $target ) && ! is_dir( $prev ) ) ) {
 			return self::not_found( $slug );
@@ -597,7 +561,7 @@ final class X_Companion_Block_Library {
 			);
 		}
 
-		$name = self::registered_name( $target );
+		$name = self::registered_name( self::block_dir( $slug ) );
 
 		if ( is_dir( $target ) && ! self::rmdir_recursive( $target ) ) {
 			return self::filesystem_error(
@@ -613,17 +577,9 @@ final class X_Companion_Block_Library {
 			);
 		}
 
-		$restored = self::registered_name( $target );
+		$restored = self::registered_name( self::block_dir( $slug ) );
 
-		self::reregister( '' !== $restored ? $restored : $name, $target );
-
-		$meta = self::remembered();
-		if ( isset( $meta[ $slug ] ) ) {
-			$meta[ $slug ]['installed_at'] = gmdate( 'c' );
-			$meta[ $slug ]['name']         = '' !== $restored ? $restored : (string) ( $meta[ $slug ]['name'] ?? '' );
-			$meta[ $slug ]['version']      = self::manifest_value( $target, 'version' );
-			update_option( self::OPTION, $meta, false );
-		}
+		self::reregister( '' !== $restored ? $restored : $name, self::block_dir( $slug ) );
 
 		return array( 'fingerprint' => self::new_epoch() );
 	}
@@ -635,7 +591,10 @@ final class X_Companion_Block_Library {
 	 */
 
 	/**
-	 * Remove a block, unless published content still uses it.
+	 * Remove a block package, unless published content still uses it.
+	 *
+	 * Deactivates through core first, then removes the plugin directory and
+	 * its rollback copy — the same sequence deleting it from plugins.php runs.
 	 *
 	 * @param mixed           $result  Dispatcher seed.
 	 * @param WP_REST_Request $request Request.
@@ -643,19 +602,14 @@ final class X_Companion_Block_Library {
 	 */
 	public static function route_delete( $result, WP_REST_Request $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
 		$slug   = (string) $request->get_param( 'slug' );
-		$target = self::block_dir( $slug );
-		$prev   = self::block_dir( $slug, true );
+		$target = self::plugin_dir( $slug );
+		$prev   = self::plugin_dir( $slug, true );
 
 		if ( '' === $target || ( ! is_dir( $target ) && ! is_dir( $prev ) ) ) {
 			return self::not_found( $slug );
 		}
 
-		$name = self::registered_name( $target );
-
-		if ( '' === $name ) {
-			$meta = self::remembered();
-			$name = (string) ( $meta[ $slug ]['name'] ?? '' );
-		}
+		$name = self::registered_name( self::block_dir( $slug ) );
 
 		if ( '' !== $name ) {
 			$posts = self::posts_using( $name );
@@ -677,16 +631,15 @@ final class X_Companion_Block_Library {
 			}
 		}
 
+		self::plugin_api();
+		deactivate_plugins( self::plugin_basename_for( $slug ) );
+
 		self::rmdir_recursive( $target );
 		self::rmdir_recursive( $prev );
 
 		if ( '' !== $name && class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( $name ) ) {
 			unregister_block_type( $name );
 		}
-
-		$meta = self::remembered();
-		unset( $meta[ $slug ] );
-		update_option( self::OPTION, $meta, false );
 
 		return array( 'fingerprint' => self::new_epoch() );
 	}
@@ -727,11 +680,14 @@ final class X_Companion_Block_Library {
 	/**
 	 * Structural policy check.
 	 *
-	 * Every violation is collected before returning, so one round trip tells
-	 * the agent everything that is wrong with the package.
+	 * A package is a standard plugin zip: exactly one top-level directory,
+	 * `agent-block-{slug}/`, holding a plugin main file with a real header and
+	 * the block directory `{slug}/block.json`. Every violation is collected
+	 * before returning, so one round trip tells the agent everything that is
+	 * wrong with the package.
 	 *
 	 * @param string $archive Path to the uploaded zip.
-	 * @return array|WP_Error { root, entries, metadata, name, slug, version }
+	 * @return array|WP_Error { root, block_root, entries, metadata, name, slug, version }
 	 */
 	public static function analyze_package( string $archive ) {
 		$reasons = array();
@@ -780,16 +736,38 @@ final class X_Companion_Block_Library {
 
 		$root = self::detect_root( array_keys( $entries ) );
 
-		if ( null === $root ) {
-			$reasons[] = 'zip must contain exactly one top-level directory, or flat files with block.json at the root';
+		if ( null === $root || '' === $root ) {
+			$reasons[] = 'zip must contain exactly one top-level plugin directory (agent-block-{slug}/)';
 
 			return self::policy_error( $reasons );
 		}
 
-		$manifest_entry = $root . 'block.json';
+		$plugin_dir_name = rtrim( $root, '/' );
+
+		if ( 0 !== strpos( $plugin_dir_name, self::PLUGIN_PREFIX ) ) {
+			$reasons[] = sprintf( 'zip root "%s" is not an %s{slug} plugin directory', $plugin_dir_name, self::PLUGIN_PREFIX );
+
+			return self::policy_error( $reasons );
+		}
+
+		$slug       = sanitize_key( substr( $plugin_dir_name, strlen( self::PLUGIN_PREFIX ) ) );
+		$block_root = $root . $slug . '/';
+
+		$main_entry = $root . $plugin_dir_name . '.php';
+
+		if ( ! isset( $entries[ $main_entry ] ) ) {
+			$reasons[] = sprintf( '%s (the plugin main file) is not in the package', $main_entry );
+		} else {
+			$main_code = self::zip_read( $archive, $main_entry );
+			if ( ! is_string( $main_code ) || ! preg_match( '/^\s*\*?\s*Plugin Name\s*:/m', $main_code ) ) {
+				$reasons[] = sprintf( '%s has no "Plugin Name:" header; the package must be an installable WordPress plugin', $main_entry );
+			}
+		}
+
+		$manifest_entry = $block_root . 'block.json';
 
 		if ( ! isset( $entries[ $manifest_entry ] ) ) {
-			$reasons[] = 'block.json not found at the block root';
+			$reasons[] = sprintf( 'block.json not found at %s inside the package', $block_root );
 
 			return self::policy_error( $reasons );
 		}
@@ -816,6 +794,8 @@ final class X_Companion_Block_Library {
 
 		if ( ! preg_match( $pattern, $name ) ) {
 			$reasons[] = sprintf( 'block.json name "%s" must match %s/[a-z0-9-]+', $name, $namespace );
+		} elseif ( $name !== $namespace . '/' . $slug ) {
+			$reasons[] = sprintf( 'block.json name "%s" does not match the plugin directory "%s"', $name, $plugin_dir_name );
 		}
 
 		$render = isset( $metadata['render'] ) && is_string( $metadata['render'] ) ? $metadata['render'] : '';
@@ -824,12 +804,12 @@ final class X_Companion_Block_Library {
 			if ( ! X_COMPANION_ALLOW_STATIC_BLOCKS ) {
 				$reasons[] = 'block.json has no "render" entry; static blocks are refused unless X_COMPANION_ALLOW_STATIC_BLOCKS is defined true';
 			}
-		} elseif ( ! isset( $entries[ $root . self::normalize_file_reference( $render ) ] ) ) {
+		} elseif ( ! isset( $entries[ $block_root . self::normalize_file_reference( $render ) ] ) ) {
 			$reasons[] = sprintf( 'block.json "render" points at %s, which is not in the package', $render );
 		}
 
 		foreach ( self::referenced_files( $metadata ) as $reference ) {
-			if ( ! isset( $entries[ $root . $reference ] ) ) {
+			if ( ! isset( $entries[ $block_root . $reference ] ) ) {
 				$reasons[] = sprintf( 'block.json references %s, which is not in the package', $reference );
 			}
 		}
@@ -838,19 +818,14 @@ final class X_Companion_Block_Library {
 			return self::policy_error( $reasons );
 		}
 
-		$slug = sanitize_key( substr( $name, strlen( $namespace ) + 1 ) );
-
-		if ( '' === $slug ) {
-			return self::policy_error( array( sprintf( 'block.json name "%s" yields an empty slug', $name ) ) );
-		}
-
 		return array(
-			'root'     => $root,
-			'entries'  => $entries,
-			'metadata' => $metadata,
-			'name'     => $name,
-			'slug'     => $slug,
-			'version'  => isset( $metadata['version'] ) && is_scalar( $metadata['version'] ) ? (string) $metadata['version'] : '',
+			'root'       => $root,
+			'block_root' => $block_root,
+			'entries'    => $entries,
+			'metadata'   => $metadata,
+			'name'       => $name,
+			'slug'       => $slug,
+			'version'    => isset( $metadata['version'] ) && is_scalar( $metadata['version'] ) ? (string) $metadata['version'] : '',
 		);
 	}
 
@@ -887,7 +862,7 @@ final class X_Companion_Block_Library {
 	}
 
 	/**
-	 * Resolve the block root inside the archive.
+	 * Resolve the package root inside the archive.
 	 *
 	 * @param string[] $names Entry names.
 	 * @return string|null '' for a flat package, 'dir/' for a wrapped one, null when neither.
@@ -910,7 +885,7 @@ final class X_Companion_Block_Library {
 			}
 		}
 
-		if ( isset( $top_files['block.json'] ) && empty( $top_dirs ) ) {
+		if ( ! empty( $top_files ) && empty( $top_dirs ) ) {
 			return '';
 		}
 
@@ -1084,7 +1059,7 @@ final class X_Companion_Block_Library {
 	}
 
 	/**
-	 * Write the block root's files into a staging directory.
+	 * Write the package root's files into a staging directory.
 	 *
 	 * Entries are written one at a time under names we have already validated;
 	 * ZipArchive::extractTo() is never handed the archive wholesale.
@@ -1245,32 +1220,39 @@ final class X_Companion_Block_Library {
 	}
 
 	/**
-	 * Install metadata for every slug.
+	 * Is this a path the library is allowed to delete?
 	 *
-	 * @return array<string,array>
+	 * Only agent-managed plugin directories (agent-block-*, agent-schema-*,
+	 * .agent-staging-*) under wp-content/plugins or the upgrade backup root.
+	 * Everything else — including every human-installed plugin — is refused.
+	 *
+	 * @param string $dir Directory.
+	 * @return bool
 	 */
-	private static function remembered(): array {
-		$meta = get_option( self::OPTION, array() );
+	private static function is_managed_path( string $dir ): bool {
+		$dir   = wp_normalize_path( $dir );
+		$roots = array(
+			wp_normalize_path( rtrim( (string) WP_PLUGIN_DIR, '/\\' ) ),
+			wp_normalize_path( self::backup_root() ),
+		);
 
-		return is_array( $meta ) ? $meta : array();
+		foreach ( $roots as $root ) {
+			if ( 0 !== strpos( $dir, $root . '/' ) ) {
+				continue;
+			}
+
+			$top = strtok( substr( $dir, strlen( $root ) + 1 ), '/' );
+
+			if ( preg_match( '/^(agent-block-|agent-schema-|\.agent-staging-)/', (string) $top ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
-	 * Record install metadata for one slug.
-	 *
-	 * @param string $slug  Slug.
-	 * @param array  $entry Metadata.
-	 * @return void
-	 */
-	private static function remember( string $slug, array $entry ): void {
-		$meta          = self::remembered();
-		$meta[ $slug ] = $entry;
-
-		update_option( self::OPTION, $meta, false );
-	}
-
-	/**
-	 * Recursive delete, refusing to leave the library root.
+	 * Recursive delete, refusing to touch anything the library does not manage.
 	 *
 	 * @param string $dir Directory.
 	 * @return bool
@@ -1282,9 +1264,7 @@ final class X_Companion_Block_Library {
 			return true;
 		}
 
-		$base = self::base_dir();
-
-		if ( '' === $base || 0 !== strpos( $dir, $base . '/' ) ) {
+		if ( ! self::is_managed_path( $dir ) ) {
 			return false;
 		}
 

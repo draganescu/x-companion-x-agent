@@ -2,21 +2,25 @@
 /**
  * POST /schema/install and GET /schema/installed — the schema library.
  *
- * A schema package is the backend counterpart of an agent block: real plugin
- * code (generated and GATED by the agent-side schema factory) that registers
- * post types, taxonomies, REST-visible meta, binding sources and REST routes
- * through core APIs on every request. This class stores packages under
- * uploads/x-agent-schemas/{slug}/, loads them defensively, enforces the
- * install policy structurally (zip safety, schema.json contract, forbidden
- * tokens — the same list the agent gate scans, enforced twice by design),
- * and records what each package provides so the manifest's data_model can
- * label its registrations source:"agent".
+ * A schema package is the backend counterpart of an agent block: **a standard
+ * WordPress plugin** (generated and GATED by the agent-side schema factory)
+ * that registers post types, taxonomies, REST-visible meta, binding sources
+ * and REST routes through core APIs on every request. Install unpacks the
+ * package into `wp-content/plugins/agent-schema-{slug}/` and activates it
+ * through `activate_plugin()` — after which WordPress itself loads it like
+ * any other plugin. It appears in plugins.php, deactivates there, and its
+ * own `uninstall.php` runs when it is deleted there. There is no sideband
+ * loader and no PHP under uploads, by design; a package that fatals is
+ * paused by core's own fatal-error recovery, like any broken plugin.
+ *
+ * This class enforces the install policy structurally (zip safety, plugin
+ * layout, schema.json contract, forbidden tokens — the same list the agent
+ * gate scans, enforced twice by design) and records what each package
+ * provides so the manifest's data_model can label its registrations
+ * source:"agent".
  *
  * Like POST /blocks/install, this route does NOT lint PHP — the agent-side
- * wp_schema_build_test sandbox is THE gate. What this class adds against a
- * package that lies its way past the gate is a crash-loop breaker: a package
- * that fataled while loading is skipped on the next request and reported,
- * instead of taking the site down with it.
+ * wp_schema_build_test sandbox is THE gate.
  *
  * @package x-companion
  */
@@ -28,19 +32,11 @@ defined( 'ABSPATH' ) || exit;
  */
 final class X_Companion_Schema_Library {
 
-	/** Directory under uploads. */
-	const DIR = 'x-agent-schemas';
-
-	/** Option remembering installed packages: slug => {version, installed_at}. */
-	const OPTION = 'x_companion_schema_library';
-
-	/** Option guarding against a crash-looping package: slug currently loading. */
-	const LOADING_OPTION = 'x_companion_schema_loading';
+	/** Plugin directory prefix for installed schema packages. */
+	const PLUGIN_PREFIX = X_Companion_Block_Library::SCHEMA_PLUGIN_PREFIX;
 
 	/** Install policy: total package size ≤ 1 MB. */
 	const MAX_BYTES = 1048576;
-
-	const PREV_SUFFIX = '.prev';
 
 	/**
 	 * Forbidden tokens — the same policy the agent gate scans. Enforced twice
@@ -57,91 +53,51 @@ final class X_Companion_Schema_Library {
 	);
 
 	/**
-	 * Register hooks.
+	 * Register hooks. No loader: WordPress loads installed packages itself,
+	 * because they are active plugins.
 	 *
 	 * @return void
 	 */
 	public static function init(): void {
 		add_filter( 'x_companion_route_schema_install', array( __CLASS__, 'route_install' ), 10, 2 );
 		add_filter( 'x_companion_route_schema_installed', array( __CLASS__, 'route_installed' ), 10, 2 );
-
-		self::load_installed();
 	}
 
 	/**
-	 * Base directory of the library.
+	 * The plugin directory name for a schema slug.
 	 *
+	 * @param string $slug Package slug.
 	 * @return string
 	 */
-	public static function base_dir(): string {
-		$uploads = wp_upload_dir( null, false );
+	public static function plugin_dir_name( string $slug ): string {
+		return self::PLUGIN_PREFIX . $slug;
+	}
 
-		if ( ! is_array( $uploads ) || empty( $uploads['basedir'] ) ) {
+	/**
+	 * One package's plugin directory.
+	 *
+	 * @param string $slug Package slug.
+	 * @param bool   $prev Rollback copy (under core's upgrade backup root).
+	 * @return string
+	 */
+	public static function plugin_dir( string $slug, bool $prev = false ): string {
+		if ( '' === $slug ) {
 			return '';
 		}
 
-		return rtrim( (string) $uploads['basedir'], '/\\' ) . '/' . self::DIR;
+		$root = $prev ? X_Companion_Block_Library::backup_root() : rtrim( (string) WP_PLUGIN_DIR, '/\\' );
+
+		return $root . '/' . self::plugin_dir_name( $slug );
 	}
 
 	/**
-	 * One package's directory.
+	 * The plugin basename WordPress activates: agent-schema-{slug}/{slug}.php.
 	 *
 	 * @param string $slug Package slug.
-	 * @param bool   $prev Rollback copy.
 	 * @return string
 	 */
-	public static function package_dir( string $slug, bool $prev = false ): string {
-		$base = self::base_dir();
-
-		return ( '' === $base || '' === $slug ) ? '' : $base . '/' . $slug . ( $prev ? self::PREV_SUFFIX : '' );
-	}
-
-	/*
-	 * -------------------------------------------------------------------
-	 * Loader
-	 * -------------------------------------------------------------------
-	 */
-
-	/**
-	 * Include every installed package's main file, with a crash-loop breaker.
-	 *
-	 * Runs during plugins_loaded (the companion boots at priority 5), so each
-	 * package's own `init` and `rest_api_init` hooks land normally. A package
-	 * that fataled mid-include on a previous request is skipped and logged.
-	 *
-	 * @return void
-	 */
-	public static function load_installed(): void {
-		$base = self::base_dir();
-
-		if ( '' === $base || ! is_dir( $base ) ) {
-			return;
-		}
-
-		$poisoned = (string) get_option( self::LOADING_OPTION, '' );
-
-		foreach ( self::remembered() as $slug => $entry ) {
-			$dir  = self::package_dir( (string) $slug );
-			$main = $dir . '/' . $slug . '.php';
-
-			if ( '' === $dir || ! file_exists( $main ) ) {
-				continue;
-			}
-
-			if ( (string) $slug === $poisoned ) {
-				// Previous request died inside this package. Do not load it again.
-				continue;
-			}
-
-			update_option( self::LOADING_OPTION, (string) $slug, false );
-			try {
-				require_once $main;
-			} catch ( Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
-				// A catchable failure: skip, leave the poison marker cleared below
-				// so a transient error does not permanently disable the package.
-			}
-			delete_option( self::LOADING_OPTION );
-		}
+	public static function plugin_basename_for( string $slug ): string {
+		return self::plugin_dir_name( $slug ) . '/' . $slug . '.php';
 	}
 
 	/*
@@ -151,7 +107,7 @@ final class X_Companion_Schema_Library {
 	 */
 
 	/**
-	 * Install a schema package zip.
+	 * Install a schema package zip as a standard, activated plugin.
 	 *
 	 * @param mixed           $result  Dispatcher seed.
 	 * @param WP_REST_Request $request Request.
@@ -176,25 +132,21 @@ final class X_Companion_Schema_Library {
 			return $analysis;
 		}
 
-		$base = self::base_dir();
-		if ( '' === $base || ! wp_mkdir_p( $base ) ) {
-			return new WP_Error( 'install_failed', __( 'The uploads directory is not available.', 'x-companion' ), array( 'status' => 500 ) );
-		}
-
 		$slug    = (string) $analysis['slug'];
-		$target  = self::package_dir( $slug );
-		$prev    = self::package_dir( $slug, true );
-		$staging = $base . '/.staging-' . $slug . '-' . (string) wp_rand( 100000, 999999 );
+		$root    = (string) $analysis['root'];
+		$target  = self::plugin_dir( $slug );
+		$prev    = self::plugin_dir( $slug, true );
+		$staging = rtrim( (string) WP_PLUGIN_DIR, '/\\' ) . '/.agent-staging-' . $slug . '-' . (string) wp_rand( 100000, 999999 );
 
 		if ( ! wp_mkdir_p( $staging ) ) {
 			return new WP_Error( 'install_failed', __( 'Could not create the staging directory.', 'x-companion' ), array( 'status' => 500 ) );
 		}
 
 		foreach ( $analysis['entries'] as $entry => $size ) {
-			if ( '' !== $analysis['root'] && 0 !== strpos( $entry, $analysis['root'] ) ) {
+			if ( '' !== $root && 0 !== strpos( $entry, $root ) ) {
 				continue;
 			}
-			$relative = '' === $analysis['root'] ? $entry : substr( $entry, strlen( $analysis['root'] ) );
+			$relative = '' === $root ? $entry : substr( $entry, strlen( $root ) );
 			if ( '' === $relative || '/' === substr( $relative, -1 ) ) {
 				continue;
 			}
@@ -212,6 +164,11 @@ final class X_Companion_Schema_Library {
 		clearstatcache( true );
 
 		if ( is_dir( $target ) ) {
+			if ( ! wp_mkdir_p( X_Companion_Block_Library::backup_root() ) ) {
+				X_Companion_Block_Library::rmdir_recursive( $staging );
+
+				return new WP_Error( 'install_failed', __( 'Could not create the rollback backup directory.', 'x-companion' ), array( 'status' => 500 ) );
+			}
 			X_Companion_Block_Library::rmdir_recursive( $prev );
 			if ( ! @rename( $target, $prev ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 				X_Companion_Block_Library::rmdir_recursive( $staging );
@@ -227,33 +184,50 @@ final class X_Companion_Schema_Library {
 				@rename( $prev, $target ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			}
 
-			return new WP_Error( 'install_failed', __( 'Could not move the package into the library.', 'x-companion' ), array( 'status' => 500 ) );
+			return new WP_Error( 'install_failed', __( 'Could not move the package into wp-content/plugins.', 'x-companion' ), array( 'status' => 500 ) );
+		}
+
+		// Activate through core — the canonical mechanism. From the next request
+		// on, WordPress loads the package like any other active plugin.
+		X_Companion_Block_Library::plugin_api();
+		$basename = self::plugin_basename_for( $slug );
+
+		if ( ! is_plugin_active( $basename ) ) {
+			$activated = activate_plugin( $basename );
+
+			if ( is_wp_error( $activated ) ) {
+				X_Companion_Block_Library::rmdir_recursive( $target );
+				if ( $replaced && is_dir( $prev ) ) {
+					@rename( $prev, $target ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				}
+
+				return new WP_Error(
+					'install_failed',
+					sprintf(
+						/* translators: %s: activation error. */
+						__( 'WordPress refused to activate the package: %s', 'x-companion' ),
+						$activated->get_error_message()
+					),
+					array( 'status' => 500 )
+				);
+			}
 		}
 
 		$meta = $analysis['meta'];
 
-		$remembered          = self::remembered();
-		$remembered[ $slug ] = array(
-			'version'      => (string) ( $meta['version'] ?? '' ),
-			'installed_at' => gmdate( 'c' ),
-		);
-		update_option( self::OPTION, $remembered, false );
-
 		self::record_provides( $slug, (array) ( $meta['provides'] ?? array() ) );
 
 		// Register the package's model in THIS request so the returned
-		// fingerprint already covers it: include the main file (its init hook
-		// has already fired) and call its registration function directly.
-		$main = $target . '/' . $slug . '.php';
-		if ( file_exists( $main ) ) {
-			require_once $main;
-			$register = 'agent_schema_' . str_replace( '-', '_', $slug ) . '_register';
-			if ( function_exists( $register ) ) {
-				try {
-					$register();
-				} catch ( Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
-					// The next request's loader will surface persistent failures.
-				}
+		// fingerprint already covers it: activate_plugin() included the main
+		// file (its init hook has already fired), so call its registration
+		// function directly.
+		$register = 'agent_schema_' . str_replace( '-', '_', $slug ) . '_register';
+		if ( function_exists( $register ) ) {
+			try {
+				$register();
+			} catch ( Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement
+				// A persistent failure surfaces on the next request, where core's
+				// fatal-error recovery pauses the plugin like any other.
 			}
 		}
 
@@ -271,6 +245,10 @@ final class X_Companion_Schema_Library {
 
 	/**
 	 * Structural + policy analysis of an uploaded package.
+	 *
+	 * A package is a standard plugin zip: one top-level directory,
+	 * `agent-schema-{slug}/`, holding `{slug}.php` (the plugin main file with
+	 * a real header), `schema.json`, and its other PHP files.
 	 *
 	 * @param string $archive Absolute path of the uploaded zip.
 	 * @return array|WP_Error
@@ -297,14 +275,20 @@ final class X_Companion_Schema_Library {
 			}
 		}
 
-		// Flat packages: schema.json at the root (or under a single directory).
-		$root = '';
-		if ( ! isset( $entries['schema.json'] ) ) {
-			$detected = X_Companion_Block_Library::detect_root( array_keys( $entries ) );
-			if ( null === $detected || ! isset( $entries[ $detected . 'schema.json' ] ) ) {
-				return self::policy_error( array( 'schema.json not found at the package root' ) );
-			}
-			$root = $detected;
+		$root = X_Companion_Block_Library::detect_root( array_keys( $entries ) );
+
+		if ( null === $root || '' === $root ) {
+			return self::policy_error( array( 'zip must contain exactly one top-level plugin directory (agent-schema-{slug}/)' ) );
+		}
+
+		$plugin_dir_name = rtrim( $root, '/' );
+
+		if ( 0 !== strpos( $plugin_dir_name, self::PLUGIN_PREFIX ) ) {
+			return self::policy_error( array( sprintf( 'zip root "%s" is not an %s{slug} plugin directory', $plugin_dir_name, self::PLUGIN_PREFIX ) ) );
+		}
+
+		if ( ! isset( $entries[ $root . 'schema.json' ] ) ) {
+			return self::policy_error( array( 'schema.json not found at the package root' ) );
 		}
 
 		$raw  = X_Companion_Block_Library::zip_read( $archive, $root . 'schema.json' );
@@ -319,8 +303,19 @@ final class X_Companion_Schema_Library {
 			return self::policy_error( array( sprintf( 'schema.json slug "%s" is invalid', (string) $meta['slug'] ) ) );
 		}
 
-		if ( ! isset( $entries[ $root . $slug . '.php' ] ) ) {
+		if ( $plugin_dir_name !== self::plugin_dir_name( $slug ) ) {
+			return self::policy_error( array( sprintf( 'zip root "%s" does not match schema.json slug "%s" (expected %s)', $plugin_dir_name, $slug, self::plugin_dir_name( $slug ) ) ) );
+		}
+
+		$main_entry = $root . $slug . '.php';
+
+		if ( ! isset( $entries[ $main_entry ] ) ) {
 			return self::policy_error( array( sprintf( '%s.php (the main plugin file) is not in the package', $slug ) ) );
+		}
+
+		$main_code = X_Companion_Block_Library::zip_read( $archive, $main_entry );
+		if ( ! is_string( $main_code ) || ! preg_match( '/^\s*\*?\s*Plugin Name\s*:/m', $main_code ) ) {
+			$reasons[] = sprintf( '%s.php has no "Plugin Name:" header; the package must be an installable WordPress plugin', $slug );
 		}
 
 		// Policy scan — the same forbidden list the agent gate uses.
@@ -360,27 +355,40 @@ final class X_Companion_Schema_Library {
 	/**
 	 * List installed schema packages with what each provides.
 	 *
+	 * No private registry: the plugins directory plus WordPress's own plugin
+	 * state is the source of truth.
+	 *
 	 * @param mixed           $result  Dispatcher seed.
 	 * @param WP_REST_Request $request Request.
 	 * @return array
 	 */
 	public static function route_installed( $result, WP_REST_Request $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		$out = array();
+		X_Companion_Block_Library::plugin_api();
 
-		foreach ( self::remembered() as $slug => $entry ) {
-			$meta_file = self::package_dir( (string) $slug ) . '/schema.json';
-			$provides  = array();
+		$out  = array();
+		$dirs = glob( rtrim( (string) WP_PLUGIN_DIR, '/\\' ) . '/' . self::PLUGIN_PREFIX . '*', GLOB_ONLYDIR );
 
-			if ( file_exists( $meta_file ) ) {
-				$decoded  = json_decode( (string) file_get_contents( $meta_file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-				$provides = is_array( $decoded['provides'] ?? null ) ? $decoded['provides'] : array();
+		foreach ( is_array( $dirs ) ? $dirs : array() as $dir ) {
+			$slug      = substr( basename( $dir ), strlen( self::PLUGIN_PREFIX ) );
+			$meta_file = $dir . '/schema.json';
+
+			if ( '' === $slug || ! file_exists( $meta_file ) ) {
+				continue;
 			}
 
+			$decoded = json_decode( (string) file_get_contents( $meta_file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$decoded = is_array( $decoded ) ? $decoded : array();
+
+			$main         = $dir . '/' . $slug . '.php';
+			$mtime        = file_exists( $main ) ? filemtime( $main ) : filemtime( $meta_file );
+			$installed_at = $mtime ? gmdate( 'c', (int) $mtime ) : '';
+
 			$out[] = array(
-				'slug'         => (string) $slug,
-				'version'      => (string) ( $entry['version'] ?? '' ),
-				'installed_at' => (string) ( $entry['installed_at'] ?? '' ),
-				'provides'     => $provides,
+				'slug'         => $slug,
+				'version'      => (string) ( $decoded['version'] ?? '' ),
+				'installed_at' => $installed_at,
+				'active'       => is_plugin_active( self::plugin_basename_for( $slug ) ),
+				'provides'     => is_array( $decoded['provides'] ?? null ) ? $decoded['provides'] : array(),
 			);
 		}
 
@@ -399,17 +407,6 @@ final class X_Companion_Schema_Library {
 	 * Helpers
 	 * -------------------------------------------------------------------
 	 */
-
-	/**
-	 * Installed-package memory.
-	 *
-	 * @return array
-	 */
-	private static function remembered(): array {
-		$value = get_option( self::OPTION, array() );
-
-		return is_array( $value ) ? $value : array();
-	}
 
 	/**
 	 * Record what a package provides, for the manifest's source labels.
