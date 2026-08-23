@@ -394,6 +394,60 @@ export class HarnessSession {
             timing: { total_ms: total, page_ms: pageMs, compile_ms: compileMs, cold },
         };
     }
+    /* ----------------------------------------------------------------- parse */
+    /**
+     * Parse serialized markup with the EDITOR'S OWN `wp.blocks.parse` on the
+     * harness page. Unlike PHP `parse_blocks` (the companion /parse route), the
+     * client parser extracts SOURCED attributes — image url/alt, paragraph
+     * content — out of the HTML, so `parseMarkup` → mutate → `compile` is the
+     * editor's exact load/save cycle and loses nothing. This is the only correct
+     * way to lift a page you intend to recompile.
+     */
+    async parseMarkup(markup) {
+        const page = await this.ensureHarness();
+        let raw;
+        try {
+            raw = await page.evaluate((text) => {
+                const w = window;
+                if (typeof w.wp?.blocks?.parse !== 'function')
+                    return { error: 'wp.blocks.parse is not available on the harness page' };
+                let dropped = 0;
+                const strip = (nodes) => {
+                    const out = [];
+                    for (const n of nodes ?? []) {
+                        if (!n || typeof n.name !== 'string' || n.name === '' || n.name === 'core/freeform' || n.name === 'core/missing') {
+                            dropped += 1;
+                            continue;
+                        }
+                        const node = { name: n.name };
+                        const attrs = n.attributes ?? {};
+                        if (attrs && typeof attrs === 'object' && Object.keys(attrs).length > 0)
+                            node.attributes = attrs;
+                        const inner = strip(Array.isArray(n.innerBlocks) ? n.innerBlocks : []);
+                        if (inner.length)
+                            node.innerBlocks = inner;
+                        out.push(node);
+                    }
+                    return out;
+                };
+                try {
+                    return { blocks: strip(w.wp.blocks.parse(text)), dropped };
+                }
+                catch (e) {
+                    return { error: e.message };
+                }
+            }, markup);
+        }
+        catch (e) {
+            throw new XError('internal', `wp.blocks.parse threw out of the page context: ${e.message}`, `Page errors: ${this.pageErrors.join(' | ') || '(none)'}. Re-run with X_AGENT_DEBUG=1.`, { page_errors: this.pageErrors.slice(0, 10) });
+        }
+        if (raw && typeof raw.error === 'string') {
+            throw new XError('internal', `The harness page could not parse the markup: ${raw.error}`, 'The instance is running an incompatible harness.js.', {
+                harness_error: raw.error,
+            });
+        }
+        return { blocks: (raw.blocks ?? []), dropped: Number(raw.dropped ?? 0) };
+    }
     /* ------------------------------------------------ editor-injection fallback */
     /**
      * The documented fallback (CONTRACT.md §6), DEFAULT OFF. Loads

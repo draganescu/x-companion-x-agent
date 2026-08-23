@@ -138,6 +138,8 @@ interface RequestOptions {
   accept?: string;
   /** Do not buffer the body; hand back the stream (snapshot export). */
   stream?: boolean;
+  /** REST namespace override; defaults to x-companion/v1. Core routes pass 'wp/v2'. */
+  ns?: string;
 }
 
 const EPOCH_CONFLICT_CODES = new Set(['epoch_mismatch', 'rest_epoch_mismatch', 'x_companion_epoch_mismatch']);
@@ -216,16 +218,21 @@ export class CompanionClient {
 
   /* ------------------------------------------------------------------ URLs */
 
-  private buildUrl(routePath: string, query: Record<string, string | undefined> | undefined, form: 'pretty' | 'plain'): string {
+  private buildUrl(
+    routePath: string,
+    query: Record<string, string | undefined> | undefined,
+    form: 'pretty' | 'plain',
+    ns: string = NAMESPACE,
+  ): string {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(query ?? {})) if (v !== undefined) qs.set(k, v);
     if (form === 'pretty') {
-      const base = `${this.config.site_url}/wp-json/${NAMESPACE}${routePath}`;
+      const base = `${this.config.site_url}/wp-json/${ns}${routePath}`;
       const s = qs.toString();
       return s ? `${base}?${s}` : base;
     }
     const rest = new URLSearchParams();
-    rest.set('rest_route', `/${NAMESPACE}${routePath}`);
+    rest.set('rest_route', `/${ns}${routePath}`);
     for (const [k, v] of qs) rest.append(k, v);
     return `${this.config.site_url}/?${rest.toString()}`;
   }
@@ -233,7 +240,7 @@ export class CompanionClient {
   /* -------------------------------------------------------------- requests */
 
   private async raw(method: string, routePath: string, opts: RequestOptions, form: 'pretty' | 'plain'): Promise<RawResponse> {
-    const url = this.buildUrl(routePath, opts.query, form);
+    const url = this.buildUrl(routePath, opts.query, form, opts.ns);
     const headers: Record<string, string> = {
       Authorization: this.authHeader(),
       Accept: opts.accept ?? 'application/json',
@@ -511,6 +518,72 @@ export class CompanionClient {
       slug: String(body.slug ?? ''),
       reused: Boolean(body.reused),
     };
+  }
+
+  /* ------------------------------------------------ core WordPress REST ---
+   * The image pass touches three core wp/v2 routes: media upload, and
+   * reading/updating a post's raw content. They ride the same auth, probe
+   * and error machinery as every companion route — rule 3 (no fetch outside
+   * this file) is why they live here. Content-tier operations only. */
+
+  /** `POST wp/v2/media` — sideload one generated image, set its alt text. */
+  async coreMediaUpload(
+    filename: string,
+    bytes: Uint8Array,
+    mimeType: string,
+    alt?: string,
+  ): Promise<{ id: number; source_url: string }> {
+    const res = await this.request('POST', '/media', {
+      ns: 'wp/v2',
+      body: bytes as unknown as BodyInit,
+      headers: {
+        'Content-Type': mimeType,
+        'Content-Disposition': `attachment; filename="${filename.replace(/["\\\r\n]/g, '')}"`,
+      },
+    });
+    const body = res.json as { id?: number; source_url?: string } | undefined;
+    if (!body || typeof body.id !== 'number' || typeof body.source_url !== 'string') {
+      throw new XError('companion_error', 'POST wp/v2/media did not return {id, source_url}.', 'Check the user can upload files.', {
+        route: 'wp/v2/media',
+      });
+    }
+    if (alt) {
+      await this.request('POST', `/media/${body.id}`, { ns: 'wp/v2', json: { alt_text: alt } });
+    }
+    return { id: body.id, source_url: body.source_url };
+  }
+
+  /** `GET wp/v2/{restBase}/{id}?context=edit` — the post's raw block markup. */
+  async corePostRaw(restBase: string, id: number): Promise<{ content_raw: string; link: string; title: string }> {
+    const res = await this.request('GET', `/${restBase}/${id}`, { ns: 'wp/v2', query: { context: 'edit' } });
+    const body = res.json as
+      | { content?: { raw?: string }; link?: string; title?: { raw?: string; rendered?: string } }
+      | undefined;
+    if (!body || typeof body.content?.raw !== 'string') {
+      throw new XError(
+        'companion_error',
+        `GET wp/v2/${restBase}/${id}?context=edit did not return content.raw.`,
+        'Check the id, the rest_base (pages/posts/…), and that the user can edit this post.',
+        { route: `wp/v2/${restBase}/${id}` },
+      );
+    }
+    return {
+      content_raw: body.content.raw,
+      link: String(body.link ?? ''),
+      title: String(body.title?.raw ?? body.title?.rendered ?? ''),
+    };
+  }
+
+  /** `POST wp/v2/{restBase}/{id}` — replace the post's content markup. */
+  async corePostUpdate(restBase: string, id: number, content: string): Promise<{ id: number; link: string }> {
+    const res = await this.request('POST', `/${restBase}/${id}`, { ns: 'wp/v2', json: { content } });
+    const body = res.json as { id?: number; link?: string } | undefined;
+    if (!body || typeof body.id !== 'number') {
+      throw new XError('companion_error', `POST wp/v2/${restBase}/${id} did not return the updated post.`, 'Check edit permissions.', {
+        route: `wp/v2/${restBase}/${id}`,
+      });
+    }
+    return { id: body.id, link: String(body.link ?? '') };
   }
 
   /** `POST /patterns` — extend tier; saving moves the epoch. */

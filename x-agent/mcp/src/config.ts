@@ -33,6 +33,10 @@ export interface XConfig {
   sources: { url: ConfigFieldSource; user: ConfigFieldSource; app_password: ConfigFieldSource };
   /** Path of the `.x-agent.json` that contributed, if any. */
   config_file?: string;
+  /** Gemini API key for the image-generation pass. Optional; never log this. */
+  gemini_api_key?: string;
+  /** Gemini image model id (Nano Banana family). */
+  image_model?: string;
 }
 
 export interface ResolveOptions {
@@ -106,6 +110,8 @@ export interface ConfigFileShape {
   site_url?: string;
   user?: string;
   app_password?: string;
+  gemini_api_key?: string;
+  image_model?: string;
   [k: string]: unknown;
 }
 
@@ -175,6 +181,16 @@ export function resolveConfig(args: ConnectionArgs = {}, opts: ResolveOptions = 
     sources: { url: url.source, user: user.source, app_password: pass.source },
   };
   if (configFile) cfg.config_file = configFile;
+
+  // Image-generation pass (optional): a Gemini key in the same file/env chain.
+  const gemini = pick(undefined, file.gemini_api_key, env.GEMINI_API_KEY);
+  if (gemini.value) {
+    registerSecret(gemini.value);
+    cfg.gemini_api_key = gemini.value;
+  }
+  const imageModel = pick(undefined, file.image_model, env.X_AGENT_IMAGE_MODEL);
+  if (imageModel.value) cfg.image_model = imageModel.value;
+
   return cfg;
 }
 
