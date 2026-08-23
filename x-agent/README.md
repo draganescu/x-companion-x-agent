@@ -28,7 +28,7 @@ immediately makes it part of that instance's vocabulary.
 | `skills/wp-blocks/SKILL.md` | The page discipline. Eleven rules (the expression ladder, the R7 ladder with its wp-schema handoff, R11's token-only stylesheets), three worked examples with literal tool transcripts. |
 | `skills/wp-blocks/references/` | `tree-ir.md` (Tree IR + every diagnostic code) and `design-spec.md` (lifting an image into the Design Spec IR). Loaded on demand. |
 | `skills/wp-schema/SKILL.md` | The backend discipline. Eight rules (model before UI, everything REST-visible, bindings over bespoke rendering, the unskippable gate) and the ordering-system worked example, transcripts recorded from proof scenario P16. |
-| `mcp/` | The MCP server: 21 tools over stdio. TypeScript, `@modelcontextprotocol/sdk`, Playwright, zod, adm-zip. Nothing else. |
+| `mcp/` | The MCP server: 23 tools over stdio. TypeScript, `@modelcontextprotocol/sdk`, Playwright, zod, adm-zip, `@google/genai` for the image pass. Nothing else. |
 | `templates/dynamic-block/` | The scaffold `wp_block_scaffold` copies: `block.json` (apiVersion 3, `agent/{slug}`, `render`), `render.php`, `src/edit.js`, `package.json`. |
 | `templates/theme-json/` | `DesignTokens` → `theme.json` settings emitter; a local mirror of the companion's server-side compiler, used for previews and diffs. |
 | `schemas/` | Vendored copies of the contract's JSON Schemas, byte-identical to `contract/schemas/`. |
@@ -100,7 +100,7 @@ works from any checkout path.
 The skill fires on requests like *"build me a landing page on my WordPress site"*, *"turn this
 Figma into a WordPress page"*, *"add a testimonial section"*, or anything mentioning Gutenberg
 blocks, block themes, patterns, `theme.json` or X Companion. Check it loaded with `/skills` and
-confirm the server with `/mcp` — you should see 21 tools.
+confirm the server with `/mcp` — you should see 23 tools.
 
 Skills, commands, agents and hooks must **not** live inside `.claude-plugin/`; only `plugin.json`
 does. That is a real constraint of the format, not a stylistic choice.
@@ -190,7 +190,7 @@ Rotate by deleting the application password in **Users → Profile → Applicati
 
 ---
 
-## The 21 tools
+## The 23 tools
 
 | tool | what it does |
 |---|---|
@@ -215,6 +215,8 @@ Rotate by deleting the application password in **Users → Profile → Applicati
 | `wp_schema_scaffold` | The backend factory: generates a schema package — post types, taxonomies, REST-visible meta, workflow statuses, binding sources and nonce-guarded routes, all through core APIs — with the `intent` embedded as the implementation contract. Local. |
 | `wp_schema_build_test` | THE schema gate: static policy scan (no `$wpdb`, no `eval`/`exec`), then a throwaway WordPress proves every declared registration, dispatches every route live, and diffs a post-uninstall fresh request. No zip without green. Local. |
 | `wp_schema_install` | `POST /schema/install` with the gated zip. The package's model registers in-request; the returned fingerprint is the new epoch and `data_model` lists it with `source: "agent"`. Extend tier. |
+| `wp_images_generate` | The first half of the image pass: find every wp_placeholder pixel carrying a `metadata.imageIntent` brief (parsed with the editor's own parser on the harness page, since `url` is a sourced attribute), generate one image per brief with a Gemini image model (Nano Banana; `gemini_api_key` in `.x-agent.json`), write JPEGs + a manifest locally. Site untouched. |
+| `wp_images_apply` | The second half: upload the manifest's files to the media library (alt = the brief), swap url/id on the exact nodes, recompile through the harness, update the post. Refuses nodes that changed since the scan. |
 
 Every tool validates input **and** output against its zod schema. Failures are always structured —
 `{code, message, hint}`, never a bare throw — with codes `https_required`, `posture_forbidden`,
@@ -287,7 +289,7 @@ cd x-agent/mcp
 npm install
 npm run typecheck
 npm test                 # vitest: units + the mock companion, zero WordPress required
-npm run list-tools       # prints all 21 tools with their full input schemas
+npm run list-tools       # prints all 23 tools with their full input schemas
 npm run build
 ```
 

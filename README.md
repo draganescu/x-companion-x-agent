@@ -118,6 +118,11 @@ Prefer environment variables? `X_WP_URL`, `X_WP_USER` and `X_WP_APP_PASSWORD`
 do the same job. And adding `"profile": true` to the file keeps a live report
 of how long every step takes, in `x-agent-profile.md` next to it.
 
+One optional extra: add `"gemini_api_key"` (a [Google AI key](https://aistudio.google.com/apikey))
+to the same file and the agent can also generate real images for the
+placeholder pictures it lays out — each one already carries a written brief of
+what belongs there.
+
 That is the setup. Ask for what you want — the next section shows how that
 conversation goes.
 
@@ -166,6 +171,8 @@ You can also call the tools directly. The main ones:
 | `wp_schema_scaffold` | Starts a schema package: post types, fields, routes — the backend of a feature |
 | `wp_schema_build_test` | Proves the whole model in a throwaway WordPress before anything ships |
 | `wp_schema_install` | Installs the package; orders, bookings and the like become real site data |
+| `wp_images_generate` | Turns each placeholder's written brief into a real image with Google's image model |
+| `wp_images_apply` | Uploads those images and swaps them into the page, exactly where the placeholders were |
 
 The full list is in `x-agent/README.md`.
 

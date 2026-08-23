@@ -76,6 +76,7 @@ import { tools as patternSaveTools } from './tools/patternSave.js';
 import { tools as schemaScaffoldTools } from './tools/schemaScaffold.js';
 import { tools as schemaBuildTestTools } from './tools/schemaBuildTest.js';
 import { tools as schemaInstallTools } from './tools/schemaInstall.js';
+import { tools as imagesTools } from './tools/images.js';
 /* -------------------------- externally implemented (session/oracle/factory) */
 const ConnArgs = {
     url: z.string().optional(),
@@ -271,6 +272,7 @@ export const TOOLS = [
     ...schemaScaffoldTools,
     ...schemaBuildTestTools,
     ...schemaInstallTools,
+    ...imagesTools,
     ...EXTERNAL_TOOLS.map(placeholder),
 ];
 export function findTool(name) {

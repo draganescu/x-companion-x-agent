@@ -273,10 +273,14 @@ does not apply: mint a real-sized placeholder instead with
 `wp_placeholder({color, width: 900, height: 1200})` (a PNG; WordPress generates its
 thumbnail sizes normally) and attach that.
 
-The intent field is the hand-off to a later **image-generation pass**: that pass runs
-`wp_parse` on the published page, walks the tree for `metadata.imageIntent`, generates or
-sources each asset, uploads it, swaps `url`/`id` on that node, recompiles, and drops or keeps
-the intent as provenance. Layout and content ship now; pixels arrive when they are ready.
+The intent field is the hand-off to the **image-generation pass**, which is two tools:
+`wp_images_generate` finds every placeholder+intent pair on a published post (with the
+editor's own parser — `url` is a sourced attribute, invisible to PHP parsing), generates one
+image per brief with a Gemini image model (`gemini_api_key` in `.x-agent.json`; pass `style`
+for one shared look), and writes files plus a manifest locally; `wp_images_apply` uploads
+them to the media library, swaps `url`/`id` on exactly those nodes, recompiles through the
+harness and updates the post, keeping the intent as provenance. Layout and content ship now;
+pixels arrive when they are ready — and land without moving a single box.
 
 ### R6 — from-design mode: lift binaries into DesignSpecIR per `references/design-spec.md` (measure, don't trace; quantize every observed value onto the token scale and log the delta; mark every synthesized responsive behavior). `wp_spec_validate` must pass before any tree is generated. `wp_verify` diffs are then attributable: token decision, mapping approximation, or a gap in the available blocks.
 
@@ -1115,7 +1119,7 @@ promote the artifact. R8.
 
 ## 7. Tool index
 
-Twenty-one tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
+Twenty-three tools. Arguments are given as they appear in the input schemas; `{url, user, app_password}`
 may be passed to any connected tool to override the config chain, and are omitted below.
 
 Interfaces-v2 surfaces worth knowing before the table: `wp_manifest` serves `section:
@@ -1149,6 +1153,8 @@ their rules live in the sibling **wp-schema** skill.
 | `wp_schema_scaffold` | `slug, intent, post_types[], taxonomies[]?, routes[]?, bindings[]?` | `dir, slug, files[]` — see the wp-schema skill |
 | `wp_schema_build_test` | `dir` | `built, smoke{types_registered, meta_in_rest, routes[], bindings_registered, uninstall_clean}, zip_path?` — the schema build test |
 | `wp_schema_install` | `zip_path` | `installed{slug,version}, fingerprint (NEW — use it), replaced_previous` |
+| `wp_images_generate` | `post_id, rest_base?, style?, model?, out_dir?, dry_run?` | `found, generated, out_dir, manifest_path, images[{path,intent,aspect_ratio,file}]` — the image pass, first half; site untouched |
+| `wp_images_apply` | `post_id, rest_base?, manifest_path?` | `uploaded[{id,source_url}], swapped, skipped[], all_valid, link` — uploads, swaps url/id on the scanned nodes, recompiles, updates the post |
 
 `wp_validate`, `wp_compile`, `wp_spec_validate` and `wp_tokens_apply` take their payload
 **flattened into the tool arguments** — send `{version, epoch, blocks}`, not `{tree: {...}}`.

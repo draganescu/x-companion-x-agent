@@ -111,6 +111,15 @@ export function resolveConfig(args = {}, opts = {}) {
     };
     if (configFile)
         cfg.config_file = configFile;
+    // Image-generation pass (optional): a Gemini key in the same file/env chain.
+    const gemini = pick(undefined, file.gemini_api_key, env.GEMINI_API_KEY);
+    if (gemini.value) {
+        registerSecret(gemini.value);
+        cfg.gemini_api_key = gemini.value;
+    }
+    const imageModel = pick(undefined, file.image_model, env.X_AGENT_IMAGE_MODEL);
+    if (imageModel.value)
+        cfg.image_model = imageModel.value;
     return cfg;
 }
 /** Stable identity for "is this the same connection?" — never includes the password. */
