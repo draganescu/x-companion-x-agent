@@ -103,7 +103,7 @@ whether you may.
 **Self-check before you compile:** if every section is a centered stack on a flat band, the
 design is not done — go back to the art direction.
 
-## 3. The twelve rules
+## 3. The thirteen rules
 
 These rules are numbered so you can cite them: "R7 step 2" is a complete explanation of a
 decision.
@@ -474,6 +474,34 @@ agent, because the convergence points are hard:
 The shape of a fast build, then: fan out (schema package ∥ tokens ∥ each block ∥ tree
 drafts and copy) → converge on the coordinator (install everything, take the final
 fingerprint) → validate → compile → verify → one screenshot.
+
+### R13 — Never build tooling around the toolchain. No generators that write trees, no scripts that template JSON, no wrapper CLIs, no sed over markup. The tools are the interface and the model is the author.
+
+The temptation looks like productivity: a Python script that stamps out TreeIR sections
+from a data file, a shell pipeline that rewrites compiled markup, a helper that batches
+REST calls around the companion. Every one of these moves authorship out of the loop the
+toolchain exists to enforce — trees written per-node against the manifest, markup produced
+only by the instance's own `save()`, mutations gated and epoch-stamped — and into ad-hoc
+code nothing validates. A generator's output *looks* like a hundred decisions; it is one
+decision photocopied, and the first attribute it gets slightly wrong is wrong a hundred
+times behind `valid: true`-shaped confidence. String surgery on markup is worse: a pattern
+that looks anchored eats sibling blocks (`navigation` vs `navigation-link` is one
+character of prefix apart).
+
+When work feels like it needs a crutch, it is telling you one of three things is missing:
+
+1. **A pattern** — the same section shape over and over is `wp_pattern_save`, not a
+   generator; the instance then owns the idiom and every future session inherits it.
+2. **A capability** — data-shaped repetition wants a dynamic block or a schema package
+   (R7 / wp-schema), built THROUGH the factory so it is gated, versioned and owned.
+3. **A tool** — a genuine gap in the toolchain is toolchain work: a change to the MCP
+   server on a branch with tests and a PR, never a sidecar script living in a site
+   workspace.
+
+What this rule does **not** forbid: verification code (a Playwright behavior test authors
+nothing — it checks), read-only shell (`jq` over a tool's output, `curl` to look at a
+route), and the repo's own infrastructure. The line is authorship: nothing mechanical may
+write toolchain inputs, and nothing but the compiler may write what the instance stores.
 
 ---
 
