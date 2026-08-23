@@ -1,12 +1,12 @@
 # Design Spec IR — the authoring guide for lifting a design
 
-You have an image, a Figma export, or an HTML comp. You want a WordPress page. The temptation is
-to look at it and start writing blocks. Don't.
+You have an image, a Figma export, or an HTML comp. You want a WordPress page. Do not start
+writing blocks directly from the image.
 
 **DesignSpecIR is the pivot type.** You lift the binary into it once, `wp_spec_validate` checks
 it, and from that point on from-design uses exactly the same back half as from-prompt: tree →
-validate → compile → verify. The spec is also what `wp_verify` diffs against, which is what turns
-"looks about right" into a list of numbers with owners.
+validate → compile → verify. The spec is also what `wp_verify` diffs against, which turns
+"looks about right" into a list of specific, attributable numbers.
 
 Schema: `x-agent/schemas/design-spec.schema.json` (vendored from `contract/schemas/`).
 Every object in it is `additionalProperties: false` — an unexpected key is an error, not a hint.
@@ -17,7 +17,7 @@ The companion never sees this type; it is agent-side only.
 ## 1. Measure, do not trace
 
 Tracing means reproducing what you see. Measuring means recording what is there and then deciding
-what it *means*. The difference shows up three weeks later, when someone changes a token.
+what it *means*. The difference matters as soon as someone changes a token.
 
 **Trace** (wrong): "the heading is 54px Playfair, dark grey, 120px from the left, and the button
 is #1b4ed4 with 14px 28px padding."
@@ -33,7 +33,7 @@ Concretely, for each region, in **source pixels of the source viewport**:
 2. **Layout** — `direction` (`row` | `column` | `grid`), `gap_px` measured between siblings,
    `align`, `justify`, `columns`. Measure the gap between two adjacent items, not the distance
    between their text.
-3. **Role** — what the region *is*, from the fixed vocabulary in §4. This is the field that drives
+3. **Role** — what the region *is*, from the fixed set of values in §4. This is the field that drives
    block choice.
 4. **Style refs** — which *token slugs* this region uses: `palette_slug`,
    `background_palette_slug`, `font_size_slug`, `spacing_slugs`. Slugs, not values. The values
@@ -100,7 +100,7 @@ snapped onto a scale, so requiring a log entry for it would be noise.
 type sizes. If your lift produces eleven spacing steps, you traced instead of measuring: two of
 them are the same step observed twice.
 
-**The log is the fidelity budget.** When `wp_verify` later reports a `font_size` diff of +2px, you
+**The log records every fidelity decision.** When `wp_verify` later reports a `font_size` diff of +2px, you
 do not argue about it — you point at the log entry, state the alternative (a bespoke type step
 that exists for one headline), and record the decision. That exchange is the entire point of
 from-design mode. See `SKILL.md` §4 for it written out.
@@ -132,7 +132,7 @@ the build.
 
 Write assumptions in terms the implementation can honour: "the two columns stack" maps to
 `core/columns` with `isStackedOnMobile: true`; "padding drops one step" maps to a different
-spacing preset. "Becomes mobile-friendly" maps to nothing and helps nobody.
+spacing preset. "Becomes mobile-friendly" maps to nothing concrete.
 
 `wp_spec_validate` requires at least one entry on **each top-level region** (`W_NO_RESPONSIVE`).
 Nested regions inherit their parent's behavior unless they do something different, in which case
@@ -142,7 +142,7 @@ say what.
 
 ## 4. Region roles, and what they become
 
-`role` is a closed vocabulary. It is the field that carries your interpretation of the design
+`role` takes one of a fixed set of values. It is the field that carries your interpretation of the design
 into block choice, so pick deliberately.
 
 | role | what it means | typical block composition |
@@ -196,7 +196,7 @@ E_SPEC_SCHEMA  /regions/0/role
        additionalProperties:false — an unexpected key is an error, not a hint.
 ```
 
-Most common causes: a role outside the vocabulary; an extra key you invented (`"description"`,
+Most common causes: a role outside the allowed set; an extra key you invented (`"description"`,
 `"notes"`, `"z_index"`); `version` sent as `"1"` instead of `1`; a `box` missing one of
 `x`/`y`/`w`/`h`; a `quantization_log` entry missing `delta`; `confidence` spelled anything other
 than `observed` / `synthesized`.
@@ -385,10 +385,11 @@ content items point at `hero-copy`, `hero-actions` or `hero-media` (no `E_ORPHAN
      record the choice;
    - **a mapping approximation** — the region-to-block mapping is close but not exact (an extra
      wrapper, a `blockGap` that snapped one step); fix the tree;
-   - **a vocabulary gap** — the design needs something the block set cannot express; go to R7,
-     and say which rung.
+   - **a gap in the available blocks** — the design needs something the block set cannot
+     express; go to R7, and say which option.
 7. One `wp_screenshot`.
 
 Default tolerances: position and size 4px or 2%, gap one spacing step, font size 1px. They are
-overridable per call via `tolerances`, but widening a tolerance to turn a report green — without
-saying that you did — is falsifying the oracle. Change it only as an accepted policy, and say so.
+overridable per call via `tolerances`, but widening a tolerance to make a report pass — without
+saying that you did — is misreporting the result. Change it only as an accepted policy, and say
+so.

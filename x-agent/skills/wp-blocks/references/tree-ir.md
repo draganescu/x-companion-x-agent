@@ -33,7 +33,7 @@ A `BlockNode` has **exactly three** possible keys:
 form; it never exists in a tree. The schema is strict on purpose, so a tree that has been
 contaminated by round-tripped parse output fails loudly instead of compiling something stale.
 
-Note the two vocabularies you will move between:
+Note the two naming conventions you will move between:
 
 | | tree (`TreeIR`) | parse output (`parse_blocks()`) |
 |---|---|---|
@@ -86,7 +86,7 @@ never guess it, never abbreviate it in an actual call.
 | code | trigger | fix |
 |---|---|---|
 | `E_TREE_SCHEMA` | The body fails `tree-ir.schema.json`. **Stops all further checks** — you get this and nothing else. | Fix the shape. Usually: an `innerHTML` survived from parse output, a stray key, `version` sent as a string, or a `name` that is not `namespace/block`. The `wp_validate` local pre-check catches this with **zero network calls**, so it is free to fix. |
-| `E_UNKNOWN_BLOCK` | `name` is not in this instance's registry. Children of an unknown block are not checked further. | `wp_manifest` and pick a block that exists here. If it genuinely should exist, the plugin providing it is not active. If it should not exist yet, that is R7 rung 3. |
+| `E_UNKNOWN_BLOCK` | `name` is not in this instance's registry. Children of an unknown block are not checked further. | `wp_manifest` and pick a block that exists here. If it genuinely should exist, the plugin providing it is not active. If it should not exist yet, that is R7 option 3. |
 | `E_ATTR_TYPE` | The value violates the registered attribute `type` (`string number integer boolean array object null`; `type` may itself be an array). | Send the declared type. Classic: `"level": "2"` where the registry says `{"type":"number","default":2}`. |
 | `E_ATTR_ENUM` | The value is not in the registered `enum`. | Pick one of the enumerated values; they are in the manifest entry. |
 | `E_NEST_PARENT` | The block declares `parent[]` and its immediate parent is not in it — including sitting at the tree root. | Wrap it. `core/button` → `core/buttons`. `core/column` → `core/columns`. `core/list-item` → `core/list`. |
@@ -203,8 +203,8 @@ production instance. That is the case the editor-injection fallback exists for.
 The same measurement shows the mirror-image condition: four blocks are in `__registry()` but
 **not** in the manifest — `kadence/countdown-inner`, `kadence/countdown-timer`, `kadence/pane`,
 `kadence/tab`. They are inner blocks registered only in JavaScript, so the server has never heard
-of them. They compile, and `wp_validate` rejects them with `E_UNKNOWN_BLOCK`. Trust the manifest:
-it is the half of the world that can be checked.
+of them. They compile, and `wp_validate` rejects them with `E_UNKNOWN_BLOCK`. Trust the
+manifest: it is the part that can be checked server-side.
 
 ## 5. Worked example — a core page
 
@@ -406,8 +406,8 @@ A section that validates clean against that instance:
 
 One warning, and it is about the *core* paragraph — every Kadence block here is dynamic.
 
-`wp_compile` then returns `all_valid: true`, `invalid: []`, and this markup — which is the whole
-argument for never writing suite markup by hand:
+`wp_compile` then returns `all_valid: true`, `invalid: []`, and this markup — which shows why
+suite markup is never written by hand:
 
 ```html
 <!-- wp:kadence/rowlayout {"uniqueID":"1234_a1b2c3-de","colLayout":"equal","htmlTag":"section","maxWidth":1340,"bgColor":"#FBFAF3","align":"full","verticalAlignment":"middle","padding":[80,0,80,0]} -->
@@ -417,13 +417,14 @@ argument for never writing suite markup by hand:
 <!-- /wp:kadence/advancedheading -->
 ```
 
-Nobody guesses `kt-inside-inner-col`, the doubled wrapper, `kadence-column<uniqueID>`,
-`kt-adv-heading<uniqueID>` or `data-kb-block="kb-adv-heading<uniqueID>"`. Note also what the
+None of this could have been guessed: `kt-inside-inner-col`, the doubled wrapper,
+`kadence-column<uniqueID>`, `kt-adv-heading<uniqueID>`,
+`data-kb-block="kb-adv-heading<uniqueID>"`. Note also what the
 compiler dropped as equal to its registered default: `columns: 2`, `paddingUnit: "px"`,
 `collapseOrder`, `tabletLayout`, `mobileLayout`, and `id: 1` on the first column — while keeping
 `id: 2` on the second.
 
-> **The caveat that will move under you.** All of that depended on the 59 Kadence blocks being in
+> **A posture-dependent caveat.** All of that depended on the 59 Kadence blocks being in
 > `window.__registry()`, which depended on the harness route's admin context (§4). Against a
 > `production`-posture instance, where that is off by default, the identical tree returns
 > `{"code": "harness_gap", "blocks": ["kadence/rowlayout", "kadence/column", "kadence/advancedheading"], "hint": "…"}`.
@@ -441,9 +442,9 @@ Blocks mix freely: `core/paragraph` and `core/image` sit inside `kadence/column`
 
 ## 7. Worked example — using an installed agent block
 
-After R7 rung 3 (`wp_block_scaffold` → implement `render.php` → `wp_block_build_test` →
-`wp_block_install`), the new block is ordinary vocabulary. The install response is where the new
-epoch comes from:
+After R7 option 3 (`wp_block_scaffold` → implement `render.php` → `wp_block_build_test` →
+`wp_block_install`), the new block is available like any other. The install response is where
+the new fingerprint comes from:
 
 ```jsonc
 ← { "installed": { "slug": "testimonial", "name": "agent/testimonial", "version": "1.0.0" },
@@ -453,7 +454,8 @@ epoch comes from:
 
 Everything below is read from a live toolchain instance at the moment that block was installed —
 117 blocks, up from the 116 of a bare core install. (It is a factory test fixture and has since
-been rolled back, which is itself the point of R3: vocabulary is per-instance and per-epoch.)
+been rolled back — R3 exists because the available blocks differ per instance and change over
+time.)
 
 **Read its manifest entry before using it.** The attributes you declared at scaffold time are what
 came out the other side, plus the whitelisted supports attributes:
@@ -540,7 +542,7 @@ Used in a tree, carrying the **new** epoch:
 Three warnings, all about **core** blocks. `agent/testimonial` raises none: it is dynamic, which is
 what R7's "static blocks are never created" buys you.
 
-### The trap this example exists to show
+### The failure this example shows
 
 `wp_validate` passed. Compiling the same tree against that same instance produced this:
 
