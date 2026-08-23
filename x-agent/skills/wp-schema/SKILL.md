@@ -41,6 +41,14 @@ data model is a schema package.
 | 6 | Install | `wp_schema_install` | Returns a NEW fingerprint. Use it in the very next tree. |
 | 7 | Build the views | → **wp-blocks** | Blocks (and bindings) display the model. The package holds the data; blocks never do. |
 
+Steps 2–5 never touch the instance: the design of the package, its implementation and the
+build test all run locally against a throwaway sandbox. On a full build, ALWAYS run this
+track in a subagent, concurrently with the design track (tokens, custom blocks, tree
+drafts) — the two are independent right up until step 6, where the install moves the
+fingerprint, and until a tree binds to the model. The coordinating agent does every
+install and takes the last fingerprint as the epoch. The full choreography is wp-blocks
+R12.
+
 ## 2. The eight rules
 
 ### S1 — Model before UI. Post types, taxonomies, meta and routes are designed and installed BEFORE the blocks that render them. The data model is the source of truth; blocks are views.
@@ -49,6 +57,12 @@ Same ordering principle as wp-blocks R9 (tokens before layout): decide what an
 *order* / *booking* / *entry* is — its fields, its statuses, who writes it and who reads
 it — install that, and only then build the form and the displays. A block designed first
 tends to embed storage decisions that turn out wrong.
+
+The URL map is part of the model. A public post type claims `/{rewrite_slug}/…` on the
+site (default: its own slug), and `has_archive` decides whether that path itself lists
+entries. Decide both in the scaffold input — the scaffold checks them against the
+instance's existing page and post slugs and returns `warnings[]` on a collision, which
+costs nothing now and a full rebuild-and-republish cycle after publish.
 
 ### S2 — Read the model first; extend before you invent. `wp_manifest {section: "data_model"}` at the current fingerprint, always. Do not register a parallel model beside an existing one.
 
@@ -61,7 +75,9 @@ version it, do not duplicate it).
 
 This is enforced three times: the scaffold only generates REST-visible meta, the build test
 fails naming any key that is not (`meta "hc_order:pickup_day" not REST-visible`), and the
-companion's installer scans again. Meta that is not REST-visible is invisible to bindings,
+companion's installer scans again. The scaffold also forces `custom-fields` into the post
+type's `supports` whenever meta is declared — without it WordPress never puts registered
+meta on the REST post object, no matter how the meta itself was registered. Meta that is not REST-visible is invisible to bindings,
 to the manifest, and therefore to every future session — private state instead of a model.
 
 ### S4 — Bindings over bespoke rendering. When a core block plus a binding to registered meta can display the data, that beats a custom block. Check `wp_manifest {section: "bindings"}` before building a block that merely displays a field.

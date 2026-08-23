@@ -65,12 +65,19 @@ export interface SchemaMetaInput {
 export interface SchemaPostTypeInput {
   slug: string;
   label: string;
-  /** Defaults to title + custom-fields. */
+  /** Defaults to title + custom-fields. When `meta` is declared, custom-fields
+   *  is forced in regardless: without it WordPress never puts registered meta
+   *  on the REST post object. */
   supports?: string[];
   meta?: SchemaMetaInput[];
   taxonomies?: string[];
   /** Public on the front end? Defaults false: agent CPTs are data first. */
   public?: boolean;
+  /** URL base for a public CPT's permalinks; defaults to the slug. This claims
+   *  /{rewrite_slug}/... on the site — decide the URL map up front. */
+  rewrite_slug?: string;
+  /** Whether /{rewrite_slug}/ itself is an archive listing. Defaults false. */
+  has_archive?: boolean;
   /** Extra registered statuses, e.g. ready / picked-up. */
   statuses?: { slug: string; label: string }[];
 }
@@ -288,7 +295,11 @@ function mainPluginPhp(input: SchemaScaffoldInput, version: string): string {
 
   for (const cpt of input.post_types) {
     const slug = cpt.slug.replace(/-/g, '_');
-    const supports = cpt.supports && cpt.supports.length ? cpt.supports : ['title', 'custom-fields'];
+    const supports = [...(cpt.supports && cpt.supports.length ? cpt.supports : ['title', 'custom-fields'])];
+    // custom-fields is never optional for a post type with declared meta:
+    // without it WordPress does not put registered meta on the REST post
+    // object, and the whole model goes invisible to bindings and the agent.
+    if ((cpt.meta ?? []).length && !supports.includes('custom-fields')) supports.push('custom-fields');
     lines.push(`\tregister_post_type( '${slug}', array(`);
     lines.push(`\t\t'label'         => ${phpJson(cpt.label)},`);
     lines.push(`\t\t'public'        => ${cpt.public ? 'true' : 'false'},`);
@@ -297,6 +308,13 @@ function mainPluginPhp(input: SchemaScaffoldInput, version: string): string {
     lines.push(`\t\t'show_in_rest'  => true,`);
     lines.push(`\t\t'menu_icon'     => 'dashicons-database',`);
     lines.push(`\t\t'supports'      => ${phpArray(supports)},`);
+    if (cpt.public) {
+      // The URL map is explicit, never an accident of register_post_type
+      // defaults: a public CPT claims /{rewrite_slug}/... on the site.
+      const rewrite = assertSchemaSlug(cpt.rewrite_slug ?? cpt.slug, 'rewrite slug');
+      lines.push(`\t\t'rewrite'       => array( 'slug' => ${phpJson(rewrite)} ),`);
+      lines.push(`\t\t'has_archive'   => ${cpt.has_archive ? 'true' : 'false'},`);
+    }
     if (cpt.taxonomies && cpt.taxonomies.length) {
       lines.push(`\t\t'taxonomies'    => ${phpArray(cpt.taxonomies.map((t) => t.replace(/-/g, '_')))},`);
     }

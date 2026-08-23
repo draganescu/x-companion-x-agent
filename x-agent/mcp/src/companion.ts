@@ -574,6 +574,16 @@ export class CompanionClient {
     };
   }
 
+  /** `GET wp/v2/{restBase}?_fields=slug` — published slugs, for URL-map checks. */
+  async coreListSlugs(restBase: string): Promise<string[]> {
+    const res = await this.request('GET', `/${restBase}`, {
+      ns: 'wp/v2',
+      query: { per_page: '100', _fields: 'slug', status: 'publish' },
+    });
+    if (!Array.isArray(res.json)) return [];
+    return (res.json as { slug?: unknown }[]).map((p) => String(p.slug ?? '')).filter((s) => s !== '');
+  }
+
   /** `POST wp/v2/{restBase}/{id}` — replace the post's content markup. */
   async corePostUpdate(restBase: string, id: number, content: string): Promise<{ id: number; link: string }> {
     const res = await this.request('POST', `/${restBase}/${id}`, { ns: 'wp/v2', json: { content } });
