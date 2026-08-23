@@ -103,7 +103,7 @@ whether you may.
 **Self-check before you compile:** if every section is a centered stack on a flat band, the
 design is not done — go back to the art direction.
 
-## 3. The ten rules
+## 3. The twelve rules
 
 These rules are numbered so you can cite them: "R7 step 2" is a complete explanation of a
 decision.
@@ -442,6 +442,38 @@ color is a palette token, every space a spacing token, every size a font-size to
 remains in `style.css` is *structure*. The build test lints this (warnings, line-numbered) —
 review every entry, and either use a token or state why the structure needs that literal (a
 `1px` border, a `50%` transform — fine; a `#a45a2a` — never).
+
+### R12 — ALWAYS fan independent tracks out to subagents. The epoch is the only serialization point; everything that does not move it runs concurrently.
+
+A full build has four tracks: the **data model** (the wp-schema package), the **design
+system** (tokens), the **vocabulary** (custom blocks), and the **content** (page trees).
+Their authoring and gating are independent right up until bindings and installs tie them
+together: a schema package's scaffold → implement → build test runs wholly in a throwaway
+sandbox; so does each custom block's; tokens are a JSON document; and a tree references
+block names and token slugs that are decided at design time, not at install time. Working
+those in sequence wastes the wall clock — on a typical build two of the four phases overlap
+completely. So: one subagent per track, and one per block when several blocks are being
+built (each build test boots its own throwaway WordPress on a free port from a small range,
+so a handful in parallel is fine).
+
+**Subagents return artifacts, not effects**: a gated zip path, a tokens document, a draft
+tree, a build-test report. Everything that touches the instance stays with the coordinating
+agent, because the convergence points are hard:
+
+1. **Installs move the fingerprint.** `wp_tokens_apply`, `wp_block_install` and
+   `wp_schema_install` each return a NEW fingerprint — the coordinator runs them one after
+   another (any order) and stamps every tree with the fingerprint of the **last** one. This
+   is also what keeps R3 trivially true: only one agent ever needs to know the current
+   epoch.
+2. **Bindings and vocabulary wait for their installs.** A tree that binds a schema source
+   validates only after `wp_schema_install` (`E_BINDING_UNKNOWN` before it); a tree using
+   an agent block validates only after `wp_block_install`.
+3. **Compile, verify and screenshot are coordinator work too** — they drive the one warm
+   browser session; interleaving them from parallel agents interleaves that session.
+
+The shape of a fast build, then: fan out (schema package ∥ tokens ∥ each block ∥ tree
+drafts and copy) → converge on the coordinator (install everything, take the final
+fingerprint) → validate → compile → verify → one screenshot.
 
 ---
 

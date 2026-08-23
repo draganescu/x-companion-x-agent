@@ -41,6 +41,14 @@ data model is a schema package.
 | 6 | Install | `wp_schema_install` | Returns a NEW fingerprint. Use it in the very next tree. |
 | 7 | Build the views | → **wp-blocks** | Blocks (and bindings) display the model. The package holds the data; blocks never do. |
 
+Steps 2–5 never touch the instance: the design of the package, its implementation and the
+build test all run locally against a throwaway sandbox. On a full build, ALWAYS run this
+track in a subagent, concurrently with the design track (tokens, custom blocks, tree
+drafts) — the two are independent right up until step 6, where the install moves the
+fingerprint, and until a tree binds to the model. The coordinating agent does every
+install and takes the last fingerprint as the epoch. The full choreography is wp-blocks
+R12.
+
 ## 2. The eight rules
 
 ### S1 — Model before UI. Post types, taxonomies, meta and routes are designed and installed BEFORE the blocks that render them. The data model is the source of truth; blocks are views.
