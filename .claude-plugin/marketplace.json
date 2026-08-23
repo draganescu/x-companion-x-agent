@@ -1,0 +1,25 @@
+{
+  "name": "x-companion-x-agent",
+  "owner": {
+    "name": "Andrei Draganescu",
+    "url": "https://github.com/draganescu"
+  },
+  "metadata": {
+    "description": "Build WordPress pages that are correct by construction: the x-agent plugin (skills + MCP tools) drives any WordPress site running the X Companion plugin.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "x-agent",
+      "source": "./x-agent",
+      "description": "Turns Claude Code into a precise WordPress site builder: validated block trees compiled by your site's own editor, design tokens, tested custom blocks and backend schema packages. Requires the X Companion plugin on the WordPress site (zip on this repo's Releases page).",
+      "version": "0.1.0",
+      "author": {
+        "name": "Andrei Draganescu",
+        "url": "https://github.com/draganescu"
+      },
+      "license": "MIT",
+      "keywords": ["wordpress", "gutenberg", "blocks", "design", "mcp"]
+    }
+  ]
+}

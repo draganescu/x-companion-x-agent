@@ -3,7 +3,7 @@
     "x-agent": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/dist/mcp/src/server.js"
+        "${CLAUDE_PLUGIN_ROOT}/mcp/run.mjs"
       ],
       "env": {
         "X_AGENT_PLUGIN_ROOT": "${CLAUDE_PLUGIN_ROOT}",

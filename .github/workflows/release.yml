@@ -1,0 +1,109 @@
+name: release
+
+# Push a tag like v0.1.0 (or run the workflow by hand) and this produces two
+# ready-to-install zips:
+#
+#   x-companion-<version>.zip   the WordPress plugin — upload it on
+#                               Plugins → Add New → Upload Plugin, activate, done
+#   x-agent-<version>.zip       the Claude Code plugin with the MCP server
+#                               prebuilt and its runtime node_modules vendored,
+#                               so nothing is installed on first start
+#
+# On a tag the zips are attached to a GitHub release; a manual run uploads
+# them as workflow artifacts instead.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: x-agent/mcp/package-lock.json
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(node -p "require('./x-agent/.claude-plugin/plugin.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate manifests
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('.claude-plugin/marketplace.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('x-agent/.claude-plugin/plugin.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('x-agent/.mcp.json','utf8'))"
+
+      - name: Build the MCP server from source
+        run: |
+          cd x-agent/mcp
+          npm ci
+          npm run build
+          test -f dist/mcp/src/server.js
+
+      - name: Stage the x-agent plugin zip
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          mkdir -p stage out
+          # Excludes are anchored ("/mcp/src") — unanchored patterns also match
+          # inside mcp/dist (dist/mcp/src is the compiled server).
+          rsync -a x-agent/ stage/x-agent/ \
+            --exclude /mcp/node_modules \
+            --exclude /mcp/src \
+            --exclude /mcp/proof \
+            --exclude /mcp/tsconfig.json \
+            --exclude /mcp/tsconfig.build.json \
+            --exclude /mcp/vitest.config.ts \
+            --exclude /tests \
+            --exclude /fixtures \
+            --exclude /.progress-fragments \
+            --exclude /PROGRESS.json
+          # Vendor the runtime dependencies so the zip needs no install step.
+          cd stage/x-agent/mcp
+          npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+          cd ../../..
+          (cd stage && zip -qr "../out/x-agent-${VERSION}.zip" x-agent)
+
+      - name: Stage the x-companion plugin zip
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          mkdir -p stage-wp
+          rsync -a x-companion/ stage-wp/x-companion/ \
+            --exclude /tests \
+            --exclude /fixtures \
+            --exclude /bin \
+            --exclude /PROGRESS.json
+          (cd stage-wp && zip -qr "../out/x-companion-${VERSION}.zip" x-companion)
+
+      - name: Inspect the zips
+        run: |
+          ls -lh out/
+          unzip -l out/x-companion-*.zip | head -20
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zips
+          path: out/*.zip
+
+      - name: Attach zips to the GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" out/*.zip \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes

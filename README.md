@@ -40,39 +40,68 @@ markup. The output is correct because WordPress produced it, not the model.
 
 Docker is not required.
 
-## Setup
+## Setting up your agent
 
-### 1. Install the WordPress plugin
+Four steps. Put the companion plugin on your WordPress site, give the agent a
+key, install the agent plugin in Claude Code, and tell it where your site is.
 
-Copy the `x-companion/` folder into `wp-content/plugins/` on your site and activate it.
+### 1. Put the companion plugin on your WordPress site
 
-By default the plugin runs in **production mode**, which means it will only read from
-your site. It will not install blocks or change your theme settings. To allow those
-things, add this to `wp-config.php` on a test site:
+Download `x-companion-<version>.zip` from the [Releases](../../releases) page.
+In your site's admin, go to **Plugins → Add New → Upload Plugin**, choose the
+zip, and activate it. (From a clone of this repo, copying the `x-companion/`
+folder into `wp-content/plugins/` does the same thing.)
+
+Out of the box the plugin only lets the agent **read** your site — list blocks,
+check work, take measurements. It will not install anything or change your
+theme. To let the agent build for real, add this line to `wp-config.php`:
 
 ```php
 define( 'X_COMPANION_POSTURE', 'toolchain' );
 ```
 
-Only do that on a site you are willing to break. See `x-companion/README.md`.
+Do that on a test site, not on the live one. The intended way to work is:
+build on a copy you are willing to break, and move the finished result over.
 
-### 2. Create an Application Password
+No WordPress site at hand? This repo can start a throwaway one on your machine —
+see "Trying it without a WordPress site" below. It prints everything step 4 needs.
 
-In WordPress: **Users → your user → Application Passwords**. Give it a name and copy
-the generated password. It looks like `abcd EFGH 1234 wxyz 5678 9012`.
+### 2. Give the agent a key
 
-The password stays on your machine. Nothing is sent anywhere except your own site.
+The agent signs in to your site the same way any app does: with an Application
+Password, a key you can revoke at any time without changing your real password.
 
-### 3. Install the Claude Code plugin
+In your site's admin, go to **Users → Profile → Application Passwords**. Type a
+name like `x-agent`, press **Add New Application Password**, and copy the key it
+shows. It looks like `abcd EFGH 1234 wxyz 5678 9012`.
 
-```bash
-cd x-agent/mcp
-npm install
-npx playwright install chromium
+The key stays on your machine. Nothing is ever sent anywhere except your own site.
+
+### 3. Install the agent plugin in Claude Code
+
+In Claude Code, run:
+
+```
+/plugin marketplace add draganescu/x-companion-x-agent
+/plugin install x-agent@x-companion-x-agent
 ```
 
-Then point it at your site. Create a file called `.x-agent.json` in the folder where
-you run Claude Code:
+That is the whole install. The first start takes an extra minute: the plugin
+finishes setting itself up and, in the background, downloads the browser it
+uses to run your site's editor. There is nothing for you to install or build.
+
+Two other ways in, if you prefer them:
+
+- Download `x-agent-<version>.zip` from Releases, unzip it anywhere, and add
+  that folder as a local plugin in Claude Code. Everything inside is already
+  built, so nothing is fetched on first start except that same browser.
+- Clone this repo and add the `x-agent/` folder as a local plugin. It sets
+  itself up on first start exactly like the marketplace install.
+
+### 4. Tell it where your site is
+
+Create a file called `.x-agent.json` in the folder where you run Claude Code,
+with the site address, your WordPress username, and the key from step 2:
 
 ```json
 {
@@ -82,14 +111,19 @@ you run Claude Code:
 }
 ```
 
-You can use the environment variables `X_WP_URL`, `X_WP_USER` and
-`X_WP_APP_PASSWORD` instead if you prefer. Add `"profile": true` to the same file to get a
-report of how long every tool call takes (`x-agent-profile.md`, updated live).
+If the folder is a git repository, add `.x-agent.json` to `.gitignore` — the
+file contains a key.
 
-Add `.x-agent.json` to your `.gitignore`. It contains a password.
+Prefer environment variables? `X_WP_URL`, `X_WP_USER` and `X_WP_APP_PASSWORD`
+do the same job. And adding `"profile": true` to the file keeps a live report
+of how long every step takes, in `x-agent-profile.md` next to it.
 
-Finally, add the `x-agent/` folder as a plugin in Claude Code. It provides one skill
-(`wp-blocks` for pages, `wp-schema` for backends) and one MCP server with 21 tools.
+That is the setup. Ask for what you want — the next section shows how that
+conversation goes.
+
+*(Changing the plugin's own code? `x-agent/mcp/dist/` is committed on purpose,
+so installs never need a build step — run `npm run build` in `x-agent/mcp`
+after editing `src/` and commit the result.)*
 
 ## Usage
 
