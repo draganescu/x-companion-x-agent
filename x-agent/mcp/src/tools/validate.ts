@@ -8,17 +8,21 @@ import { ConnectionArgsShape, connectionArgs, defineTool } from './_shared.js';
  * violations as Diagnostics, so a malformed tree must reach the handler rather
  * than bounce off the MCP input guard as `{code:'invalid_input'}`.
  * The real shape is schemas/tree-ir.schema.json, enforced by the local
- * pre-check below.
+ * pre-check below. Containers are typed (number/string/array) so MCP clients
+ * have a declared wire type to serialize against — z.unknown() emits a JSON
+ * Schema property with no "type" keyword at all — while node CONTENTS stay
+ * unknown, so a malformed block still reaches the pre-check and comes back as
+ * an E_TREE_SCHEMA diagnostic, not a transport error.
  */
 const InputSchema = z.looseObject({
   ...ConnectionArgsShape,
-  version: z.unknown().optional().describe('TreeIR version. Must be the literal number 1.'),
+  version: z.number().optional().describe('TreeIR version. Must be the literal number 1.'),
   epoch: z
-    .unknown()
+    .string()
     .optional()
     .describe('String: the manifest fingerprint this tree was generated against. Get it from wp_connect or wp_manifest.'),
   blocks: z
-    .unknown()
+    .array(z.unknown())
     .optional()
     .describe('BlockNode[] — each node is {name: "namespace/block", attributes?: object, innerBlocks?: BlockNode[]}. innerHTML is forbidden anywhere in a tree; it is a wp_compile output.'),
 });

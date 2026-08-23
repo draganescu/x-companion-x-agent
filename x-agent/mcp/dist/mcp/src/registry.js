@@ -93,9 +93,9 @@ const EXTERNAL_TOOLS = [
         description: 'Drives window.__compile on the instance GET /harness page in a warm headless browser, so markup comes from each block\'s real save() implementation. NEVER hand-write "<!-- wp:" markup; this tool is the only legitimate source of it. Returns {markup, all_valid, invalid[], registry_gaps, epoch}; all_valid must be true before you ship a layout. If a block in the tree is in the manifest but missing from the client-side registry the call fails with {code:"harness_gap", blocks:[...]}.',
         inputSchema: z.looseObject({
             ...ConnArgs,
-            version: z.unknown().optional().describe('TreeIR version, the literal number 1.'),
-            epoch: z.unknown().optional().describe('Manifest fingerprint the tree was generated against.'),
-            blocks: z.unknown().optional().describe('BlockNode[] — the tree to compile.'),
+            version: z.number().optional().describe('TreeIR version, the literal number 1.'),
+            epoch: z.string().optional().describe('Manifest fingerprint the tree was generated against.'),
+            blocks: z.array(z.unknown()).optional().describe('BlockNode[] — the tree to compile.'),
         }),
         outputSchema: z.object({
             markup: z.string(),
@@ -115,7 +115,7 @@ const EXTERNAL_TOOLS = [
             url: z.string().optional().describe('Live URL to navigate and measure instead of rendering markup.'),
             nav_timeout_ms: z.number().int().min(1000).max(600000).optional().describe('Navigation timeout in ms (default 60000). Lower it for pages that never settle.'),
             wait: z.enum(['load', 'domcontentloaded', 'networkidle']).optional().describe("waitUntil for the navigation (default 'load'). Use 'domcontentloaded' for frontends whose subresources crawl or never idle — e.g. WooCommerce on a single-worker sandbox."),
-            spec: z.unknown().optional().describe('DesignSpecIR to diff against. Omit to get box_tree + a11y_outline only.'),
+            spec: z.record(z.string(), z.unknown()).optional().describe('DesignSpecIR to diff against. Omit to get box_tree + a11y_outline only.'),
             spec_region_id: z.string().optional().describe('Restrict the diff to one region subtree.'),
             viewport: ViewportSchema.optional().describe('Measurement viewport, e.g. {width:1440,height:900}.'),
             tolerances: z

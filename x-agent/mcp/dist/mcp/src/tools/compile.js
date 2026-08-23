@@ -19,9 +19,9 @@ import { BlockNodeSchema } from '../schemas.js';
 import { sessionFor } from '../session.js';
 const InputSchema = z.looseObject({
     ...ConnectionArgsShape,
-    version: z.unknown().optional().describe('TreeIR version, the literal number 1.'),
-    epoch: z.unknown().optional().describe('Manifest fingerprint the tree was generated against.'),
-    blocks: z.unknown().optional().describe('BlockNode[] — the tree to compile.'),
+    version: z.number().optional().describe('TreeIR version, the literal number 1.'),
+    epoch: z.string().optional().describe('Manifest fingerprint the tree was generated against.'),
+    blocks: z.array(z.unknown()).optional().describe('BlockNode[] — the tree to compile.'),
 });
 const OutputSchema = z.object({
     markup: z.string(),

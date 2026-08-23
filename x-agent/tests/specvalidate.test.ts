@@ -215,10 +215,16 @@ describe('wp_spec_validate as an MCP tool', () => {
   });
 
   it('reports a malformed spec as E_SPEC_SCHEMA diagnostics, not as invalid_input', async () => {
-    const r = await callSpecValidate({ version: 'one' });
+    const r = await callSpecValidate({ version: 2 });
     expect(r.ok).toBe(true);
     expect(r.data.valid).toBe(false);
     expect(r.data.diagnostics.every((d: { code: string }) => d.code === 'E_SPEC_SCHEMA')).toBe(true);
+  });
+
+  it('rejects a wrong-typed container (version as a string) at the input boundary', async () => {
+    const r = await callSpecValidate({ version: 'one' });
+    expect(r.ok).toBe(false);
+    expect(r.data.code).toBe('invalid_input');
   });
 
   it('output always carries fix_hint on every diagnostic', async () => {
