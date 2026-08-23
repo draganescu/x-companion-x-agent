@@ -2,7 +2,9 @@
 name: wp-blocks
 description: >-
   Build, edit and verify WordPress block layouts against a live WordPress instance running the
-  X Companion plugin. Use whenever the task involves WordPress blocks or Gutenberg, block themes,
+  X Companion plugin. Use whenever the user wants to make, build or set up a WordPress site,
+  or to edit, change, update or redesign their WordPress site — in any wording — and whenever
+  the task involves WordPress blocks or Gutenberg, block themes,
   building or changing a page, pattern, template, hero, section or landing page on a WordPress
   site, turning a design — Figma file, screenshot, mockup or HTML comp — into WordPress,
   editing theme.json or design tokens/presets, block patterns and block styles, adding a
