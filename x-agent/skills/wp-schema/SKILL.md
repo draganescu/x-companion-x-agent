@@ -50,6 +50,12 @@ Same ordering principle as wp-blocks R9 (tokens before layout): decide what an
 it — install that, and only then build the form and the displays. A block designed first
 tends to embed storage decisions that turn out wrong.
 
+The URL map is part of the model. A public post type claims `/{rewrite_slug}/…` on the
+site (default: its own slug), and `has_archive` decides whether that path itself lists
+entries. Decide both in the scaffold input — the scaffold checks them against the
+instance's existing page and post slugs and returns `warnings[]` on a collision, which
+costs nothing now and a full rebuild-and-republish cycle after publish.
+
 ### S2 — Read the model first; extend before you invent. `wp_manifest {section: "data_model"}` at the current fingerprint, always. Do not register a parallel model beside an existing one.
 
 If the instance already has an `event` post type, your ticketing feature extends it (a meta
@@ -61,7 +67,9 @@ version it, do not duplicate it).
 
 This is enforced three times: the scaffold only generates REST-visible meta, the build test
 fails naming any key that is not (`meta "hc_order:pickup_day" not REST-visible`), and the
-companion's installer scans again. Meta that is not REST-visible is invisible to bindings,
+companion's installer scans again. The scaffold also forces `custom-fields` into the post
+type's `supports` whenever meta is declared — without it WordPress never puts registered
+meta on the REST post object, no matter how the meta itself was registered. Meta that is not REST-visible is invisible to bindings,
 to the manifest, and therefore to every future session — private state instead of a model.
 
 ### S4 — Bindings over bespoke rendering. When a core block plus a binding to registered meta can display the data, that beats a custom block. Check `wp_manifest {section: "bindings"}` before building a block that merely displays a field.

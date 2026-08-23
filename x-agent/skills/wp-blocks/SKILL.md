@@ -1150,7 +1150,7 @@ their rules live in the sibling **wp-schema** skill.
 | `wp_snapshot` | `out_path?` | `zip_path, bytes, fingerprint, site_url` |
 | `wp_placeholder` | `color` (hex or palette slug), `width?, height?` | `id, url, color, slug, reused` |
 | `wp_pattern_save` | `slug (agent/…), title, content (compiled markup), categories?, description?` | `saved, replaced, total, fingerprint` (NEW — use it) |
-| `wp_schema_scaffold` | `slug, intent, post_types[], taxonomies[]?, routes[]?, bindings[]?` | `dir, slug, files[]` — see the wp-schema skill |
+| `wp_schema_scaffold` | `slug, intent, post_types[], taxonomies[]?, routes[]?, bindings[]?` | `dir, slug, files[], warnings[]` (URL-map collisions) — see the wp-schema skill |
 | `wp_schema_build_test` | `dir` | `built, smoke{types_registered, meta_in_rest, routes[], bindings_registered, uninstall_clean}, zip_path?` — the schema build test |
 | `wp_schema_install` | `zip_path` | `installed{slug,version}, fingerprint (NEW — use it), replaced_previous` |
 | `wp_images_generate` | `post_id, rest_base?, style?, model?, out_dir?, dry_run?` | `found, generated, out_dir, manifest_path, images[{path,intent,aspect_ratio,file}]` — the image pass, first half; site untouched |

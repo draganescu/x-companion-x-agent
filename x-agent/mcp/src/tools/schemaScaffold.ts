@@ -23,6 +23,12 @@ const InputSchema = z.object({
         meta: z.array(MetaSchema).optional(),
         taxonomies: z.array(z.string()).optional(),
         public: z.boolean().optional().describe('Front-end visibility; defaults false — agent CPTs are data first, blocks are their views.'),
+        rewrite_slug: z
+          .string()
+          .regex(/^[a-z0-9-]+$/)
+          .optional()
+          .describe("URL base a public post type claims (/{rewrite_slug}/...); defaults to the post type slug. Decide the URL map up front — the scaffold warns when it collides with an existing page."),
+        has_archive: z.boolean().optional().describe('Whether /{rewrite_slug}/ itself lists the entries. Defaults false.'),
         statuses: z.array(z.object({ slug: z.string(), label: z.string() })).optional().describe('Extra workflow statuses, e.g. ready / picked-up.'),
       }),
     )
@@ -63,7 +69,14 @@ const InputSchema = z.object({
   force: z.boolean().optional(),
 });
 
-const OutputSchema = z.object({ dir: z.string(), slug: z.string(), files: z.array(z.string()) });
+const OutputSchema = z.object({
+  dir: z.string(),
+  slug: z.string(),
+  files: z.array(z.string()),
+  warnings: z
+    .array(z.string())
+    .describe('URL-map findings: a public post type claiming a path an existing page already serves. Cheap to fix now; a rebuild cycle after publish.'),
+});
 
 export const wpSchemaScaffold = defineTool({
   name: 'wp_schema_scaffold',
@@ -73,9 +86,43 @@ export const wpSchemaScaffold = defineTool({
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   local: true,
-  handler: async (input: unknown, _ctx: Ctx) => {
+  handler: async (input: unknown, ctx: Ctx) => {
     const args = InputSchema.parse(input ?? {});
-    return schemaScaffold(args);
+    const result = await schemaScaffold(args);
+
+    // URL-map check, best effort: a PUBLIC post type claims /{rewrite_slug}/…
+    // on the site. If an instance is reachable, compare against its published
+    // page and post slugs and WARN on collision — that is decidable now, and
+    // discovering it after publication costs a full rebuild cycle. Without a
+    // reachable instance the scaffold still works; it just says it could not
+    // look.
+    const warnings: string[] = [];
+    const publicTypes = args.post_types.filter((p) => p.public);
+    if (publicTypes.length) {
+      try {
+        const { connectionArgs } = await import('./_shared.js');
+        const live = ctx.runtime.ctx(connectionArgs(input));
+        const taken = new Set([
+          ...(await live.companion.coreListSlugs('pages')),
+          ...(await live.companion.coreListSlugs('posts')),
+        ]);
+        for (const p of publicTypes) {
+          const claim = p.rewrite_slug ?? p.slug;
+          if (taken.has(claim)) {
+            warnings.push(
+              `post type "${p.slug}" claims /${claim}/ but the site already serves a page or post at that slug — ` +
+                `its permalinks${p.has_archive ? ' and archive' : ''} will fight it. Pick a different rewrite_slug now.`,
+            );
+          }
+        }
+      } catch {
+        warnings.push(
+          'Could not check the URL map against an instance (none reachable): collisions between a public post type and existing page slugs will only surface after publish.',
+        );
+      }
+    }
+
+    return { ...result, warnings };
   },
 });
 
