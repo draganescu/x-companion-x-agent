@@ -108,6 +108,49 @@ process's stdout+stderr — read this first when a boot fails).
 
 ---
 
+## Finishing a build: take the companion out
+
+The site is the deliverable; the companion is scaffolding. When a build prompt is
+**complete**, `x-companion` must be gone from `wp-content/plugins` — not merely
+deactivated — so the plugins page shows zero toolchain artifacts and the site
+deploys as-is. For the next prompt it goes back in; out again at the end.
+
+**Never `DELETE /wp/v2/plugins/x-companion/x-companion`.** `--plugin` mounts the
+directory **live from the host** — a WordPress-side delete would recursively
+delete your actual `x-companion/` working tree. The site directory on the host
+only ever holds an empty mountpoint dir. The removal happens at the mount layer:
+
+```bash
+# 1. deactivate first, so active_plugins is clean
+#    (unencoded slash + POST; the %2F + PUT form 404s)
+node tools/wpcall.mjs POST /wp/v2/plugins/x-companion/x-companion \
+     --body '{"status":"inactive"}'
+
+# 2. stop the instance (and any bridge pointed at it)
+node tools/playground/stop.mjs --profile core-only --posture toolchain
+
+# 3. clear the leftover empty mountpoint and the now-useless credentials file
+rmdir tools/.runtime/sites/core-only-toolchain/wp-content/plugins/x-companion
+rm -f .x-agent.json
+
+# 4. reboot the SAME site (files + DB reused) with no companion mount
+node tools/playground/boot.mjs --profile core-only --posture toolchain \
+     --port 9400 --persist
+```
+
+To resume work later, boot with `--persist --plugin ./x-companion` — the
+blueprint's activatePlugin step reactivates it — and rewrite `.x-agent.json`
+from the fresh runtime descriptor (every boot mints new app passwords).
+
+Agent packages (`agent-block-*`, `agent-schema-*`) never depend on the
+companion, so the site keeps working after removal — verify with the front page
+and the build's behavior tests, not by trusting this paragraph. The mu-plugins
+under `tools/.runtime/work/` are sandbox harness (posture flag, app-password
+enabler over plain HTTP): invisible on the plugins page, never part of a
+deployment, and out of scope for this rule.
+
+---
+
 ## Talking to an instance
 
 ```bash

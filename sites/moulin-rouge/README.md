@@ -72,6 +72,11 @@ Then, in order (each install returns a new fingerprint — use it in the next tr
    `POST /wp/v2/navigation/<id>`; compile `footer-tree.json`,
    `POST /wp/v2/template-parts/twentytwentyfive%2F%2Ffooter`
 7. `node sites/moulin-rouge/tests/test-behavior.mjs` — all ten checks must pass
+8. **Finish by taking the companion out** — the deliverable ships with zero
+   toolchain artifacts on the plugins page. Follow "Finishing a build: take the
+   companion out" in `tools/README.md` (deactivate → stop → reboot `--persist`
+   without `--plugin`; never REST-delete the live mount), then re-run the
+   behavior tests against the companion-free site.
 
 The two story images are minted 1×1 placeholders stretched by attributes; each
 image node carries a `metadata.imageIntent` brief for a later image pass.
