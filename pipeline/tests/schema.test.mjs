@@ -49,3 +49,17 @@ test('missing required and minItems', () => {
     const missing = validateSchema(schema, { items: [{ id: 'x' }] });
     assert.ok(missing.some((i) => i.path === '' && /version/.test(i.message)));
 });
+
+test('oneOf: exactly one alternative must match', () => {
+    const s = { oneOf: [{ type: 'string' }, { type: 'object', required: ['min'], properties: { min: { type: 'string' } } }] };
+    assert.deepEqual(validateSchema(s, '2rem'), []);
+    assert.deepEqual(validateSchema(s, { min: '1rem' }), []);
+    assert.ok(validateSchema(s, 42).length > 0);
+});
+
+test('the vendored design-tokens contract validates the Moulin Rouge token set', async () => {
+    const { readFileSync } = await import('node:fs');
+    const contract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-tokens.schema.json', import.meta.url), 'utf8'));
+    const tokens = JSON.parse(readFileSync(new URL('../../sites/moulin-rouge/trees/tokens.json', import.meta.url), 'utf8'));
+    assert.deepEqual(validateSchema(contract, tokens), []);
+});

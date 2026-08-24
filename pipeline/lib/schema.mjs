@@ -19,6 +19,12 @@ export function validateSchema(schema, value, path = '', issues = []) {
             return issues; // wrong type: deeper checks are noise
         }
     }
+    if (schema.oneOf !== undefined) {
+        const passing = schema.oneOf.filter((sub) => validateSchema(sub, value, path, []).length === 0).length;
+        if (passing !== 1) {
+            issues.push({ path, message: `must match exactly one of ${schema.oneOf.length} alternatives (matched ${passing})` });
+        }
+    }
     if (schema.const !== undefined && value !== schema.const) {
         issues.push({ path, message: `expected const ${JSON.stringify(schema.const)}` });
     }
