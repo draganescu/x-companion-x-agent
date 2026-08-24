@@ -22,8 +22,18 @@ export async function createToolchain({ cwd = process.cwd(), providerKeys = {} }
     return {
         runtime,
         async call(name, args = {}) {
-            const res = await callTool(name, args, runtime);
-            return { ok: !res.isError, data: JSON.parse(res.content[0].text) };
+            // Watchdog: a tool call that outlives every internal timeout is a
+            // bug worth a name in the log, not a silent stall.
+            const started = Date.now();
+            const watchdog = setInterval(() => {
+                console.error(`[x-pipeline] still waiting on ${name} after ${Math.round((Date.now() - started) / 1000)}s`);
+            }, 60_000);
+            try {
+                const res = await callTool(name, args, runtime);
+                return { ok: !res.isError, data: JSON.parse(res.content[0].text) };
+            } finally {
+                clearInterval(watchdog);
+            }
         },
         async dispose() {
             await runtime.disconnect();

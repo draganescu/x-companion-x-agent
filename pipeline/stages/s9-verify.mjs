@@ -10,6 +10,15 @@ export async function run(ctx) {
     const front = ctx.state.published.pages.find((p) => p.front_page);
     const url = front.link;
 
+    // Verification gets a FRESH browser session. After S8's install-triggered
+    // epoch reloads the warm session can be left dead-but-cached (observed:
+    // wp_verify pending forever with zero chromium children), and verification
+    // should not trust the mutation-heavy session anyway. wp_disconnect
+    // disposes it; the next tool call warms a new one. Same Runtime — still
+    // the single holder of epoch state.
+    await ctx.call('wp_disconnect', {});
+    ctx.log(`S9: verifying ${url} (fresh session)`);
+
     // Single-PHP-worker sandboxes never reach network idle — domcontentloaded.
     const res = await ctx.call('wp_verify', { url, wait: 'domcontentloaded', nav_timeout_ms: 120000 });
     if (!res.ok) {

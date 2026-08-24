@@ -148,6 +148,7 @@ test('S9: verify gate + exactly one screenshot; unloaded image fails', async () 
         log: () => {},
         shots: 0,
         call: async function (name) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
             if (name === 'wp_verify') return { ok: true, data: verifyData };
             if (name === 'wp_screenshot') { this.shots += 1; return { ok: true, data: { path_to_png: join(runDir, 'screenshot.png') } }; }
             throw new Error(`unexpected ${name}`);
