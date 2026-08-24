@@ -41,7 +41,8 @@ config() { # $1 = provider mode: real | fake
 import json, sys
 mode, fixtures = sys.argv[1], sys.argv[2]
 if mode == 'real':
-    tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b"} for t in
+    temps = {"brief": 0.5, "tokens": 0.4, "tree": 0.3, "block": 0.2, "schema": 0.2, "repair": 0.2}
+    tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b", "temperature": temps[t]} for t in
              ("brief", "tokens", "tree", "block", "schema", "repair")}
 else:
     tasks = {t: {"provider": "fake", "model": "fixtures", "options": {"fixtures_dir": fixtures}} for t in

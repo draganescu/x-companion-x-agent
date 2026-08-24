@@ -29,7 +29,7 @@ export async function run(ctx) {
             : 'This section carries no generated image; do not add core/image nodes with empty urls.';
         const isHeroSlot = section.role === 'hero' || section.role === 'header';
         const headingRule = isHeroSlot
-            ? 'This section carries the page\'s SINGLE h1 (the statement headline, core/heading level 1). Any further headings inside it are h2.'
+            ? 'This section carries the page\'s SINGLE h1: the statement headline MUST be a core/heading with attributes.level set to 1 EXPLICITLY (core/heading defaults to level 2 when level is omitted). Any further headings inside this section are level 2.'
             : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
         const payload = {
             section,

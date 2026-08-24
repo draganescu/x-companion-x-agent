@@ -46,7 +46,8 @@ run_with_tree_provider() { # $1 provider, $2 model
     python3 - "$1" "$2" <<'EOF'
 import json, sys
 prov, model = sys.argv[1], sys.argv[2]
-tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b"} for t in
+temps = {"brief": 0.5, "tokens": 0.4, "tree": 0.3, "block": 0.2, "schema": 0.2, "repair": 0.2}
+tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b", "temperature": temps[t]} for t in
          ("brief", "tokens", "tree", "block", "schema", "repair")}
 tasks["tree"] = {"provider": prov, "model": model}
 json.dump({"tasks": tasks, "concurrency": 3, "budget_hard_cap": 80}, open('pipeline.config.json', 'w'), indent=2)
