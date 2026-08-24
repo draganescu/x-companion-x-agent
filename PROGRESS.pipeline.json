@@ -1,7 +1,7 @@
 {
     "spec": "specs/pipeline.spec.json",
     "milestones": {
-        "M1_provider_shim_and_budget": { "status": "in_progress", "evidence": "", "updated_at": "2026-08-24T00:00:00Z" },
+        "M1_provider_shim_and_budget": { "status": "done", "evidence": "accept/m1.sh green: 41 unit tests pass (plumbing 4, schema 3, brief-schema 4, budget 5, config 5, prompts 4, providers 4, providers-real 3, llm 6, toolchain 1, run 2); brief.m1.json fixture S=3,B=1,P=1,I=2 -> printed ceiling 16 = 2*(2+3+1+1)+2; 17th spend throws {code:'budget_exceeded'}; missing task entry / missing provider key / unknown provider module each fail preflight naming the task; Ledger flush sorts (task_type,label,attempt) for timestamps-excepted comparability while ledger.jsonl preserves live insertion order.", "updated_at": "2026-08-24T00:00:00Z" },
         "M2_brief_and_tokens": { "status": "todo", "evidence": "", "updated_at": "" },
         "M3_section_fanout_and_repair": { "status": "todo", "evidence": "", "updated_at": "" },
         "M4_factories": { "status": "todo", "evidence": "", "updated_at": "" },
