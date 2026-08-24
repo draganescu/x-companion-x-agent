@@ -8,6 +8,7 @@ import { BudgetMeter, Ledger } from '../budget.mjs';
 import { createLlm } from '../lib/llm.mjs';
 import { create as createFake } from '../providers/fake.mjs';
 import * as s1 from '../stages/s1-brief.mjs';
+import { crossChecks } from '../lib/brief-checks.mjs';
 
 const fixtureBrief = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', import.meta.url), 'utf8'));
 const PROMPTS_DIR = fileURLToPath(new URL('../prompts', import.meta.url));
@@ -51,21 +52,21 @@ test('a cross-check violation burns the one schema-retry, then a clean brief pas
 
 test('crossChecks catches each mechanical rule', () => {
     const base = structuredClone(fixtureBrief);
-    assert.deepEqual(s1.crossChecks(base), []);
+    assert.deepEqual(crossChecks(base), []);
 
     const noFront = structuredClone(fixtureBrief);
     delete noFront.pages[0].front_page;
-    assert.ok(s1.crossChecks(noFront).some((i) => /front_page/.test(i.message)));
+    assert.ok(crossChecks(noFront).some((i) => /front_page/.test(i.message)));
 
     const badBlockRef = structuredClone(fixtureBrief);
     badBlockRef.pages[0].sections[2].uses_custom_block = 'ghost-block';
-    assert.ok(s1.crossChecks(badBlockRef).some((i) => /ghost-block/.test(i.message)));
+    assert.ok(crossChecks(badBlockRef).some((i) => /ghost-block/.test(i.message)));
 
     const dupSection = structuredClone(fixtureBrief);
     dupSection.pages[0].sections[1].id = 'hero';
-    assert.ok(s1.crossChecks(dupSection).some((i) => /duplicate section id/.test(i.message)));
+    assert.ok(crossChecks(dupSection).some((i) => /duplicate section id/.test(i.message)));
 
     const badFooter = structuredClone(fixtureBrief);
     badFooter.footer.items[0].page_slug = 'gone';
-    assert.ok(s1.crossChecks(badFooter).some((i) => /gone/.test(i.message)));
+    assert.ok(crossChecks(badFooter).some((i) => /gone/.test(i.message)));
 });
