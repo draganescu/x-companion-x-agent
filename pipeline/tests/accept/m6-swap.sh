@@ -40,8 +40,10 @@ for attempt in range(4):
         break
     except Exception:
         time.sleep(3 * (attempt + 1))
-flash = sorted(m for m in models if 'flash' in m and 'image' not in m and 'live' not in m and 'tts' not in m)
-print((flash or models or ['gemini-flash-latest'])[-1].removeprefix('models/'))
+import re
+stable = sorted(m.removeprefix('models/') for m in models if re.fullmatch(r'gemini-\d+(\.\d+)?-flash', m.removeprefix('models/')))
+latest = [m.removeprefix('models/') for m in models if m.removeprefix('models/') == 'gemini-flash-latest']
+print((stable + latest or ['gemini-flash-latest'])[-1])
 EOF
 )
 echo "gemini text model: $GEMINI_MODEL"

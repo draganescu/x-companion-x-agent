@@ -1,7 +1,7 @@
 // Dumb pipe to the OpenAI chat-completions API.
 import { requestJson } from './_transport.mjs';
 
-export function createChatCompletions({ id, baseUrl, apiKey, options = {} }) {
+export function createChatCompletions({ id, baseUrl, apiKey, options = {}, path = '/v1/chat/completions' }) {
     const fetchImpl = options.fetch ?? globalThis.fetch;
     return {
         id,
@@ -11,7 +11,7 @@ export function createChatCompletions({ id, baseUrl, apiKey, options = {} }) {
                 messages: [{ role: 'user', content: prompt }],
                 ...(temperature !== undefined ? { temperature } : {}),
             };
-            const data = await requestJson(fetchImpl, `${baseUrl}/v1/chat/completions`, {
+            const data = await requestJson(fetchImpl, `${baseUrl}${path}`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${apiKey}`,

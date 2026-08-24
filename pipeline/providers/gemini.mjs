@@ -8,5 +8,6 @@ export function create({ keys, options = {} } = {}) {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
         apiKey: keys.gemini_api_key,
         options,
+        path: '/chat/completions',
     });
 }
