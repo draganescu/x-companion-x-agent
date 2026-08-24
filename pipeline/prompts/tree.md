@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, manifest_slice, pattern_tree, token_slugs, epoch, image_note]
+required: [section, page, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation.
@@ -46,6 +46,9 @@ palette slugs; fontSize takes font-size slugs; spacing presets are spelled
 "var:preset|spacing|<slug>" inside style.spacing values): {{token_slugs}}
 
 {{image_note}}
+
+Heading discipline (the verifier fails the whole run on a broken outline):
+{{heading_rule}}
 
 Output ONLY a TreeIR JSON document: {"version": 1, "epoch": "{{epoch}}", "blocks": [...]}
 - blocks[] is THIS SECTION ONLY (typically one wrapping core/group or core/cover band).

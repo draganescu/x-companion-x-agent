@@ -27,6 +27,10 @@ export async function run(ctx) {
         const imageNote = section.image_intent
             ? `This section carries ONE generated image. Include exactly one core/image node whose attributes carry {"url": "", "metadata": {"imageIntent": ${JSON.stringify(section.image_intent)}}} — a placeholder pixel is minted at publish time and the real image is generated from the intent. Set aspectRatio/scale/sizeSlug on the node where the design needs them: geometry is final, pixels are provisional.`
             : 'This section carries no generated image; do not add core/image nodes with empty urls.';
+        const isHeroSlot = section.role === 'hero' || section.role === 'header';
+        const headingRule = isHeroSlot
+            ? 'This section carries the page\'s SINGLE h1 (the statement headline, core/heading level 1). Any further headings inside it are h2.'
+            : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
         const payload = {
             section,
             page: entry.page,
@@ -35,6 +39,7 @@ export async function run(ctx) {
             token_slugs: tokenSlugs,
             epoch,
             image_note: imageNote,
+            heading_rule: headingRule,
         };
         let tree;
         try {
