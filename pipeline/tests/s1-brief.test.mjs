@@ -1,0 +1,71 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { BudgetMeter, Ledger } from '../budget.mjs';
+import { createLlm } from '../lib/llm.mjs';
+import { create as createFake } from '../providers/fake.mjs';
+import * as s1 from '../stages/s1-brief.mjs';
+
+const fixtureBrief = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', import.meta.url), 'utf8'));
+const PROMPTS_DIR = fileURLToPath(new URL('../prompts', import.meta.url));
+
+function makeCtx({ provider }) {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s1-'));
+    const budget = new BudgetMeter({});
+    const ledger = new Ledger(runDir);
+    const providers = new Map([['brief', { provider, model: 'fixtures' }]]);
+    const logs = [];
+    return {
+        prompt: 'A one-page bakery site',
+        runDir, budget, ledger,
+        llm: createLlm({ providers, promptsDir: PROMPTS_DIR, budget, ledger }),
+        state: {},
+        log: (m) => logs.push(m),
+        logs,
+    };
+}
+
+test('S1 with the fake provider: brief.json written, ceiling 16 fixed, budget line logged', async () => {
+    const ctx = makeCtx({ provider: createFake({}) });
+    await s1.run(ctx);
+    assert.ok(existsSync(join(ctx.runDir, 'brief.json')));
+    assert.deepEqual(JSON.parse(readFileSync(join(ctx.runDir, 'brief.json'), 'utf8')), fixtureBrief);
+    assert.equal(ctx.state.budget.ceiling, 16);
+    assert.equal(ctx.budget.ceiling, 16);
+    assert.ok(ctx.logs.some((l) => /at most 16 calls \(S=3, B=1, P=1, I=2\)/.test(l)));
+});
+
+test('a cross-check violation burns the one schema-retry, then a clean brief passes', async () => {
+    const bad = structuredClone(fixtureBrief);
+    bad.navigation.items.push({ label: 'Ghost', page_slug: 'not-a-page' });
+    const outputs = [JSON.stringify(bad), JSON.stringify(fixtureBrief)];
+    const provider = { id: 'scripted', complete: async () => ({ text: outputs.shift(), usage: { input_tokens: 1, output_tokens: 1 } }) };
+    const ctx = makeCtx({ provider });
+    await s1.run(ctx);
+    assert.equal(ctx.budget.spent, 2);
+    assert.deepEqual(ctx.ledger.entries.map((e) => e.outcome), ['schema_failed', 'ok']);
+});
+
+test('crossChecks catches each mechanical rule', () => {
+    const base = structuredClone(fixtureBrief);
+    assert.deepEqual(s1.crossChecks(base), []);
+
+    const noFront = structuredClone(fixtureBrief);
+    delete noFront.pages[0].front_page;
+    assert.ok(s1.crossChecks(noFront).some((i) => /front_page/.test(i.message)));
+
+    const badBlockRef = structuredClone(fixtureBrief);
+    badBlockRef.pages[0].sections[2].uses_custom_block = 'ghost-block';
+    assert.ok(s1.crossChecks(badBlockRef).some((i) => /ghost-block/.test(i.message)));
+
+    const dupSection = structuredClone(fixtureBrief);
+    dupSection.pages[0].sections[1].id = 'hero';
+    assert.ok(s1.crossChecks(dupSection).some((i) => /duplicate section id/.test(i.message)));
+
+    const badFooter = structuredClone(fixtureBrief);
+    badFooter.footer.items[0].page_slug = 'gone';
+    assert.ok(s1.crossChecks(badFooter).some((i) => /gone/.test(i.message)));
+});
