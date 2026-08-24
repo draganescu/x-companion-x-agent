@@ -74,3 +74,19 @@ test('budget is consulted BEFORE the provider call', async () => {
     }, (e) => e.code === 'budget_exceeded');
     assert.equal(h.calls.length, 1);
 });
+
+test('X_PIPELINE_CAPTURE writes fixtures for successful calls', async () => {
+    const captureDir = mkdtempSync(join(tmpdir(), 'x-pipeline-capture-'));
+    process.env.X_PIPELINE_CAPTURE = '1';
+    process.env.X_PIPELINE_CAPTURE_DIR = captureDir;
+    try {
+        const h = harness({ outputs: ['{"n":1}'] });
+        await h.llm.generate({ task_type: 'tree', label: 'home/hero', payload: { section: 'hero' }, validate: () => [] });
+        const fixture = JSON.parse((await import('node:fs')).readFileSync(join(captureDir, 'tree.home-hero.json'), 'utf8'));
+        assert.equal(fixture.text, '{"n":1}');
+        assert.deepEqual(fixture.usage, { input_tokens: 1, output_tokens: 1 });
+    } finally {
+        delete process.env.X_PIPELINE_CAPTURE;
+        delete process.env.X_PIPELINE_CAPTURE_DIR;
+    }
+});

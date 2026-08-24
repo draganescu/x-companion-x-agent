@@ -58,6 +58,11 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, cwd = 
         budget, ledger, state, log,
     };
 
+    // A silently-drained event loop must never masquerade as success: hold a
+    // keepalive handle for the whole run and flag any drain loudly.
+    const keepalive = setInterval(() => {}, 60_000);
+    const drained = () => log('BUG: the event loop drained mid-run (an unsettled promise lost its last handle)');
+    process.on('beforeExit', drained);
     try {
         for (const stage of stages) {
             if (state.completed.includes(stage.id)) {
@@ -76,6 +81,8 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, cwd = 
         writeFileSync(statePath, JSON.stringify(state, null, 2));
         throw e;
     } finally {
+        clearInterval(keepalive);
+        process.removeListener('beforeExit', drained);
         ledger.flush();
         writeReport(runDir, { state, budget, ledger });
         if (toolchain) await toolchain.dispose();

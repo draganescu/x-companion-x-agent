@@ -1,7 +1,7 @@
 import { PipelineError } from '../lib/errors.mjs';
 import { TASK_TYPES } from '../lib/config.mjs';
 
-const KEY_FOR = { anthropic: 'anthropic_api_key', openai: 'openai_api_key', cerebras: 'cerebras_api_key' };
+const KEY_FOR = { anthropic: 'anthropic_api_key', openai: 'openai_api_key', cerebras: 'cerebras_api_key', gemini: 'gemini_api_key' };
 
 // Routing is config, never code: task_type -> {provider instance, model, temperature}.
 export async function createProviders({ config, keys }) {

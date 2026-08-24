@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { create as anthropic } from '../providers/anthropic.mjs';
 import { create as openai } from '../providers/openai.mjs';
 import { create as cerebras } from '../providers/cerebras.mjs';
+import { create as gemini } from '../providers/gemini.mjs';
 
 function fetchStub(responses) {
     const calls = [];
@@ -32,7 +33,7 @@ test('anthropic: request shape and usage mapping', async () => {
 });
 
 test('openai + cerebras: chat-completions shape', async () => {
-    for (const [make, host, key] of [[openai, 'api.openai.com', 'openai_api_key'], [cerebras, 'api.cerebras.ai', 'cerebras_api_key']]) {
+    for (const [make, host, key] of [[openai, 'api.openai.com', 'openai_api_key'], [cerebras, 'api.cerebras.ai', 'cerebras_api_key'], [gemini, 'generativelanguage.googleapis.com', 'gemini_api_key']]) {
         const stub = fetchStub([{ status: 200, body: { choices: [{ message: { content: 'OUT' } }], usage: { prompt_tokens: 7, completion_tokens: 2 } } }]);
         const p = make({ keys: { [key]: 'sk-x' }, options: { fetch: stub.fetch } });
         const out = await p.complete('block', 'PROMPT', {}, { model: 'm1', temperature: 0 });
