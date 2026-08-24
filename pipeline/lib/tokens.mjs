@@ -8,8 +8,19 @@ import { canonicalJson } from './hash.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-tokens.schema.json', import.meta.url), 'utf8'));
 
+// wp_get_global_settings() serves origin-keyed arrays ({default, theme, custom})
+// on real instances; the companion passes them through verbatim. The theme's own
+// scale wins; core defaults are the fallback.
+export function originArray(value) {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === 'object') {
+        return value.theme ?? value.default ?? value.custom ?? [];
+    }
+    return [];
+}
+
 export function deriveThemeSpacing(themeTokens) {
-    const sizes = themeTokens?.spacing?.spacingSizes ?? [];
+    const sizes = originArray(themeTokens?.spacing?.spacingSizes);
     return { scale_unit: 'px', steps: sizes.map((s) => ({ slug: String(s.slug), size: String(s.size) })) };
 }
 

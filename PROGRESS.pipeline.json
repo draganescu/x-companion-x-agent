@@ -1,12 +1,36 @@
 {
     "spec": "specs/pipeline.spec.json",
     "milestones": {
-        "M1_provider_shim_and_budget": { "status": "done", "evidence": "accept/m1.sh green: 41 unit tests pass (plumbing 4, schema 3, brief-schema 4, budget 5, config 5, prompts 4, providers 4, providers-real 3, llm 6, toolchain 1, run 2); brief.m1.json fixture S=3,B=1,P=1,I=2 -> printed ceiling 16 = 2*(2+3+1+1)+2; 17th spend throws {code:'budget_exceeded'}; missing task entry / missing provider key / unknown provider module each fail preflight naming the task; Ledger flush sorts (task_type,label,attempt) for timestamps-excepted comparability while ledger.jsonl preserves live insertion order.", "updated_at": "2026-08-24T00:00:00Z" },
-        "M2_brief_and_tokens": { "status": "todo", "evidence": "", "updated_at": "" },
-        "M3_section_fanout_and_repair": { "status": "todo", "evidence": "", "updated_at": "" },
-        "M4_factories": { "status": "todo", "evidence": "", "updated_at": "" },
-        "M5_publish_and_verify": { "status": "todo", "evidence": "", "updated_at": "" },
-        "M6_end_to_end_determinism": { "status": "todo", "evidence": "", "updated_at": "" }
+        "M1_provider_shim_and_budget": {
+            "status": "done",
+            "evidence": "accept/m1.sh green: 41 unit tests pass (plumbing 4, schema 3, brief-schema 4, budget 5, config 5, prompts 4, providers 4, providers-real 3, llm 6, toolchain 1, run 2); brief.m1.json fixture S=3,B=1,P=1,I=2 -> printed ceiling 16 = 2*(2+3+1+1)+2; 17th spend throws {code:'budget_exceeded'}; missing task entry / missing provider key / unknown provider module each fail preflight naming the task; Ledger flush sorts (task_type,label,attempt) for timestamps-excepted comparability while ledger.jsonl preserves live insertion order.",
+            "updated_at": "2026-08-24T00:00:00Z"
+        },
+        "M2_brief_and_tokens": {
+            "status": "done",
+            "evidence": "accept/m2.sh green on a dedicated pipeline-accept Playground slot (9410; the persistent dev instance on 9400 untouched). Real provider cerebras/gpt-oss-120b (zai-glm-4.7 archived by the org \u2014 discovered via /v1/models): one-sentence bakery prompt -> brief.json valid against brief.schema.json first-attempt (ledger: brief ok, tokens ok, 2 calls total), budget 'at most 19 calls (S=5, B=1, P=1, I=1)' printed before call #2; tokens.json validates the vendored design-tokens contract locally (oneOf added to the subset validator, proven against the real Moulin Rouge token set); R9 spacing/layout byte-equal to theme's own asserted mechanically; dry-run diff evidence carries every brief hex; wp_tokens_apply moved fingerprint 68793da8 -> 8b062def.",
+            "updated_at": "2026-08-24T00:00:00Z"
+        },
+        "M3_section_fanout_and_repair": {
+            "status": "todo",
+            "evidence": "",
+            "updated_at": ""
+        },
+        "M4_factories": {
+            "status": "todo",
+            "evidence": "",
+            "updated_at": ""
+        },
+        "M5_publish_and_verify": {
+            "status": "todo",
+            "evidence": "",
+            "updated_at": ""
+        },
+        "M6_end_to_end_determinism": {
+            "status": "todo",
+            "evidence": "",
+            "updated_at": ""
+        }
     },
     "decisions": [
         {
@@ -18,6 +42,16 @@
             "when": "2026-08-24",
             "what": "pipeline/ is plain ESM .mjs importing x-agent/mcp/dist directly (no TypeScript, no build step, no new npm deps); unit tests run on node:test; JSON-Schema checks use a minimal in-repo draft-07 subset validator.",
             "why": "The spec's environment says the pipeline imports dist; proof/ set the deps-free precedent; the house rule is no ajv (x-agent/tests/schemas.test.ts) and zod is not resolvable from repo root without a new node_modules."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "S3's dry-run drift gate fails only on diff kind=value_differs in spacing.spacingSizes/layout groups; missing_on_instance entries there are ignored.",
+            "why": "wp_get_global_settings serves origin-keyed spacingSizes ({default,theme}) which the emitter's differ (array-indexed) reports wholesale as missing_on_instance even for a byte-perfect pass-through; value_differs is the only kind that means an instance value would actually change. The byte-equality of the pass-through itself is asserted locally in tokenChecks."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "Acceptance playgrounds boot programmatically on a dedicated 'pipeline-accept' slot (accept/_playground.mjs holder) at port 9410.",
+            "why": "The boot CLI has no --slot flag and the default core-only-toolchain slot was held by the owner's persistent live instance on 9400, which must never be stopped or reused."
         }
     ]
 }

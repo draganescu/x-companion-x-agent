@@ -110,3 +110,19 @@ test('deriveThemeSpacing/Layout map global-settings shapes into DesignTokens sha
         { scale_unit: 'px', steps: [{ slug: '40', size: '1rem' }, { slug: '50', size: 'clamp(2rem, 4vw, 3rem)' }] });
     assert.deepEqual(deriveThemeLayout(THEME_TOKENS), { contentSize: '640px', wideSize: '1200px' });
 });
+
+test('origin-keyed spacingSizes derive: theme wins over default; missing_on_instance noise passes the gate', async () => {
+    const originTokens = {
+        ...THEME_TOKENS,
+        spacing: { spacingSizes: { default: [{ slug: '20', size: '0.5rem' }], theme: [{ slug: '40', size: '1rem' }, { slug: '50', size: 'clamp(2rem, 4vw, 3rem)' }] } },
+    };
+    const { deriveThemeSpacing: derive } = await import('../lib/tokens.mjs');
+    assert.deepEqual(derive(originTokens).steps.map((s) => s.slug), ['40', '50']);
+
+    const ctx = makeCtx({
+        outputs: [JSON.stringify(goodTokens())],
+        dryDiff: [{ group: 'spacing.spacingSizes', slug: '40', kind: 'missing_on_instance', expected: '1rem', actual: null }],
+    });
+    await s3.run(ctx); // noise, not drift: the run completes
+    assert.equal(ctx.state.fingerprint, 'f2');
+});

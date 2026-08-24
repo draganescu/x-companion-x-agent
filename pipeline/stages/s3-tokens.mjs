@@ -35,8 +35,11 @@ export async function run(ctx) {
         throw new PipelineError(dry.data.code ?? 'companion_error',
             `wp_tokens_apply dry_run refused the token set: ${dry.data.message}`, dry.data.hint ?? '', { envelope: dry.data });
     }
+    // Only value_differs is drift: our applied value would CHANGE an instance
+    // value. missing_on_instance in these groups is index noise — the differ
+    // indexes arrays while real instances serve origin-keyed spacingSizes.
     const passThroughDrift = (dry.data.diff_against_instance ?? [])
-        .filter((d) => d.group === 'spacing.spacingSizes' || d.group === 'layout');
+        .filter((d) => (d.group === 'spacing.spacingSizes' || d.group === 'layout') && d.kind === 'value_differs');
     if (passThroughDrift.length > 0) {
         throw new PipelineError('gate_failed',
             'R9 violation surfaced by the dry-run diff: theme spacing/layout moved',
