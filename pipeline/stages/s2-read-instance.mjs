@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { pickPattern, sliceManifest } from '../lib/instance.mjs';
+import { pickPattern, sliceManifest, toTreeIrBlocks } from '../lib/instance.mjs';
 
 export const id = 'S2_read_instance';
 export const kind = 'deterministic';
@@ -49,7 +49,7 @@ export async function run(ctx) {
                 page: { slug: page.slug, title: page.title },
                 section,
                 manifest_slice: sliceManifest(manifest.data.blocks ?? {}, section, ctx.state.brief),
-                pattern: pattern ? { name: pattern.name, title: pattern.title, parsed_tree: pattern.parsed_tree } : null,
+                pattern: pattern ? { name: pattern.name, title: pattern.title, parsed_tree: toTreeIrBlocks(pattern.parsed_tree) } : null,
             };
             writeFileSync(join(ctx.runDir, file), JSON.stringify(entry, null, 2));
             sections.push({ key, page: page.slug, id: section.id, file });

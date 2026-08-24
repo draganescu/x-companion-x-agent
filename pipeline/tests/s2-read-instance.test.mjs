@@ -74,3 +74,19 @@ test('pickPattern: no match returns null; first query term wins over later ones'
     assert.equal(p.name, 'alpha/hero-splash');
     assert.equal(pickPattern(PATTERNS, 'faq'), null);
 });
+
+test('toTreeIrBlocks converts parse shape and drops whitespace nodes', async () => {
+    const { toTreeIrBlocks } = await import('../lib/instance.mjs');
+    const parsed = [
+        { blockName: 'core/group', attrs: { align: 'full' }, innerHTML: '<div>x</div>', innerBlocks: [
+            null,
+            { blockName: null, attrs: {}, innerBlocks: [] },
+            { blockName: 'core/heading', attrs: null, innerBlocks: [] },
+        ] },
+    ];
+    assert.deepEqual(toTreeIrBlocks(parsed), [
+        { name: 'core/group', attributes: { align: 'full' }, innerBlocks: [
+            { name: 'core/heading', attributes: {}, innerBlocks: [] },
+        ] },
+    ]);
+});

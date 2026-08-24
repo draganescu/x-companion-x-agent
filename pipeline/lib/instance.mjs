@@ -69,3 +69,20 @@ export function sliceManifest(blocks, section, brief) {
     return result;
 }
 
+
+// wp_patterns serves parsed_tree in Gutenberg PARSE shape (blockName/attrs,
+// null nodes for whitespace, innerHTML). Convert mechanically to TreeIR node
+// shape before it enters any payload or baseline: the model copies whatever
+// idiom it is shown, and a baseline in parse shape would die at wp_validate.
+export function toTreeIrBlocks(parsed) {
+    const nodes = [];
+    for (const b of parsed ?? []) {
+        if (!b || typeof b !== 'object' || !b.blockName && !b.name) continue; // whitespace nodes
+        nodes.push({
+            name: b.name ?? b.blockName,
+            attributes: b.attributes ?? b.attrs ?? {},
+            innerBlocks: toTreeIrBlocks(b.innerBlocks ?? []),
+        });
+    }
+    return nodes;
+}
