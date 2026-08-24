@@ -112,3 +112,19 @@ test('scenario C: a dead block re-gates the deferred tree; failure -> baseline f
     assert.equal(rec.gate.status, 'baseline');
     assert.equal(rec.tree.blocks[0].name, 'core/group'); // signup had no pattern: minimal honest slot
 });
+
+test('a pattern baseline that fails validation degrades to the minimal slot', async () => {
+    const ctx = makeCtx({
+        repairText: ['not json'], // repair dead
+        validateResults: [
+            // baseline validation of the hero pattern (core/cover) FAILS at this epoch:
+            { valid: false, epoch_ok: true, diagnostics: [{ code: 'E_ATTR_ENUM', severity: 'error', path: '/blocks/0', message: 'bad enum' }] },
+        ],
+        artifacts: { trees: { 'home--hero': failedArt() }, blocks: {}, packages: {} },
+    });
+    await s7.run(ctx);
+    const rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', 'home--hero.json'), 'utf8'));
+    assert.equal(rec.gate.status, 'baseline');
+    assert.equal(rec.tree.blocks[0].name, 'core/group'); // degraded past the failing pattern
+    assert.equal(rec.tree.blocks[0].innerBlocks[0].name, 'core/heading');
+});

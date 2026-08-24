@@ -30,7 +30,7 @@ export async function run(ctx) {
         font_sizes: tokens.typography.sizes.map((s) => s.slug),
     };
 
-    const buildBlock = async (decl) => {
+    const buildBlock = async (decl, index) => {
         // Scaffold first, deterministically (spec S5: the scaffold runs first).
         const scaffold = await ctx.call('wp_block_scaffold', {
             slug: decl.slug,
@@ -60,7 +60,9 @@ export async function run(ctx) {
         }
         const allowed = new Set(writable);
         const sampleAttributes = Object.fromEntries(decl.attributes.map((a) => [a.name, sampleFor(a)]));
-        const art = { status: 'fail', failures: [], dir, files: writable, sample_attributes: sampleAttributes };
+        // Concurrent build tests must not race for the same sandbox port.
+        const port = 9440 + index * 2;
+        const art = { status: 'fail', failures: [], dir, files: writable, sample_attributes: sampleAttributes, port };
         ctx.state.artifacts.blocks[decl.slug] = art;
 
         let value;
@@ -87,7 +89,7 @@ export async function run(ctx) {
         for (const [name, content] of Object.entries(value.files)) {
             writeFileSync(join(dir, name), content);
         }
-        const res = await ctx.call('wp_block_build_test', { dir, sample_attributes: sampleAttributes });
+        const res = await ctx.call('wp_block_build_test', { dir, sample_attributes: sampleAttributes, port });
         const gate = blockGate(res);
         art.status = gate.status === 'pass' ? 'pass' : 'fail';
         art.failures = gate.failures;
@@ -97,7 +99,7 @@ export async function run(ctx) {
     };
 
     const limiter = pLimit(ctx.config.concurrency);
-    await Promise.all(blocks.map((b) => limiter(() => buildBlock(b))));
+    await Promise.all(blocks.map((b, i) => limiter(() => buildBlock(b, i))));
     const outcomes = Object.values(ctx.state.artifacts.blocks);
     ctx.log(`S5: ${outcomes.filter((o) => o.status === 'pass').length}/${outcomes.length} blocks passed the factory gate`);
 }

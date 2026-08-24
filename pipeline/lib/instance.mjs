@@ -25,9 +25,24 @@ const ROLE_PATTERN_QUERIES = {
 
 // Deterministic pick: first query term with matches wins; among matches, the
 // alphabetically-first pattern name wins.
+// Content-context patterns (comments, query loops, post templates) are never
+// section idioms — a comments thread backing a stats section is a real failure
+// mode this filter removes mechanically.
+const CONTEXT_BLOCK_PREFIXES = ['core/comments', 'core/post-', 'core/query', 'core/loginout', 'core/term-'];
+function usesContextBlocks(tree) {
+    for (const node of tree ?? []) {
+        if (!node || typeof node !== 'object') continue;
+        const name = node.name ?? node.blockName ?? '';
+        if (CONTEXT_BLOCK_PREFIXES.some((p) => name.startsWith(p))) return true;
+        if (usesContextBlocks(node.innerBlocks)) return true;
+    }
+    return false;
+}
+
 export function pickPattern(patterns, role) {
+    const eligible = patterns.filter((p) => !usesContextBlocks(p.parsed_tree));
     for (const term of ROLE_PATTERN_QUERIES[role] ?? []) {
-        const matches = patterns.filter((p) => {
+        const matches = eligible.filter((p) => {
             const hay = `${p.name} ${p.title ?? ''} ${(p.categories ?? []).join(' ')}`.toLowerCase();
             return hay.includes(term);
         });

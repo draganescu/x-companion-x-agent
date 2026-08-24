@@ -51,7 +51,7 @@ export async function run(ctx) {
         return;
     }
 
-    const buildPackage = async (decl) => {
+    const buildPackage = async (decl, index) => {
         // Scaffold first, deterministically. URL-map warnings fail PREFLIGHT —
         // before any LLM call is spent on the package (spec S6 + M4).
         const scaffold = await ctx.call('wp_schema_scaffold', toScaffoldInput(decl, ctx.runDir));
@@ -69,7 +69,8 @@ export async function run(ctx) {
         const writable = scaffold.data.files.map((f) => f.split('/').pop()).filter((f) => f.endsWith('.php'));
         const scaffoldFiles = Object.fromEntries(writable.map((f) => [f, readFileSync(join(dir, f), 'utf8')]));
         const allowed = new Set(writable);
-        const art = { status: 'fail', failures: [], dir, files: writable };
+        const port = 9460 + index * 2; // sandbox port isolation under concurrency
+        const art = { status: 'fail', failures: [], dir, files: writable, port };
         ctx.state.artifacts.packages[decl.slug] = art;
 
         let value;
@@ -95,7 +96,7 @@ export async function run(ctx) {
         for (const [name, content] of Object.entries(value.files)) {
             writeFileSync(join(dir, name), content);
         }
-        const res = await ctx.call('wp_schema_build_test', { dir });
+        const res = await ctx.call('wp_schema_build_test', { dir, port });
         const gate = schemaGate(res);
         art.status = gate.status === 'pass' ? 'pass' : 'fail';
         art.failures = gate.failures;
@@ -105,7 +106,7 @@ export async function run(ctx) {
     };
 
     const limiter = pLimit(ctx.config.concurrency);
-    await Promise.all(packages.map((p) => limiter(() => buildPackage(p))));
+    await Promise.all(packages.map((p, i) => limiter(() => buildPackage(p, i))));
     const outcomes = Object.values(ctx.state.artifacts.packages);
     ctx.log(`S6: ${outcomes.filter((o) => o.status === 'pass').length}/${outcomes.length} packages passed the factory gate`);
 }

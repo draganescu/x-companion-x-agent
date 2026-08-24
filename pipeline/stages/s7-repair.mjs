@@ -27,9 +27,30 @@ function baselineFor(ctx, key) {
     }];
 }
 
-function substituteBaseline(ctx, key) {
-    const blocks = baselineFor(ctx, key);
-    const tree = { version: 1, epoch: ctx.state.fingerprint, blocks };
+function minimalSlot(ctx, key) {
+    const entry = JSON.parse(readFileSync(join(ctx.runDir, 'sections', `${key}.json`), 'utf8'));
+    const title = entry.section.id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return [{
+        name: 'core/group',
+        attributes: {},
+        innerBlocks: [
+            { name: 'core/heading', attributes: { content: title }, innerBlocks: [] },
+            { name: 'core/paragraph', attributes: { content: entry.section.copy_notes }, innerBlocks: [] },
+        ],
+    }];
+}
+
+// Baselines are gated too: a token-shifted world can invalidate a theme
+// pattern. A pattern baseline that fails wp_validate degrades to the minimal
+// honest slot (core blocks only) — never bypassed, never improvised.
+async function substituteBaseline(ctx, key) {
+    let blocks = baselineFor(ctx, key);
+    let tree = { version: 1, epoch: ctx.state.fingerprint, blocks };
+    const gate = await gateTree(ctx, tree, new Set());
+    if (gate.status !== 'pass') {
+        blocks = minimalSlot(ctx, key);
+        tree = { version: 1, epoch: ctx.state.fingerprint, blocks };
+    }
     writeFileSync(join(ctx.runDir, 'trees', `${key}.json`), JSON.stringify({ tree, gate: { status: 'baseline' } }, null, 2));
 }
 
@@ -93,7 +114,7 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
     }
     writeFiles(art.dir, value.files);
     if (kind === 'blocks') {
-        const res = await ctx.call('wp_block_build_test', { dir: art.dir, ...(art.sample_attributes ? { sample_attributes: art.sample_attributes } : {}) });
+        const res = await ctx.call('wp_block_build_test', { dir: art.dir, ...(art.sample_attributes ? { sample_attributes: art.sample_attributes } : {}), ...(art.port ? { port: art.port } : {}) });
         const gate = blockGate(res);
         if (gate.status !== 'pass') {
             art.failures = [...art.failures, ...gate.failures];
@@ -103,7 +124,7 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
         writeFileSync(join(ctx.runDir, 'blocks', `${key}.json`), JSON.stringify({ dir: art.dir, zip_path: art.zip_path, gate: { ...gate, repaired: true } }, null, 2));
         return true;
     }
-    const res = await ctx.call('wp_schema_build_test', { dir: art.dir });
+    const res = await ctx.call('wp_schema_build_test', { dir: art.dir, ...(art.port ? { port: art.port } : {}) });
     const gate = schemaGate(res);
     if (gate.status !== 'pass') {
         art.failures = [...art.failures, ...gate.failures];
@@ -144,7 +165,7 @@ export async function run(ctx) {
                 art.status = 'repaired';
             } else {
                 art.status = 'baseline';
-                substituteBaseline(ctx, key);
+                await substituteBaseline(ctx, key);
                 ctx.state.dead.push({ kind: 'trees', key, diagnostics: art.failures });
             }
         } else if ((art.deferred ?? []).some((n) => deadBlocks.has(n))) {
@@ -155,7 +176,7 @@ export async function run(ctx) {
                 art.deferred = gate.deferred;
             } else {
                 art.status = 'baseline';
-                substituteBaseline(ctx, key);
+                await substituteBaseline(ctx, key);
                 ctx.state.dead.push({ kind: 'trees', key, diagnostics: [{ code: 'E_UNKNOWN_BLOCK', message: `section referenced dead block(s): ${[...deadBlocks].join(', ')}` }] });
             }
         }
