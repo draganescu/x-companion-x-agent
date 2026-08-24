@@ -17,9 +17,9 @@
             "updated_at": "2026-08-24T00:00:00Z"
         },
         "M4_factories": {
-            "status": "todo",
-            "evidence": "",
-            "updated_at": ""
+            "status": "done",
+            "evidence": "accept/m4.sh green (live 9410, cerebras/gpt-oss-120b): brief declared agent/newsletter-signup (view-script + stylesheet) + agent-schema-subscriber-storage; S5: scaffold -> LLM file map -> wp_block_build_test built:true with clean front smoke and zero style_warnings, in EXACTLY 1 block call + 0 repairs; S6: wp_schema_build_test built:true, uninstall_clean:true, zip produced; S7 reports no dead artifacts. URL-map preflight proven live: a public post type claiming /sample-page fails {code:'preflight_failed'} with the scaffold's warning verbatim and ZERO LLM calls spent. Unit: 4 factory tests (scaffold-before-LLM order, style-literal kill, thrown schemaGate envelope, meta hyphen->underscore mapping); suite 72/72.",
+            "updated_at": "2026-08-24T00:00:00Z"
         },
         "M5_publish_and_verify": {
             "status": "todo",

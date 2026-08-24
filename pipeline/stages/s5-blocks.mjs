@@ -93,7 +93,7 @@ export async function run(ctx) {
         art.failures = gate.failures;
         if (gate.status === 'pass') art.zip_path = res.data.zip_path;
         writeFileSync(join(ctx.runDir, 'blocks', `${decl.slug}.json`),
-            JSON.stringify({ dir, zip_path: art.zip_path, gate }, null, 2));
+            JSON.stringify({ dir, zip_path: art.zip_path, gate, smoke: res.ok ? res.data.smoke : undefined, style_warnings: res.ok ? res.data.style_warnings : undefined }, null, 2));
     };
 
     const limiter = pLimit(ctx.config.concurrency);
