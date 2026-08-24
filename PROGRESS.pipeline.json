@@ -22,9 +22,9 @@
             "updated_at": "2026-08-24T00:00:00Z"
         },
         "M5_publish_and_verify": {
-            "status": "todo",
-            "evidence": "",
-            "updated_at": ""
+            "status": "done",
+            "evidence": "accept/m5.sh green (live 9410, cerebras/gpt-oss-120b, pinned temps): full S1-S9 run, CLEAN \u2014 8 ledger entries for ceiling 15 (brief 1, tokens 1, tree 3, block 1, schema 1, image 1; zero retries, zero repairs), predicted == actual in report.md. Installs sequential (schema:subscriber-storage then block:newsletter-signup), assembled page tree stamped with the LAST install's fingerprint (asserted), published with page-no-title, front page set, Sample Page deleted, nav + footer replaced via the compile lane, 1 image generated and applied. wp_verify: exactly one h1, outline sane, image loaded, exactly one screenshot.png.",
+            "updated_at": "2026-08-24T00:00:00Z"
         },
         "M6_end_to_end_determinism": {
             "status": "todo",
@@ -57,6 +57,21 @@
             "when": "2026-08-24",
             "what": "S5/S6 with zero declared blocks/packages are real no-ops (they initialize their artifact maps and return); W_STYLE_UNKNOWN fails a tree artifact like W_ATTR_UNKNOWN.",
             "why": "B=0/P=0 briefs must flow through the fixed stage list without factory work \u2014 the empty fan-out IS the correct behavior, not a placeholder. An is-style-* unregistered at the current fingerprint is an invented style; the spec's mechanical screen names only W_ATTR_UNKNOWN and W_STATIC_NEEDS_HARNESS, so the conservative reading fails the unknown style and the repair lane owns it."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "S9 verifies on a FRESH session: wp_disconnect first, then wp_verify/wp_screenshot; run.mjs holds a keepalive interval and flags event-loop drains.",
+            "why": "Observed repeatedly: after S8's install-triggered epoch reloads + the image pass, the warm session can be left dead-but-cached \u2014 wp_verify then pends forever with zero chromium children, and without a keepalive the drained event loop exits 0 mid-run, masquerading as success. Standalone verify of the same URL is clean. Toolchain backlog: dead-session detection in sessionFor."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "S2 converts pattern parsed_tree from Gutenberg parse shape (blockName/attrs, whitespace nodes) to TreeIR node shape before it enters payloads or baselines.",
+            "why": "The model copies whatever idiom it is shown \u2014 parse-shaped patterns caused systematic schema_failed retries (blockName/attrs echoed back); and an S7 pattern baseline in parse shape would die at S8's wp_validate. Mechanical key mapping, not authorship."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "Per-section heading discipline rides in the tree payload (hero: the page's single h1 with attributes.level 1 EXPLICIT; other sections: h2 top, h3 items) and S9 fails on outline jumps.",
+            "why": "core/heading defaults to level 2; without the rule the verifier caught real outlines with zero h1s and h1->h3 jumps. Authoring-side prevention keeps the strict verify gate meaningful."
         }
     ]
 }
