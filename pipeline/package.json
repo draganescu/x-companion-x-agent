@@ -1,0 +1,9 @@
+{
+    "name": "x-pipeline",
+    "private": true,
+    "type": "module",
+    "description": "Deterministic LLM-powered site compiler over the x-agent toolchain. Deps come from x-agent/mcp; run with node >= 20.",
+    "scripts": {
+        "test": "node --test tests/"
+    }
+}

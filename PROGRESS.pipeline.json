@@ -1,0 +1,23 @@
+{
+    "spec": "specs/pipeline.spec.json",
+    "milestones": {
+        "M1_provider_shim_and_budget": { "status": "in_progress", "evidence": "", "updated_at": "2026-08-24T00:00:00Z" },
+        "M2_brief_and_tokens": { "status": "todo", "evidence": "", "updated_at": "" },
+        "M3_section_fanout_and_repair": { "status": "todo", "evidence": "", "updated_at": "" },
+        "M4_factories": { "status": "todo", "evidence": "", "updated_at": "" },
+        "M5_publish_and_verify": { "status": "todo", "evidence": "", "updated_at": "" },
+        "M6_end_to_end_determinism": { "status": "todo", "evidence": "", "updated_at": "" }
+    },
+    "decisions": [
+        {
+            "when": "2026-08-24",
+            "what": "Implementation runs on branch `pipeline` in the main checkout, not a linked worktree.",
+            "why": "The build depends on live per-checkout state a worktree cannot share: x-agent/mcp/node_modules + dist, tools/node_modules, and tools/.runtime Playground descriptors. Tree was clean at branch time; isolation is by branch."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "pipeline/ is plain ESM .mjs importing x-agent/mcp/dist directly (no TypeScript, no build step, no new npm deps); unit tests run on node:test; JSON-Schema checks use a minimal in-repo draft-07 subset validator.",
+            "why": "The spec's environment says the pipeline imports dist; proof/ set the deps-free precedent; the house rule is no ajv (x-agent/tests/schemas.test.ts) and zod is not resolvable from repo root without a new node_modules."
+        }
+    ]
+}

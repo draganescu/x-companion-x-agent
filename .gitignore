@@ -6,3 +6,5 @@ proof/artifacts/
 .DS_Store
 x-agent-profile.jsonl
 x-agent-profile.md
+runs/
+pipeline.config.json
