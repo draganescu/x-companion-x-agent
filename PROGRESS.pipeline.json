@@ -12,9 +12,9 @@
             "updated_at": "2026-08-24T00:00:00Z"
         },
         "M3_section_fanout_and_repair": {
-            "status": "todo",
-            "evidence": "",
-            "updated_at": ""
+            "status": "done",
+            "evidence": "accept/m3.sh green (live Playground 9410, cerebras/gpt-oss-120b): poisoned tree.md (glowIntensity:11 on every heading) + poisoned repair.md (refuses to remove it) -> S=2 sections both fail wp_validate's W_ATTR_UNKNOWN screen, each gets EXACTLY one repair call, repairs fail the same gate, both artifacts dead -> pattern-baseline slots written and the run COMPLETES through S7; report.md carries the verbatim W_ATTR_UNKNOWN diagnostics; tree+repair ledger calls 4 <= 2S; overlapping started_at/ms intervals prove S4 concurrency; every ledger tree/repair label has a matching gate outcome in state.artifacts. Unit: gates 7 tests (defer-vs-fail screening, localTreeCheck R1 innerHTML rejection, blockGate/schemaGate asymmetry), s4 3 tests, s7 3 scenarios (repair-pass, dead->baseline, dead-block->tree re-gate cascade).",
+            "updated_at": "2026-08-24T00:00:00Z"
         },
         "M4_factories": {
             "status": "todo",
@@ -52,6 +52,11 @@
             "when": "2026-08-24",
             "what": "Acceptance playgrounds boot programmatically on a dedicated 'pipeline-accept' slot (accept/_playground.mjs holder) at port 9410.",
             "why": "The boot CLI has no --slot flag and the default core-only-toolchain slot was held by the owner's persistent live instance on 9400, which must never be stopped or reused."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "S5/S6 with zero declared blocks/packages are real no-ops (they initialize their artifact maps and return); W_STYLE_UNKNOWN fails a tree artifact like W_ATTR_UNKNOWN.",
+            "why": "B=0/P=0 briefs must flow through the fixed stage list without factory work \u2014 the empty fan-out IS the correct behavior, not a placeholder. An is-style-* unregistered at the current fingerprint is an invented style; the spec's mechanical screen names only W_ATTR_UNKNOWN and W_STATIC_NEEDS_HARNESS, so the conservative reading fails the unknown style and the repair lane owns it."
         }
     ]
 }
