@@ -27,9 +27,9 @@
             "updated_at": "2026-08-24T00:00:00Z"
         },
         "M6_end_to_end_determinism": {
-            "status": "todo",
-            "evidence": "",
-            "updated_at": ""
+            "status": "done",
+            "evidence": "All three clauses green. (1) accept/m6-full.sh: Moulin-Rouge-class prompt (cabaret landing) -> S=5, B=3 (scrolling marquee + count-up stats + signup blocks), P=1, I=1; every factory gate passed, ZERO dead artifacts, published + verified + one screenshot, 13 calls spent of ceiling 23, zero human input (evidence runs/20260824-220132). (2) accept/m6-determinism.sh: capture run then two all-fake replays across three fresh boots -> trees + compiled pages byte-identical, ledgers identical timestamps-excepted, 8 entries each. (3) accept/m6-swap.sh: tree task swapped cerebras/gpt-oss-120b -> gemini/gemini-flash-latest by config edit alone; ledger provider fields prove it; git-clean pipeline/stages+lib+providers before and after.",
+            "updated_at": "2026-08-24T00:00:00Z"
         }
     },
     "decisions": [
@@ -72,6 +72,21 @@
             "when": "2026-08-24",
             "what": "Per-section heading discipline rides in the tree payload (hero: the page's single h1 with attributes.level 1 EXPLICIT; other sections: h2 top, h3 items) and S9 fails on outline jumps.",
             "why": "core/heading defaults to level 2; without the rule the verifier caught real outlines with zero h1s and h1->h3 jumps. Authoring-side prevention keeps the strict verify gate meaningful."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "Concurrent factory gates get deterministic distinct sandbox ports (blocks 9440+2i, packages 9460+2i), reused by S7 repairs.",
+            "why": "Three concurrent wp_block_build_test calls racing for 'first free port' 9440 crashed a smoke sandbox ('exited with code 1 without writing a result'), killing an innocent artifact. Port assignment is pipeline plumbing, not a toolchain change \u2014 the tools accept {port}."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "Pattern baselines are gated: S7 wp_validates a substituted pattern baseline and degrades to the minimal core/group slot on failure; content-context patterns (comments/query/post-template) are excluded from S2 pattern picking.",
+            "why": "A comments-thread pattern was picked as a stats-section baseline and failed final-epoch validation, killing the whole run in S8 \u2014 a baseline that cannot pass the same gate is not a baseline. Both fixes are mechanical selection/validation, not authorship."
+        },
+        {
+            "when": "2026-08-24",
+            "what": "Temptation log: three places invited extra retries and were held to the bound \u2014 (a) S3's dry-run gate failing after the schema-retry was burned ends the run rather than regenerating tokens; (b) S7 repairs run with maxAttempts 1, so a malformed repair output is immediately dead; (c) sandbox-boot crashes in build tests burn the artifact's single repair even though they are infrastructure failures \u2014 the port isolation removed the known cause rather than adding a retry.",
+            "why": "The bounds held in every accepted run; the ceilings were never the binding constraint (13/23 on the full-scope run). Recording per the spec's progress protocol."
         }
     ]
 }
