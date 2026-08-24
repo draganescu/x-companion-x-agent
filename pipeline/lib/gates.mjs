@@ -129,3 +129,21 @@ export function schemaGate(callResult) {
     if (data.smoke?.uninstall_clean !== true) failures.push({ code: 'smoke_failed', message: 'uninstall left registrations behind (uninstall_clean !== true)' });
     return { status: failures.length === 0 ? 'pass' : 'fail', failures };
 }
+
+// S9: the sane-heading-outline screen — exactly one h1, no level jumps.
+export function screenOutline(outline) {
+    const failures = [];
+    const headings = (outline ?? []).filter((n) => n.role === 'heading' && typeof n.level === 'number');
+    const h1s = headings.filter((h) => h.level === 1);
+    if (h1s.length !== 1) {
+        failures.push({ code: 'outline', message: `expected exactly one h1, got ${h1s.length} (${h1s.map((h) => h.name).join(' | ')})` });
+    }
+    let prev = 0;
+    for (const h of headings) {
+        if (h.level > prev + 1) {
+            failures.push({ code: 'outline', message: `heading level jump: h${prev || 1} -> h${h.level} at "${h.name}"` });
+        }
+        prev = h.level;
+    }
+    return failures;
+}
