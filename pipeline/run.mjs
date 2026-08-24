@@ -54,7 +54,7 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, cwd = 
     const ctx = {
         prompt, runDir, config,
         call: toolchain ? toolchain.call : null,
-        llm: createLlm({ providers, promptsDir: config.prompts_dir, budget, ledger }),
+        llm: createLlm({ providers, promptsDir: config.prompts_dir, budget, ledger, log }),
         budget, ledger, state, log,
     };
 

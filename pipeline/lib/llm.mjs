@@ -23,7 +23,7 @@ export function extractJson(text) {
     }
 }
 
-export function createLlm({ providers, promptsDir, budget, ledger }) {
+export function createLlm({ providers, promptsDir, budget, ledger, log }) {
     const templates = new Map();
     const template = (taskType) => {
         if (!templates.has(taskType)) templates.set(taskType, loadTemplate(promptsDir, taskType));
@@ -74,6 +74,7 @@ export function createLlm({ providers, promptsDir, budget, ledger }) {
                 capture(task_type, label, text, usage);
                 return { value, attempts: attempt };
             }
+            log?.(`${task_type}:${label} attempt ${attempt} ${outcome}: ${lastIssues.slice(0, 3).map((i) => `${i.path} ${i.message}`).join(' | ')}`);
             prompt = `${basePrompt}\n\nCONTRACT FAILURE — your previous output did not satisfy the contract:\n${lastIssues.map((i) => `${i.path}: ${i.message}`).join('\n')}\nReturn ONLY corrected JSON.`;
         }
         throw new PipelineError('contract_failed',
