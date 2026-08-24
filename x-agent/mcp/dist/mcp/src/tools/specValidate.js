@@ -30,21 +30,23 @@ export const BOX_SLACK_RATIO = 0.02;
 /**
  * Deliberately permissive for the same reason as wp_validate: a spec that fails
  * design-spec.schema.json must come back as `E_SPEC_SCHEMA` diagnostics, not as
- * an `invalid_input` tool error.
+ * an `invalid_input` tool error. Only the CONTAINERS are typed (number, object,
+ * array) so MCP clients have a wire type to serialize against; the contents
+ * stay unknown and flow through to the schema check.
  */
 const InputSchema = z.looseObject({
-    version: z.unknown().optional().describe('Must be the literal number 1.'),
-    source: z.unknown().optional().describe('{kind: "image"|"figma"|"synthesized", files: string[], viewport: {width, height}}'),
+    version: z.number().optional().describe('Must be the literal number 1.'),
+    source: z.record(z.string(), z.unknown()).optional().describe('{kind: "image"|"figma"|"synthesized", files: string[], viewport: {width, height}}'),
     tokens_candidates: z
-        .unknown()
+        .record(z.string(), z.unknown())
         .optional()
         .describe('DesignTokens ({palette, spacing, typography, layout}) plus quantization_log: [{observed, snapped_to, delta, note?}].'),
     content: z
-        .unknown()
+        .array(z.unknown())
         .optional()
         .describe('[{id, kind: "heading"|"paragraph"|"image"|"button"|"list"|"other", text?, image_ref?, region_id}]'),
     regions: z
-        .unknown()
+        .array(z.unknown())
         .optional()
         .describe('Recursive regions: [{id, role, box:{x,y,w,h} in source px, layout?, style_refs?, children?, responsive_assumptions?}]'),
 });

@@ -51,6 +51,8 @@ const EXPECTED_TOOLS = [
   'wp_schema_scaffold',
   'wp_schema_build_test',
   'wp_schema_install',
+  'wp_images_generate',
+  'wp_images_apply',
 ];
 
 let mock: MockCompanion;
@@ -87,7 +89,7 @@ async function call(name: string, args: unknown = {}): Promise<{ ok: boolean; da
 /* ------------------------------------------------------------ M1: registry */
 
 describe('registry / tools list', () => {
-  it('declares exactly the 21 tools, with schemas, regardless of which handlers exist', () => {
+  it('declares exactly the 23 tools, with schemas, regardless of which handlers exist', () => {
     expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
     for (const t of TOOLS) {
       const described = describeTool(t);
@@ -303,9 +305,19 @@ describe('wp_validate local pre-check', () => {
     expect(mock.log.length).toBe(0);
   });
 
+  // A wrong-typed CONTAINER (blocks as an object or a JSON string) is a wire
+  // bug, rejected by the tool's declared input schema before the handler —
+  // still with zero network calls. Only malformed CONTENTS reach the
+  // pre-check and come back as E_TREE_SCHEMA.
+  it('rejects a wrong-typed blocks container at the input boundary, zero network calls', async () => {
+    const r = await call('wp_validate', { version: 1, epoch: FP_A, blocks: {} });
+    expect(r.ok).toBe(false);
+    expect(r.data.code).toBe('invalid_input');
+    expect(mock.log.length).toBe(0);
+  });
+
   for (const [label, tree] of [
     ['missing version', { epoch: FP_A, blocks: [] }],
-    ['blocks not an array', { version: 1, epoch: FP_A, blocks: {} }],
     ['bad block name', { version: 1, epoch: FP_A, blocks: [{ name: 'paragraph' }] }],
     ['nested innerHTML', { version: 1, epoch: FP_A, blocks: [{ name: 'a/b', innerBlocks: [{ name: 'c/d', innerHTML: '' }] }] }],
   ] as const) {

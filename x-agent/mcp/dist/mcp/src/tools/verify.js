@@ -26,7 +26,7 @@ const InputSchema = z.looseObject({
     url: z.string().optional().describe('Live URL to navigate and measure instead of rendering markup.'),
     nav_timeout_ms: z.number().int().min(1000).max(600000).optional().describe('Navigation timeout in ms (default 60000). Lower it for pages that never settle.'),
     wait: z.enum(['load', 'domcontentloaded', 'networkidle']).optional().describe("waitUntil for the navigation (default 'load'). Use 'domcontentloaded' for frontends whose subresources crawl or never idle — e.g. WooCommerce on a single-worker sandbox."),
-    spec: z.unknown().optional().describe('DesignSpecIR to diff against. Omit to get box_tree + a11y_outline only.'),
+    spec: z.record(z.string(), z.unknown()).optional().describe('DesignSpecIR to diff against. Omit to get box_tree + a11y_outline only.'),
     spec_region_id: z.string().optional().describe('Restrict the diff to one region subtree.'),
     viewport: ViewportSchema.optional().describe('Measurement viewport, e.g. {width:1440,height:900}. Defaults to the spec source viewport, else 1440x900.'),
     tolerances: z
