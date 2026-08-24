@@ -29,13 +29,19 @@ os.chmod('.x-agent.json', 0o600)
 EOF
 
 GEMINI_MODEL=$(python3 - <<'EOF'
-import json, os, urllib.request
+import json, time, urllib.request
 key = json.load(open('.x-agent.json'))['gemini_api_key']
-req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/openai/models',
-                             headers={'Authorization': f'Bearer {key}'})
-models = [m['id'] for m in json.load(urllib.request.urlopen(req))['data']]
+models = []
+for attempt in range(4):
+    try:
+        req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/openai/models',
+                                     headers={'Authorization': f'Bearer {key}'})
+        models = [m['id'] for m in json.load(urllib.request.urlopen(req))['data']]
+        break
+    except Exception:
+        time.sleep(3 * (attempt + 1))
 flash = sorted(m for m in models if 'flash' in m and 'image' not in m and 'live' not in m and 'tts' not in m)
-print((flash or models)[-1].removeprefix('models/'))
+print((flash or models or ['gemini-flash-latest'])[-1].removeprefix('models/'))
 EOF
 )
 echo "gemini text model: $GEMINI_MODEL"
