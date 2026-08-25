@@ -13,7 +13,11 @@ const PROMPTS_DIR = fileURLToPath(new URL('../prompts', import.meta.url));
 const EPOCH = 'f2'.padEnd(64, '0');
 
 const TOKENS = {
-    palette: [{ slug: 'base', name: 'B', color: '#ffffff' }, { slug: 'ember', name: 'E', color: '#D96C2C' }],
+    palette: [
+        { slug: 'base', name: 'B', color: '#F6EFE6' },
+        { slug: 'contrast', name: 'C', color: '#3B2A1E' },
+        { slug: 'ember', name: 'E', color: '#D96C2C' },
+    ],
     spacing: { scale_unit: 'px', steps: [{ slug: '40', size: '1rem' }] },
     typography: { families: [{ slug: 'serif', name: 'S', fontFamily: 'Georgia' }], sizes: [{ slug: 'display', size: '4rem' }] },
     layout: { contentSize: '640px', wideSize: '1200px' },
@@ -49,14 +53,18 @@ function makeCtx({ treesByLabel, validateByKey }) {
     const budget = new BudgetMeter({});
     budget.setCeiling(16);
     const ledger = new Ledger(runDir);
+    const payloads = {};
     const provider = {
         id: 'scripted',
-        complete: async (_t, _p, _pl, { label }) => ({ text: JSON.stringify(treesByLabel[label]), usage: { input_tokens: 1, output_tokens: 1 } }),
+        complete: async (_t, _p, payload, { label }) => {
+            payloads[label] = payload;
+            return { text: JSON.stringify(treesByLabel[label]), usage: { input_tokens: 1, output_tokens: 1 } };
+        },
     };
     let active = 0;
     let peak = 0;
     return {
-        runDir, budget, ledger,
+        runDir, budget, ledger, payloads,
         config: { concurrency: 2 },
         llm: createLlm({ providers: new Map([['tree', { provider, model: 'm' }]]), promptsDir: PROMPTS_DIR, budget, ledger }),
         state: { brief: structuredClone(brief), fingerprint: EPOCH, sections },
@@ -123,4 +131,27 @@ test('a tree that never satisfies the local contract records contract_failed wit
     assert.equal(hero.status, 'fail');
     assert.equal(hero.failures[0].code, 'contract_failed');
     assert.equal(ctx.budget.spent, 2 + 2); // hero burned 2 (attempt+retry), others 1 each
+});
+
+test('every section payload carries the shared design language', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+    await s4.run(ctx);
+
+    const hero = ctx.payloads['home/hero'];
+    assert.match(hero.art_direction, /ember-orange accent/);
+    assert.equal(hero.page_plan.length, 3);
+    assert.deepEqual(hero.page_plan.map((p) => p.band), ['contrast', 'base', 'accent']);
+    assert.deepEqual(hero.band_colors, { background: 'contrast', text: 'base' }); // hero band: contrast
+
+    const signup = ctx.payloads['home/signup'];
+    assert.deepEqual(signup.band_colors, { background: 'ember', text: 'base' }); // accent resolves by hex
+
+    const features = ctx.payloads['home/what-we-bake'];
+    assert.equal(features.design.layout, 'grid');
+    assert.match(features.image_note, /EXACTLY one core\/image node per intent/);
 });

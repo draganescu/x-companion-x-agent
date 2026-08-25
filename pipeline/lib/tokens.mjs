@@ -52,3 +52,24 @@ export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette 
     }
     return issues;
 }
+
+// Resolve a brief-level band name ('base'|'surface'|'contrast'|'accent') into
+// the APPLIED palette slugs the tree may spend: brief roles are matched to
+// applied entries by hex. Advisory for the model, deterministic for the ledger.
+export function resolveBandColors(band, briefPalette, appliedPalette) {
+    const slugs = new Set(appliedPalette.map((p) => p.slug));
+    const byColor = new Map(appliedPalette.map((p) => [p.color.toLowerCase(), p.slug]));
+    const roleSlug = (role) => {
+        const entry = (briefPalette ?? []).find((p) => p.role === role);
+        return entry ? byColor.get(entry.color.toLowerCase()) : undefined;
+    };
+    const base = slugs.has('base') ? 'base' : appliedPalette[0]?.slug;
+    const contrast = slugs.has('contrast') ? 'contrast' : appliedPalette[1]?.slug;
+    const text = roleSlug('text') ?? contrast;
+    switch (band) {
+        case 'contrast': return { background: contrast, text: base };
+        case 'accent': return { background: roleSlug('accent') ?? roleSlug('primary') ?? contrast, text: base };
+        case 'surface': return { background: roleSlug('surface') ?? roleSlug('background') ?? base, text };
+        default: return { background: base, text };
+    }
+}

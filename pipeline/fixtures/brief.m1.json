@@ -7,10 +7,26 @@
     },
     "art_direction": "Warm stoneground neutrals under a deep rye brown, with one ember-orange accent used sparingly like a heat lamp. Generous whitespace, oversized serif headlines, photography that looks flour-dusted rather than staged.",
     "palette": [
-        { "name": "Flour", "color": "#F6EFE6", "role": "background" },
-        { "name": "Rye", "color": "#3B2A1E", "role": "text" },
-        { "name": "Ember", "color": "#D96C2C", "role": "accent" },
-        { "name": "Crust", "color": "#8A5A33", "role": "primary" }
+        {
+            "name": "Flour",
+            "color": "#F6EFE6",
+            "role": "background"
+        },
+        {
+            "name": "Rye",
+            "color": "#3B2A1E",
+            "role": "text"
+        },
+        {
+            "name": "Ember",
+            "color": "#D96C2C",
+            "role": "accent"
+        },
+        {
+            "name": "Crust",
+            "color": "#8A5A33",
+            "role": "primary"
+        }
     ],
     "pages": [
         {
@@ -22,19 +38,33 @@
                     "id": "hero",
                     "role": "hero",
                     "copy_notes": "Full-bleed statement: the bakery name, the tagline, and one line about the 36-hour sourdough process. Single call-to-action button down to the signup section.",
-                    "image_intent": "A rustic sourdough loaf on a floured oak counter, dawn light from a side window, steam rising, no people."
+                    "image_intent": "A rustic sourdough loaf on a floured oak counter, dawn light from a side window, steam rising, no people.",
+                    "design": {
+                        "band": "contrast",
+                        "layout": "left-aligned",
+                        "notes": "Dawn light; the loaf is the hero image."
+                    }
                 },
                 {
                     "id": "what-we-bake",
                     "role": "features",
                     "copy_notes": "Three columns: Sourdough (the daily loaf), Pastry (morning croissants and cardamom knots), Rye & Seed (the dense Nordic loaves). One honest sentence each, no superlatives.",
-                    "image_intent": "A trio of breads arranged on a linen cloth seen from above: a boule, two croissants, a dark seeded rye, muted warm tones."
+                    "image_intent": "A trio of breads arranged on a linen cloth seen from above: a boule, two croissants, a dark seeded rye, muted warm tones.",
+                    "design": {
+                        "band": "base",
+                        "layout": "grid"
+                    }
                 },
                 {
                     "id": "signup",
                     "role": "cta",
                     "copy_notes": "Newsletter signup: one line promising the weekly bake list and nothing else, an email field, and a quiet reassurance that unsubscribing is one click.",
-                    "uses_custom_block": "signup-banner"
+                    "uses_custom_block": "signup-banner",
+                    "design": {
+                        "band": "accent",
+                        "layout": "centered",
+                        "notes": "The one bright moment on the page."
+                    }
                 }
             ]
         }
@@ -44,11 +74,21 @@
             "slug": "signup-banner",
             "title": "Signup Banner",
             "description": "An email signup banner that submits to the bakery newsletter list.",
-            "gap_argument": "Core vocabulary has no block that renders a form posting to a custom REST route: supports and tokens style existing blocks but cannot add a submit lane, no registered block style or variation of core/buttons produces an email field, and the form must POST with a nonce to the newsletter package route — behavior, not styling, so rungs 1-4 cannot express it.",
+            "gap_argument": "Core vocabulary has no block that renders a form posting to a custom REST route: supports and tokens style existing blocks but cannot add a submit lane, no registered block style or variation of core/buttons produces an email field, and the form must POST with a nonce to the newsletter package route \u2014 behavior, not styling, so rungs 1-4 cannot express it.",
             "render_intent": "Render a single-field email signup form: label, email input, submit button, honeypot field, nonce; POST via view.js fetch to the newsletter package subscribe route and swap in a thank-you line on success.",
             "attributes": [
-                { "name": "heading", "type": "string", "control": "text", "default": "Get the weekly bake list" },
-                { "name": "buttonLabel", "type": "string", "control": "text", "default": "Sign up" }
+                {
+                    "name": "heading",
+                    "type": "string",
+                    "control": "text",
+                    "default": "Get the weekly bake list"
+                },
+                {
+                    "name": "buttonLabel",
+                    "type": "string",
+                    "control": "text",
+                    "default": "Sign up"
+                }
             ],
             "interactivity": "view-script",
             "stylesheet": true
@@ -58,32 +98,51 @@
         {
             "slug": "newsletter",
             "intent": "Store newsletter subscribers submitted from the public signup form.",
-            "lifecycle_argument": "Subscribers are records with a lifecycle the block cannot own: created anonymously from the front end, held in a moderated pending state, listed and exported by staff in wp-admin, and cleanly removed on uninstall — storage with statuses and an admin surface, which is wp-schema territory, never render.php state.",
+            "lifecycle_argument": "Subscribers are records with a lifecycle the block cannot own: created anonymously from the front end, held in a moderated pending state, listed and exported by staff in wp-admin, and cleanly removed on uninstall \u2014 storage with statuses and an admin surface, which is wp-schema territory, never render.php state.",
             "post_types": [
                 {
                     "slug": "subscriber",
                     "label": "Subscribers",
-                    "supports": ["title"],
+                    "supports": [
+                        "title"
+                    ],
                     "public": false,
                     "meta": [
-                        { "key": "email", "type": "string", "description": "The subscriber's email address." }
+                        {
+                            "key": "email",
+                            "type": "string",
+                            "description": "The subscriber's email address."
+                        }
                     ]
                 }
             ],
             "routes": [
-                { "path": "/subscribe", "methods": ["POST"], "auth": "public-nonce", "intent": "Accept an email address, validate it server-side, create a pending subscriber." }
+                {
+                    "path": "/subscribe",
+                    "methods": [
+                        "POST"
+                    ],
+                    "auth": "public-nonce",
+                    "intent": "Accept an email address, validate it server-side, create a pending subscriber."
+                }
             ]
         }
     ],
     "navigation": {
         "items": [
-            { "label": "Home", "page_slug": "home" }
+            {
+                "label": "Home",
+                "page_slug": "home"
+            }
         ]
     },
     "footer": {
         "intent": "One quiet line: the bakery name, opening hours, and the street address; a link back home.",
         "items": [
-            { "label": "Home", "page_slug": "home" }
+            {
+                "label": "Home",
+                "page_slug": "home"
+            }
         ]
     }
 }

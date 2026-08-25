@@ -126,3 +126,20 @@ test('origin-keyed spacingSizes derive: theme wins over default; missing_on_inst
     await s3.run(ctx); // noise, not drift: the run completes
     assert.equal(ctx.state.fingerprint, 'f2');
 });
+
+test('resolveBandColors maps bands to applied slugs via brief roles', async () => {
+    const { resolveBandColors } = await import('../lib/tokens.mjs');
+    const briefPalette = [
+        { name: 'Flour', color: '#F6EFE6', role: 'background' },
+        { name: 'Rye', color: '#3B2A1E', role: 'text' },
+        { name: 'Ember', color: '#D96C2C', role: 'accent' },
+    ];
+    const applied = [
+        { slug: 'base', name: 'Base', color: '#F6EFE6' },
+        { slug: 'contrast', name: 'Contrast', color: '#3B2A1E' },
+        { slug: 'ember', name: 'Ember', color: '#d96c2c' },
+    ];
+    assert.deepEqual(resolveBandColors('accent', briefPalette, applied), { background: 'ember', text: 'base' });
+    assert.deepEqual(resolveBandColors('contrast', briefPalette, applied), { background: 'contrast', text: 'base' });
+    assert.deepEqual(resolveBandColors('base', briefPalette, applied), { background: 'base', text: 'contrast' });
+});

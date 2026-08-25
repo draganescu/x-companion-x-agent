@@ -1,9 +1,11 @@
 ---
 task_type: tree
-required: [section, page, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, voice, page_plan, design, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
-whether it ships; there is no conversation.
+whether it ships; there is no conversation. The section must look like it belongs
+to the same designed page as every other section — the page plan below is the
+shared design language; do not improvise outside it.
 
 From the wp-blocks skill (the method — the skill is the source of truth):
 
@@ -25,20 +27,47 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 >
 > R5 — retrieve first: adapt the starting pattern's idiom before inventing.
 >
-> §2 Design quality — break the default shape deliberately: display-scale type for
-> hero statements; asymmetry (uneven column splits, left-aligned heroes); one bright
-> moment (exactly one band gets the loud color); editorial details (uppercase
-> letterspaced kickers); deliberate whitespace between bands. A centered stack on a
-> flat band is not a finished design.
+> §2 Design quality — a centered stack on a flat band is not a finished design.
+> Display-scale type for hero statements; asymmetry (uneven column splits,
+> left-aligned heroes); editorial details (uppercase letterspaced kickers); generous,
+> deliberate whitespace between bands. EVERY section gets this attention — a section
+> below the fold with default alignment and no band treatment is unfinished work.
+
+Site art direction (every decision serves it): {{art_direction}}
+Voice: {{voice}}
 
 Page: {{page}}
-Section brief: {{section}}
+The page's design plan — every section in order, with its band and layout; YOURS is
+the one matching your section id. Respect the rhythm: bands alternate down the page
+and only the accent band is loud: {{page_plan}}
+
+Your section brief: {{section}}
+Your section's design: {{design}}
+
+BAND DISCIPLINE (non-negotiable): your root node is ONE core/group with
+attributes {"align": "full", "backgroundColor": "<band background slug>",
+"textColor": "<band text slug>", "layout": {"type": "constrained"}} and generous
+vertical padding from the spacing presets (style.spacing.padding top and bottom,
+spelled "var:preset|spacing|<slug>" — pick one of the LARGER slugs available).
+Your band's colors: {{band_colors}}
+If that text/background pairing would read poorly for some element, adjust with
+other palette slugs — never with raw colors. Inner content uses the constrained
+width; use "wide" on individual inner blocks where the layout calls for breadth.
+
+LAYOUT: realize design.layout, not a default stack —
+- "centered": constrained column, display-scale heading, deliberate whitespace.
+- "left-aligned": headings and copy ranged left; no auto-centering.
+- "split": core/columns with an UNEVEN split (58/42 or 45/55), verticalAlignment set.
+- "asymmetric": offset content — an inner group with extra top padding on one column,
+  media-text with the media on one side, or staggered card rows.
+- "grid": core/columns rows (or the block's own grid) with consistent card treatment —
+  every card the same band-aware styling.
 
 Your block vocabulary for this section (manifest slice, with attribute schemas — use
 NOTHING outside it, and no attributes absent from it; W_ATTR_UNKNOWN fails the
 artifact): {{manifest_slice}}
 
-Starting pattern (adapt its idiom; null means compose fresh from the vocabulary):
+Starting pattern (adapt its idiom to YOUR band and layout; null means compose fresh):
 {{pattern_tree}}
 
 Design tokens available — spend ONLY these slugs (backgroundColor/textColor take
@@ -51,7 +80,7 @@ Heading discipline (the verifier fails the whole run on a broken outline):
 {{heading_rule}}
 
 Output ONLY a TreeIR JSON document: {"version": 1, "epoch": "{{epoch}}", "blocks": [...]}
-- blocks[] is THIS SECTION ONLY (typically one wrapping core/group or core/cover band).
+- blocks[] is THIS SECTION ONLY: exactly one root core/group band as specified above.
 - Write real copy from the section brief's copy notes — no lorem ipsum, no placeholders.
 - If manifest_slice.declared_custom_block exists, build the section around that block
   name with its declared attributes; it will exist by publish time.

@@ -6,13 +6,21 @@ export function crossChecks(brief) {
     const pageSlugs = new Set((brief.pages ?? []).map((p) => p.slug));
     (brief.pages ?? []).forEach((p, pi) => {
         const seen = new Set();
+        let accentBands = 0;
         (p.sections ?? []).forEach((s, si) => {
             if (s.uses_custom_block && !blockSlugs.has(s.uses_custom_block)) {
                 issues.push({ path: `/pages/${pi}/sections/${si}/uses_custom_block`, message: `no custom_blocks entry "${s.uses_custom_block}"` });
             }
             if (seen.has(s.id)) issues.push({ path: `/pages/${pi}/sections/${si}/id`, message: `duplicate section id "${s.id}"` });
             seen.add(s.id);
+            if (s.design?.band === 'accent') accentBands += 1;
+            if (s.role === 'gallery' && !Array.isArray(s.image_intent)) {
+                issues.push({ path: `/pages/${pi}/sections/${si}/image_intent`, message: 'a gallery section must carry an ARRAY of image_intent entries (3-6) — a gallery without images is an empty frame' });
+            }
         });
+        if (accentBands > 1) {
+            issues.push({ path: `/pages/${pi}/sections`, message: `${accentBands} accent bands on one page — exactly one bright moment (§2): at most one section may sit on the accent band` });
+        }
     });
     for (const [field, items] of [['navigation', brief.navigation?.items], ['footer', brief.footer?.items]]) {
         (items ?? []).forEach((it, i) => {

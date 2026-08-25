@@ -70,3 +70,13 @@ test('crossChecks catches each mechanical rule', () => {
     badFooter.footer.items[0].page_slug = 'gone';
     assert.ok(crossChecks(badFooter).some((i) => /gone/.test(i.message)));
 });
+
+test('crossChecks: two accent bands on one page fail; a gallery without array intents fails', () => {
+    const twoAccents = structuredClone(fixtureBrief);
+    twoAccents.pages[0].sections[0].design.band = 'accent';   // signup already accent
+    assert.ok(crossChecks(twoAccents).some((i) => /accent band/.test(i.message)));
+
+    const gallery = structuredClone(fixtureBrief);
+    gallery.pages[0].sections[1].role = 'gallery';            // string intent, not array
+    assert.ok(crossChecks(gallery).some((i) => /empty frame/.test(i.message)));
+});

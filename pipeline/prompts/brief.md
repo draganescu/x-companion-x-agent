@@ -60,7 +60,19 @@ Respond with ONLY a JSON document valid against this contract (brief.schema.json
 Rules:
 - Sections are the units of generation: one hero-class statement section, then one section
   per distinct job the page does. Do not pad; every section must earn its call.
+- EVERY section carries a design plan ({"band", "layout", "notes"?}) — you are the only
+  call that sees the whole site, so the page's design rhythm is decided HERE:
+  - band: alternate grounds down the page (base / surface / contrast); AT MOST ONE
+    accent band per page — the single bright moment (usually the cta). A page of
+    same-band sections is a default, not a design.
+  - layout: vary it (centered / left-aligned / split / asymmetric / grid); no two
+    adjacent sections with the same layout unless the design argues for it.
+  - Below the fold gets the SAME attention as the hero — the last section is judged
+    like the first.
 - image_intent only where a generated image does real work; each one is a metered call.
+  A section that SHOWS imagery (role gallery, and any section whose copy promises
+  photos) carries an ARRAY of 3-6 intents — one per image, each a full art-directed
+  description. A gallery with no intents is an empty frame and will be rejected.
 - custom_blocks and schema_packages are empty arrays unless their arguments win.
 - navigation and footer items reference pages[].slug entries only.
 - Exactly one page carries front_page: true.

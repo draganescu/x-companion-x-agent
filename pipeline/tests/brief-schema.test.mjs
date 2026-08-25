@@ -38,3 +38,20 @@ test('free-form extra keys are rejected (additionalProperties:false throughout)'
     bad.creative_notes = 'no free text lanes';
     assert.ok(validateSchema(schema, bad).some((i) => i.path === '/creative_notes'));
 });
+
+test('design is required per section; bad band fails; array image_intent is valid', () => {
+    const noDesign = structuredClone(fixture);
+    delete noDesign.pages[0].sections[0].design;
+    assert.ok(validateSchema(schema, noDesign).some((i) => /design/.test(i.message)));
+
+    const badBand = structuredClone(fixture);
+    badBand.pages[0].sections[0].design.band = 'neon';
+    assert.ok(validateSchema(schema, badBand).some((i) => i.path.endsWith('/band')));
+
+    const arrayIntents = structuredClone(fixture);
+    arrayIntents.pages[0].sections[1].image_intent = [
+        'A boule on linen, warm top light, shallow depth.',
+        'Two croissants stacked, flaky detail close-up.',
+    ];
+    assert.deepEqual(validateSchema(schema, arrayIntents), []);
+});

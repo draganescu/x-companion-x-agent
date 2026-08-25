@@ -46,3 +46,14 @@ test('ledger: jsonl appended live, ledger.json flushed in deterministic order', 
     assert.equal(lines.length, 2);
     assert.equal(JSON.parse(lines[0]).label, 'home/features');
 });
+
+test('array image_intent counts every entry: features with 2 intents => I=3, ceiling 17', async () => {
+    const { sectionImageIntents } = await import('../budget.mjs');
+    const brief = structuredClone(fixture);
+    brief.pages[0].sections[1].image_intent = ['intent one is long enough', 'intent two is long enough'];
+    const b = computeBudget(brief);
+    assert.equal(b.I, 3);
+    assert.equal(b.ceiling, 2 * 7 + 3);
+    assert.deepEqual(sectionImageIntents({ image_intent: 'x' }), ['x']);
+    assert.deepEqual(sectionImageIntents({}), []);
+});

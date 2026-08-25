@@ -6,11 +6,18 @@ import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from './lib/errors.mjs';
 
+/** A section's image intents, normalized: image_intent may be one string or an array. */
+export function sectionImageIntents(section) {
+    const v = section.image_intent;
+    if (Array.isArray(v)) return v;
+    return v ? [v] : [];
+}
+
 export function computeBudget(brief) {
     const S = brief.pages.reduce((n, p) => n + p.sections.length, 0);
     const B = brief.custom_blocks.length;
     const P = brief.schema_packages.length;
-    const I = brief.pages.reduce((n, p) => n + p.sections.filter((s) => s.image_intent).length, 0);
+    const I = brief.pages.reduce((n, p) => n + p.sections.reduce((m, s) => m + sectionImageIntents(s).length, 0), 0);
     const base = 1 + 1 + S + B + P;
     return { S, B, P, I, base, ceiling: 2 * base + I };
 }

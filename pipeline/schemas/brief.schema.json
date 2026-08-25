@@ -50,12 +50,28 @@
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["id", "role", "copy_notes"],
+                            "required": ["id", "role", "copy_notes", "design"],
                             "properties": {
                                 "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
                                 "role": { "enum": ["header", "hero", "features", "gallery", "testimonial", "pricing", "faq", "cta", "contact", "content", "footer", "section"] },
                                 "copy_notes": { "type": "string", "minLength": 10, "description": "What the section says — headlines, claims, tone. The tree task writes the actual copy from this." },
-                                "image_intent": { "type": "string", "minLength": 10, "description": "Present iff the section carries one generated image. Each one is one image call (I)." },
+                                "design": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["band", "layout"],
+                                    "properties": {
+                                        "band": { "enum": ["base", "surface", "contrast", "accent"], "description": "The ground this section sits on. Bands alternate down the page; AT MOST ONE accent band per page — the one bright moment." },
+                                        "layout": { "enum": ["centered", "left-aligned", "split", "asymmetric", "grid"], "description": "The section's composition. Vary layouts down the page; a stack of centered bands is a default, not a design." },
+                                        "notes": { "type": "string", "description": "One line of art direction specific to this section." }
+                                    }
+                                },
+                                "image_intent": {
+                                    "oneOf": [
+                                        { "type": "string", "minLength": 10 },
+                                        { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 10 } }
+                                    ],
+                                    "description": "One intent per generated image this section shows. A gallery carries an ARRAY (3-6 intents); each intent is one metered image call (I)."
+                                },
                                 "uses_custom_block": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "slug of a custom_blocks[] entry this section is built around." }
                             }
                         }
