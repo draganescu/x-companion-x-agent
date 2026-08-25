@@ -117,7 +117,8 @@ sentence a site editor would understand — it becomes the pattern's description
 `recipe` (`blocks`: the core blocks outermost first; `layout`; `notes`: the structural
 detail that makes this arrangement itself and not its neighbour — which child
 dominates, where the gap falls, what alignment carries the eye), and `style_refs`
-(slugs you declared above; never values).
+(slugs you declared above; never values). A recipe is EXACTLY `{blocks, layout,
+notes?}` — those key names and no others.
 
 **Recipes use `core/` blocks only.** If an arrangement seems to need a block that does
 not exist, you are on rung 3 of the vocabulary-gap ladder and that is not yours to
