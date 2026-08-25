@@ -46,7 +46,7 @@ function timestamp() {
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
-export async function runPipeline({ prompt, configPath, resumeDir, until, cwd = process.cwd(), stages = DEFAULT_STAGES, skipToolchain = false }) {
+export async function runPipeline({ prompt, configPath, resumeDir, until, brochure = false, cwd = process.cwd(), stages = DEFAULT_STAGES, skipToolchain = false }) {
     const config = loadPipelineConfig(configPath ?? join(cwd, 'pipeline.config.json'));
     const keys = readProviderKeys(cwd);
     const providers = await createProviders({ config, keys });
@@ -62,6 +62,9 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, cwd = 
     delete state.failure; // a resumed run gets a fresh verdict
     if (prompt) state.prompt = prompt;
     else prompt = state.prompt ?? '';
+    // The mode is part of the run, like the prompt: a resume without the flag
+    // keeps the mode the run started with.
+    if (brochure) state.brochure = true;
 
     const startedRun = Date.now();
     const log = (m) => console.error(`[x-pipeline +${fmtClock(Date.now() - startedRun)}] ${m}`);

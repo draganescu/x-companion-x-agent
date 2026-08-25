@@ -84,3 +84,35 @@ test('crossChecks: two accent bands on one page fail; a gallery without array in
     gallery.pages[0].sections[1].role = 'gallery';            // string intent, not array
     assert.ok(crossChecks(gallery).some((i) => /empty frame/.test(i.message)));
 });
+
+test('--brochure: blocks and packages are gated out of the brief, and the prompt says why', async () => {
+    const stripped = structuredClone(fixtureBrief);
+    stripped.custom_blocks = [];
+    stripped.schema_packages = [];
+    // …and no section may keep pointing at one: crossChecks catches the dangling
+    // reference on its own, which is the belt under brochureChecks' suspenders.
+    for (const p of stripped.pages) for (const s of p.sections) delete s.uses_custom_block;
+    const outputs = [JSON.stringify(fixtureBrief), JSON.stringify(stripped)];
+    const prompts = [];
+    const provider = { id: 'scripted', complete: async (_t, prompt) => { prompts.push(prompt); return { text: outputs.shift(), usage: { input_tokens: 1, output_tokens: 1 } }; } };
+    const ctx = makeCtx({ provider });
+    ctx.state.brochure = true;
+    await s1.run(ctx);
+
+    // The model was told the rule, disobeyed once, and the gate burned the retry.
+    assert.match(prompts[0], /BROCHURE MODE/);
+    assert.match(prompts[1], /brochure mode: must be an empty array/);
+    assert.deepEqual(ctx.ledger.entries.map((e) => e.outcome), ['schema_failed', 'ok']);
+    // The accepted plan carries no factory work; the bill shrinks with it.
+    assert.deepEqual(ctx.state.budget_plan, { S: 3, B: 0, P: 0, I: 2 });
+    assert.ok(ctx.logs.some((l) => /brochure mode, composition only/.test(l)));
+});
+
+test('without --brochure the mode note is empty and blocks/packages pass as before', async () => {
+    const prompts = [];
+    const provider = { id: 'scripted', complete: async (_t, prompt) => { prompts.push(prompt); return { text: JSON.stringify(fixtureBrief), usage: { input_tokens: 1, output_tokens: 1 } }; } };
+    const ctx = makeCtx({ provider });
+    await s1.run(ctx);
+    assert.ok(!/BROCHURE MODE/.test(prompts[0]));
+    assert.deepEqual(ctx.state.budget_plan, { S: 3, B: 1, P: 1, I: 2 });
+});

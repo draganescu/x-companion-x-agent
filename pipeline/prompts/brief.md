@@ -1,6 +1,6 @@
 ---
 task_type: brief
-required: [prompt, contract]
+required: [prompt, contract, mode_note]
 ---
 You are planning a WordPress site build that a deterministic pipeline will execute.
 You make ALL the creative decisions now — nothing is renegotiated later. Your output
@@ -50,6 +50,8 @@ From the wp-schema skill (when a schema package may exist):
 A schema_packages[] entry exists ONLY where data has a lifecycle (created, moderated,
 listed, uninstalled) that a block alone cannot own; write that argument into its
 lifecycle_argument.
+
+{{mode_note}}
 
 THE REQUEST, verbatim:
 {{prompt}}
