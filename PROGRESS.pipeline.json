@@ -30,6 +30,11 @@
             "status": "done",
             "evidence": "All three clauses green. (1) accept/m6-full.sh: Moulin-Rouge-class prompt (cabaret landing) -> S=5, B=3 (scrolling marquee + count-up stats + signup blocks), P=1, I=1; every factory gate passed, ZERO dead artifacts, published + verified + one screenshot, 13 calls spent of ceiling 23, zero human input (evidence runs/20260824-220132). (2) accept/m6-determinism.sh: capture run then two all-fake replays across three fresh boots -> trees + compiled pages byte-identical, ledgers identical timestamps-excepted, 8 entries each. (3) accept/m6-swap.sh: tree task swapped cerebras/gpt-oss-120b -> gemini/gemini-flash-latest by config edit alone; ledger provider fields prove it; git-clean pipeline/stages+lib+providers before and after.",
             "updated_at": "2026-08-24T00:00:00Z"
+        },
+        "M7_design_system": {
+            "status": "planned",
+            "evidence": "Spec-only so far. specs/pipeline.spec.json amended: S3_tokens -> S3_kit (one master call emitting {spec, molecules} as kit.json + molecules.json), new S3b_molecules (junior calls -> TreeIR fragments -> wp_pattern_save, concurrent generation and sequential saves), S4 assembles from molecule patterns, S9 diffs the built site against kit.json. No pipeline/ code written yet.",
+            "updated_at": "2026-08-25T00:00:00Z"
         }
     },
     "decisions": [
@@ -102,6 +107,31 @@
             "when": "2026-08-25",
             "what": "CLI inventory + removal: `x-pipeline builds` (every run, newest first, each probed LIVE/gone), `site status` probes each slot URL instead of trusting its descriptor, `site use --slot` adopts a running slot, and removal in both grains \u2014 `site stop [--all] [--purge]`, `site prune` (stopped sites' directories), `builds rm <id>\u2026 | --failed | --gone | --keep N | --all` with --dry-run, confirmation (--yes required when stdin is not a TTY), live-site protection, and an assertInside fence limiting deletes to runs/ and tools/.runtime/sites/.",
             "why": "Sites are ephemeral and artifacts are not, so 'what exists' has two answers and the tooling has to tell them apart honestly \u2014 a stale descriptor was already reporting a dead slot as running. Disk made it urgent: stopped Playgrounds had left 345MB of orphaned site directories behind, which prune reclaimed."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "The design layer is a master/junior split: ONE kit call decides the system (tokens + page rhythm + a molecule inventory) and every generative call below it only instantiates that decision. The 'tokens' task type is subsumed by 'kit'.",
+            "why": "M2-M6 shipped a pipeline whose entire visual argument is brief.art_direction (one string) plus three per-section keywords, with S sections fanned out concurrently and each inventing its own layout idiom. Tokens vary appearance; molecules vary rhythm, and recurring rhythm IS cohesion. Deciding tokens apart from the concept that motivates them is the specific failure being fixed, so the two calls become one."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "The kit is ONE call emitting {spec, molecules}, written as two artifacts: kit.json, a strict DesignSpecIR with source.kind:'synthesized' validated by wp_spec_validate unmodified, and molecules.json, a pipeline-side inventory with a pipeline-side check. It becomes S9's diff target.",
+            "why": "DesignSpecIR, wp_spec_validate and wp_verify's numeric region diff are built and tested but reachable only from from-design mode, which greenfield builds never use. S9 today calls wp_verify with no spec, so it can only screen the heading outline and image loading: a page can be structurally perfect, visually incoherent, and pass every gate. source.kind already accepts 'synthesized', so the format anticipated this. Two artifacts rather than one because design-spec.schema.json is additionalProperties:false at its root \u2014 a molecules[] key inside the spec would be E_SPEC_SCHEMA, not an extension \u2014 and widening the contract for a single agent-side consumer is not worth it."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "The budget moment moves from after S1 to after S3_kit. M is read from the kit; S, B and P are still read from the brief.",
+            "why": "M is not knowable before any design decision exists, and asking the brief to size a design system is worse than announcing the ceiling one stage later. The ceiling stays hard and pre-declared before any fan-out; only the announcement moves. This is a deliberate weakening of the spec's 'known after the first call' promise and is recorded as such."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "Molecule patterns persist on the instance under agent/<kit_id>-<molecule_id>; a re-run replaces its own entries rather than accumulating.",
+            "why": "wp_pattern_save's contract is that the corpus grows its own idiom and future sessions inherit it as vocabulary; saving and then sweeping would pay for a design system and discard it. They are ordinary registered block patterns a site editor can see, so they do not violate the 'no pipeline-owned state' non-goal \u2014 that non-goal is amended to name the exception."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "Recorded, not fixed: x-companion/uninstall.php does not delete the x_companion_patterns option, so an uninstalled companion leaves the agent pattern corpus orphaned in wp_options.",
+            "why": "Found while settling the persistence decision above. Deliverable-purity says it should be swept, but it is a companion-side fix and does not belong in an agent-side spec amendment. Filed here so the next companion change picks it up."
         }
     ]
 }
