@@ -33,6 +33,13 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 > deliberate whitespace between bands. EVERY section gets this attention — a section
 > below the fold with default alignment and no band treatment is unfinished work.
 
+Design values live in the kit, never in your tree: NO hex colours anywhere, and no
+px/rem font sizes or spacing values under `style` — spend palette slugs, the
+`fontSize` slug attribute, and `var:preset|spacing|NN`. Mechanics the token system
+cannot express are fine as literals: letter-spacing (`em`), hairline border widths,
+border radii. A hex colour or an absolute spacing/font-size literal is a dead
+artifact, not a warning.
+
 Site art direction (every decision serves it): {{art_direction}}
 Voice: {{voice}}
 

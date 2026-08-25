@@ -35,6 +35,11 @@ foreach ( array_keys( $x_companion_roles->roles ) as $x_companion_role_slug ) {
 delete_option( 'x_companion_caps_posture' );
 delete_option( 'x_companion_manifest_cache_key' );
 
+// The agent pattern corpus (saved sections and design-kit molecules) is plugin
+// state, not content: published pages carry compiled markup and never reference
+// it, so it sweeps cleanly with the plugin (deliverable-purity).
+delete_option( 'x_companion_patterns' );
+
 // Manifest transients are keyed by fingerprint, so sweep the prefix.
 $x_companion_transients = $wpdb->get_col(
 	$wpdb->prepare(

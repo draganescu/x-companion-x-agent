@@ -67,7 +67,8 @@ synthesized kit was lifted from nothing, and saying so is the honest record.
   slugs after what they are for rather than shipping five interchangeable greys.
 - **typography** — families as system stacks (no font files). Three to five sizes with a
   real top end: a `display` step (fluid `clamp()`, 3rem → 6rem+) for hero statements,
-  not a slightly bigger xx-large.
+  not a slightly bigger xx-large. A size entry is `{slug, size, name?, fluid?}` —
+  nothing else; a family entry is `{slug, name, fontFamily}`.
 - **spacing** and **layout** — **copy these two BYTE-FOR-BYTE**. They are the theme's
   own and are not yours to redesign; this is checked against the instance:
   `"spacing":` {{theme_spacing}}

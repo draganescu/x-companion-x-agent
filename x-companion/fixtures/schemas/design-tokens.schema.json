@@ -137,6 +137,9 @@
                 "type": "string",
                 "pattern": "^[a-z0-9-]+$"
               },
+              "name": {
+                "type": "string"
+              },
               "size": {
                 "type": "string"
               },

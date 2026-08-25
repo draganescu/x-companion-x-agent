@@ -1,162 +1,172 @@
 {
-    "spec": "specs/pipeline.spec.json",
-    "milestones": {
-        "M1_provider_shim_and_budget": {
-            "status": "done",
-            "evidence": "accept/m1.sh green: 41 unit tests pass (plumbing 4, schema 3, brief-schema 4, budget 5, config 5, prompts 4, providers 4, providers-real 3, llm 6, toolchain 1, run 2); brief.m1.json fixture S=3,B=1,P=1,I=2 -> printed ceiling 16 = 2*(2+3+1+1)+2; 17th spend throws {code:'budget_exceeded'}; missing task entry / missing provider key / unknown provider module each fail preflight naming the task; Ledger flush sorts (task_type,label,attempt) for timestamps-excepted comparability while ledger.jsonl preserves live insertion order.",
-            "updated_at": "2026-08-24T00:00:00Z"
-        },
-        "M2_brief_and_tokens": {
-            "status": "done",
-            "evidence": "accept/m2.sh green on a dedicated pipeline-accept Playground slot (9410; the persistent dev instance on 9400 untouched). Real provider cerebras/gpt-oss-120b (zai-glm-4.7 archived by the org \u2014 discovered via /v1/models): one-sentence bakery prompt -> brief.json valid against brief.schema.json first-attempt (ledger: brief ok, tokens ok, 2 calls total), budget 'at most 19 calls (S=5, B=1, P=1, I=1)' printed before call #2; tokens.json validates the vendored design-tokens contract locally (oneOf added to the subset validator, proven against the real Moulin Rouge token set); R9 spacing/layout byte-equal to theme's own asserted mechanically; dry-run diff evidence carries every brief hex; wp_tokens_apply moved fingerprint 68793da8 -> 8b062def.",
-            "updated_at": "2026-08-24T00:00:00Z"
-        },
-        "M3_section_fanout_and_repair": {
-            "status": "done",
-            "evidence": "accept/m3.sh green (live Playground 9410, cerebras/gpt-oss-120b): poisoned tree.md (glowIntensity:11 on every heading) + poisoned repair.md (refuses to remove it) -> S=2 sections both fail wp_validate's W_ATTR_UNKNOWN screen, each gets EXACTLY one repair call, repairs fail the same gate, both artifacts dead -> pattern-baseline slots written and the run COMPLETES through S7; report.md carries the verbatim W_ATTR_UNKNOWN diagnostics; tree+repair ledger calls 4 <= 2S; overlapping started_at/ms intervals prove S4 concurrency; every ledger tree/repair label has a matching gate outcome in state.artifacts. Unit: gates 7 tests (defer-vs-fail screening, localTreeCheck R1 innerHTML rejection, blockGate/schemaGate asymmetry), s4 3 tests, s7 3 scenarios (repair-pass, dead->baseline, dead-block->tree re-gate cascade).",
-            "updated_at": "2026-08-24T00:00:00Z"
-        },
-        "M4_factories": {
-            "status": "done",
-            "evidence": "accept/m4.sh green (live 9410, cerebras/gpt-oss-120b): brief declared agent/newsletter-signup (view-script + stylesheet) + agent-schema-subscriber-storage; S5: scaffold -> LLM file map -> wp_block_build_test built:true with clean front smoke and zero style_warnings, in EXACTLY 1 block call + 0 repairs; S6: wp_schema_build_test built:true, uninstall_clean:true, zip produced; S7 reports no dead artifacts. URL-map preflight proven live: a public post type claiming /sample-page fails {code:'preflight_failed'} with the scaffold's warning verbatim and ZERO LLM calls spent. Unit: 4 factory tests (scaffold-before-LLM order, style-literal kill, thrown schemaGate envelope, meta hyphen->underscore mapping); suite 72/72.",
-            "updated_at": "2026-08-24T00:00:00Z"
-        },
-        "M5_publish_and_verify": {
-            "status": "done",
-            "evidence": "accept/m5.sh green (live 9410, cerebras/gpt-oss-120b, pinned temps): full S1-S9 run, CLEAN \u2014 8 ledger entries for ceiling 15 (brief 1, tokens 1, tree 3, block 1, schema 1, image 1; zero retries, zero repairs), predicted == actual in report.md. Installs sequential (schema:subscriber-storage then block:newsletter-signup), assembled page tree stamped with the LAST install's fingerprint (asserted), published with page-no-title, front page set, Sample Page deleted, nav + footer replaced via the compile lane, 1 image generated and applied. wp_verify: exactly one h1, outline sane, image loaded, exactly one screenshot.png.",
-            "updated_at": "2026-08-24T00:00:00Z"
-        },
-        "M6_end_to_end_determinism": {
-            "status": "done",
-            "evidence": "All three clauses green. (1) accept/m6-full.sh: Moulin-Rouge-class prompt (cabaret landing) -> S=5, B=3 (scrolling marquee + count-up stats + signup blocks), P=1, I=1; every factory gate passed, ZERO dead artifacts, published + verified + one screenshot, 13 calls spent of ceiling 23, zero human input (evidence runs/20260824-220132). (2) accept/m6-determinism.sh: capture run then two all-fake replays across three fresh boots -> trees + compiled pages byte-identical, ledgers identical timestamps-excepted, 8 entries each. (3) accept/m6-swap.sh: tree task swapped cerebras/gpt-oss-120b -> gemini/gemini-flash-latest by config edit alone; ledger provider fields prove it; git-clean pipeline/stages+lib+providers before and after.",
-            "updated_at": "2026-08-24T00:00:00Z"
-        },
-        "M7_design_system": {
-            "status": "implemented-unproven",
-            "evidence": "Code complete, unit-green, NOT yet run against a live instance. 125 unit tests pass (was 118 before M7's own suites; s3-kit 18, s3b-molecules 7). New: pipeline/stages/s3-kit.mjs (replaces s3-tokens.mjs; one call emits {spec, molecules}, gated by wp_spec_validate then the unchanged M2 tokens gate), pipeline/stages/s3b-molecules.mjs (concurrent generation, sequential wp_pattern_save with epoch adoption between each), pipeline/lib/kit.mjs (the pre-call screen: $ref-resolved design-spec validation, box containment, orphan content, quantization, role coverage, slug resolution), pipeline/schemas/molecules.schema.json, pipeline/prompts/kit.md + molecule.md (tokens.md folded in and deleted), the literal screen in lib/gates.mjs. Changed: S1 plans the fan-out but no longer fixes the ceiling; S2 persists manifest-blocks.json and block_names; S4 assembles from the saved patterns and is literal-screened; S9 passes kit.json to wp_verify with widened tolerances and writes design_conformance; report.md gains a Design conformance section; TASK_TYPES loses 'tokens' and gains 'kit' and 'molecule'; every accept script rerouted. tests/accept/m7.sh written, NOT yet executed: it needs a live Playground and real provider spend.",
-            "updated_at": "2026-08-25T00:00:00Z"
-        }
+  "spec": "specs/pipeline.spec.json",
+  "milestones": {
+    "M1_provider_shim_and_budget": {
+      "status": "done",
+      "evidence": "accept/m1.sh green: 41 unit tests pass (plumbing 4, schema 3, brief-schema 4, budget 5, config 5, prompts 4, providers 4, providers-real 3, llm 6, toolchain 1, run 2); brief.m1.json fixture S=3,B=1,P=1,I=2 -> printed ceiling 16 = 2*(2+3+1+1)+2; 17th spend throws {code:'budget_exceeded'}; missing task entry / missing provider key / unknown provider module each fail preflight naming the task; Ledger flush sorts (task_type,label,attempt) for timestamps-excepted comparability while ledger.jsonl preserves live insertion order.",
+      "updated_at": "2026-08-24T00:00:00Z"
     },
-    "decisions": [
-        {
-            "when": "2026-08-24",
-            "what": "Implementation runs on branch `pipeline` in the main checkout, not a linked worktree.",
-            "why": "The build depends on live per-checkout state a worktree cannot share: x-agent/mcp/node_modules + dist, tools/node_modules, and tools/.runtime Playground descriptors. Tree was clean at branch time; isolation is by branch."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "pipeline/ is plain ESM .mjs importing x-agent/mcp/dist directly (no TypeScript, no build step, no new npm deps); unit tests run on node:test; JSON-Schema checks use a minimal in-repo draft-07 subset validator.",
-            "why": "The spec's environment says the pipeline imports dist; proof/ set the deps-free precedent; the house rule is no ajv (x-agent/tests/schemas.test.ts) and zod is not resolvable from repo root without a new node_modules."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "S3's dry-run drift gate fails only on diff kind=value_differs in spacing.spacingSizes/layout groups; missing_on_instance entries there are ignored.",
-            "why": "wp_get_global_settings serves origin-keyed spacingSizes ({default,theme}) which the emitter's differ (array-indexed) reports wholesale as missing_on_instance even for a byte-perfect pass-through; value_differs is the only kind that means an instance value would actually change. The byte-equality of the pass-through itself is asserted locally in tokenChecks."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "Acceptance playgrounds boot programmatically on a dedicated 'pipeline-accept' slot (accept/_playground.mjs holder) at port 9410.",
-            "why": "The boot CLI has no --slot flag and the default core-only-toolchain slot was held by the owner's persistent live instance on 9400, which must never be stopped or reused."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "S5/S6 with zero declared blocks/packages are real no-ops (they initialize their artifact maps and return); W_STYLE_UNKNOWN fails a tree artifact like W_ATTR_UNKNOWN.",
-            "why": "B=0/P=0 briefs must flow through the fixed stage list without factory work \u2014 the empty fan-out IS the correct behavior, not a placeholder. An is-style-* unregistered at the current fingerprint is an invented style; the spec's mechanical screen names only W_ATTR_UNKNOWN and W_STATIC_NEEDS_HARNESS, so the conservative reading fails the unknown style and the repair lane owns it."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "S9 verifies on a FRESH session: wp_disconnect first, then wp_verify/wp_screenshot; run.mjs holds a keepalive interval and flags event-loop drains.",
-            "why": "Observed repeatedly: after S8's install-triggered epoch reloads + the image pass, the warm session can be left dead-but-cached \u2014 wp_verify then pends forever with zero chromium children, and without a keepalive the drained event loop exits 0 mid-run, masquerading as success. Standalone verify of the same URL is clean. Toolchain backlog: dead-session detection in sessionFor."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "S2 converts pattern parsed_tree from Gutenberg parse shape (blockName/attrs, whitespace nodes) to TreeIR node shape before it enters payloads or baselines.",
-            "why": "The model copies whatever idiom it is shown \u2014 parse-shaped patterns caused systematic schema_failed retries (blockName/attrs echoed back); and an S7 pattern baseline in parse shape would die at S8's wp_validate. Mechanical key mapping, not authorship."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "Per-section heading discipline rides in the tree payload (hero: the page's single h1 with attributes.level 1 EXPLICIT; other sections: h2 top, h3 items) and S9 fails on outline jumps.",
-            "why": "core/heading defaults to level 2; without the rule the verifier caught real outlines with zero h1s and h1->h3 jumps. Authoring-side prevention keeps the strict verify gate meaningful."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "Concurrent factory gates get deterministic distinct sandbox ports (blocks 9440+2i, packages 9460+2i), reused by S7 repairs.",
-            "why": "Three concurrent wp_block_build_test calls racing for 'first free port' 9440 crashed a smoke sandbox ('exited with code 1 without writing a result'), killing an innocent artifact. Port assignment is pipeline plumbing, not a toolchain change \u2014 the tools accept {port}."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "Pattern baselines are gated: S7 wp_validates a substituted pattern baseline and degrades to the minimal core/group slot on failure; content-context patterns (comments/query/post-template) are excluded from S2 pattern picking.",
-            "why": "A comments-thread pattern was picked as a stats-section baseline and failed final-epoch validation, killing the whole run in S8 \u2014 a baseline that cannot pass the same gate is not a baseline. Both fixes are mechanical selection/validation, not authorship."
-        },
-        {
-            "when": "2026-08-24",
-            "what": "Temptation log: three places invited extra retries and were held to the bound \u2014 (a) S3's dry-run gate failing after the schema-retry was burned ends the run rather than regenerating tokens; (b) S7 repairs run with maxAttempts 1, so a malformed repair output is immediately dead; (c) sandbox-boot crashes in build tests burn the artifact's single repair even though they are infrastructure failures \u2014 the port isolation removed the known cause rather than adding a retry.",
-            "why": "The bounds held in every accepted run; the ceilings were never the binding constraint (13/23 on the full-scope run). Recording per the spec's progress protocol."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "Added the x-pipeline CLI (pipeline/cli.mjs + root ./x-pipeline wrapper): site new/connect/status/stop, config init, build \u2014 one command from nothing to a published site (build --new-site auto-writes pipeline.config.json from stored provider keys and boots a companion Playground). The acceptance boot holder moved to pipeline/lib/site-holder.mjs.",
-            "why": "The manual path (boot holder, jq-merge .x-agent.json, hand-write pipeline.config.json) was operator hostile. The CLI writes only the files the pipeline already reads (.x-agent.json mode 0600, pipeline.config.json, tools/.runtime descriptors) \u2014 no new state, no toolchain surface; site connect verifies with wp_connect before writing and warns on production posture."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "Holistic design pass (field report: only the first section styled, empty gallery, default alignments). The brief now REQUIRES a per-section design plan ({band, layout, notes?}, at most one accent band per page, palette must cover planned bands, galleries carry 3-6 image intents as an array); every S4 tree call receives the art direction, the page's full plan, and its band resolved to applied palette slugs with luminance-measured ink pairing; templates demand band wrappers (align:full + band colors + proportional padding), content density (real lists, not summary paragraphs), image geometry, and statement scale. Plus robustness found en route: REST lane salvages JSON from PHP-notice-corrupted responses (content-type-blind \u2014 notices break wp_send_json headers), generated PHP is screened for file-level non-compound `use` (one such warning broke wp_redirect site-wide), S9 verifies the SITE ROOT (canonical redirects die when notices precede headers) and retries once on an empty measurement, footer template-part updates carry area:'footer' so reruns can find the customized part.",
-            "why": "Each S4 call was blind to the site: no art direction, no neighbors, no image plan below the hero \u2014 the model economized exactly where the payload was silent. Validated live: the same beer-bar prompt now produces banded, rhythm-coherent pages with a filled gallery (5 images loaded), and a second build on the same instance UPDATES the page (id stable) instead of minting home-2."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "CLI inventory + removal: `x-pipeline builds` (every run, newest first, each probed LIVE/gone), `site status` probes each slot URL instead of trusting its descriptor, `site use --slot` adopts a running slot, and removal in both grains \u2014 `site stop [--all] [--purge]`, `site prune` (stopped sites' directories), `builds rm <id>\u2026 | --failed | --gone | --keep N | --all` with --dry-run, confirmation (--yes required when stdin is not a TTY), live-site protection, and an assertInside fence limiting deletes to runs/ and tools/.runtime/sites/.",
-            "why": "Sites are ephemeral and artifacts are not, so 'what exists' has two answers and the tooling has to tell them apart honestly \u2014 a stale descriptor was already reporting a dead slot as running. Disk made it urgent: stopped Playgrounds had left 345MB of orphaned site directories behind, which prune reclaimed."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "The design layer is a master/junior split: ONE kit call decides the system (tokens + page rhythm + a molecule inventory) and every generative call below it only instantiates that decision. The 'tokens' task type is subsumed by 'kit'.",
-            "why": "M2-M6 shipped a pipeline whose entire visual argument is brief.art_direction (one string) plus three per-section keywords, with S sections fanned out concurrently and each inventing its own layout idiom. Tokens vary appearance; molecules vary rhythm, and recurring rhythm IS cohesion. Deciding tokens apart from the concept that motivates them is the specific failure being fixed, so the two calls become one."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "The kit is ONE call emitting {spec, molecules}, written as two artifacts: kit.json, a strict DesignSpecIR with source.kind:'synthesized' validated by wp_spec_validate unmodified, and molecules.json, a pipeline-side inventory with a pipeline-side check. It becomes S9's diff target.",
-            "why": "DesignSpecIR, wp_spec_validate and wp_verify's numeric region diff are built and tested but reachable only from from-design mode, which greenfield builds never use. S9 today calls wp_verify with no spec, so it can only screen the heading outline and image loading: a page can be structurally perfect, visually incoherent, and pass every gate. source.kind already accepts 'synthesized', so the format anticipated this. Two artifacts rather than one because design-spec.schema.json is additionalProperties:false at its root \u2014 a molecules[] key inside the spec would be E_SPEC_SCHEMA, not an extension \u2014 and widening the contract for a single agent-side consumer is not worth it."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "The budget moment moves from after S1 to after S3_kit. M is read from the kit; S, B and P are still read from the brief.",
-            "why": "M is not knowable before any design decision exists, and asking the brief to size a design system is worse than announcing the ceiling one stage later. The ceiling stays hard and pre-declared before any fan-out; only the announcement moves. This is a deliberate weakening of the spec's 'known after the first call' promise and is recorded as such."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "Molecule patterns persist on the instance under agent/<kit_id>-<molecule_id>; a re-run replaces its own entries rather than accumulating.",
-            "why": "wp_pattern_save's contract is that the corpus grows its own idiom and future sessions inherit it as vocabulary; saving and then sweeping would pay for a design system and discard it. They are ordinary registered block patterns a site editor can see, so they do not violate the 'no pipeline-owned state' non-goal \u2014 that non-goal is amended to name the exception."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "Recorded, not fixed: x-companion/uninstall.php does not delete the x_companion_patterns option, so an uninstalled companion leaves the agent pattern corpus orphaned in wp_options.",
-            "why": "Found while settling the persistence decision above. Deliverable-purity says it should be swept, but it is a companion-side fix and does not belong in an agent-side spec amendment. Filed here so the next companion change picks it up."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "PRE_CEILING_ALLOWANCE goes 2 -> 4, and S1 writes state.budget_plan {S,B,P,I} while S3_kit writes the full state.budget {M,S,B,P,I,base,ceiling}.",
-            "why": "The ceiling is now fixed by the kit, so exactly two calls precede it (brief, kit) and each may burn one metered schema-retry. Splitting plan from budget keeps resume honest: run.mjs only adopts a ceiling that was really fixed, and report.md can say 'the run died before the kit' instead of 'no budget'."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "A molecule that fails its gate is DROPPED, not repaired; its role falls back to the theme's own pattern corpus. Zero survivors ends the run.",
-            "why": "Found while wiring S7: repair runs after S4/S5/S6, which is far too late for vocabulary S4 already needed. The molecule call has already spent its one metered schema-retry, so the repair economy is unchanged \u2014 only the stage that would host it does not exist. A site with no vocabulary would have every section inventing its own idiom, which is the failure S3b exists to prevent, so that case fails loudly."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "With a spec supplied, wp_verify's own `pass` no longer gates the run; only the outline and image screens do.",
-            "why": "wp_verify sets pass from diffs_outside_tolerance, so passing the kit in would have made a synthesized kit's own guesses fatal \u2014 the exact outcome decision (c) rules out. Design drift is reported and attributed in report.md; the hard gates are unchanged."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "source.files is required by design-spec.schema.json, so a synthesized kit emits files: []. The prompt says so explicitly.",
-            "why": "Caught by the kit test: the contract requires the key even where there is nothing to name. An empty array is the honest record of a spec lifted from nothing, and it keeps wp_spec_validate usable unmodified."
-        },
-        {
-            "when": "2026-08-25",
-            "what": "Installed @google/genai in x-agent/mcp (it was declared in package.json but absent from node_modules).",
-            "why": "pipeline/tests/run.test.mjs and toolchain.test.mjs were failing on ERR_MODULE_NOT_FOUND before any M7 change, which made it impossible to tell new breakage from old. Both pass now."
-        }
-    ]
+    "M2_brief_and_tokens": {
+      "status": "done",
+      "evidence": "accept/m2.sh green on a dedicated pipeline-accept Playground slot (9410; the persistent dev instance on 9400 untouched). Real provider cerebras/gpt-oss-120b (zai-glm-4.7 archived by the org \u2014 discovered via /v1/models): one-sentence bakery prompt -> brief.json valid against brief.schema.json first-attempt (ledger: brief ok, tokens ok, 2 calls total), budget 'at most 19 calls (S=5, B=1, P=1, I=1)' printed before call #2; tokens.json validates the vendored design-tokens contract locally (oneOf added to the subset validator, proven against the real Moulin Rouge token set); R9 spacing/layout byte-equal to theme's own asserted mechanically; dry-run diff evidence carries every brief hex; wp_tokens_apply moved fingerprint 68793da8 -> 8b062def.",
+      "updated_at": "2026-08-24T00:00:00Z"
+    },
+    "M3_section_fanout_and_repair": {
+      "status": "done",
+      "evidence": "accept/m3.sh green (live Playground 9410, cerebras/gpt-oss-120b): poisoned tree.md (glowIntensity:11 on every heading) + poisoned repair.md (refuses to remove it) -> S=2 sections both fail wp_validate's W_ATTR_UNKNOWN screen, each gets EXACTLY one repair call, repairs fail the same gate, both artifacts dead -> pattern-baseline slots written and the run COMPLETES through S7; report.md carries the verbatim W_ATTR_UNKNOWN diagnostics; tree+repair ledger calls 4 <= 2S; overlapping started_at/ms intervals prove S4 concurrency; every ledger tree/repair label has a matching gate outcome in state.artifacts. Unit: gates 7 tests (defer-vs-fail screening, localTreeCheck R1 innerHTML rejection, blockGate/schemaGate asymmetry), s4 3 tests, s7 3 scenarios (repair-pass, dead->baseline, dead-block->tree re-gate cascade).",
+      "updated_at": "2026-08-24T00:00:00Z"
+    },
+    "M4_factories": {
+      "status": "done",
+      "evidence": "accept/m4.sh green (live 9410, cerebras/gpt-oss-120b): brief declared agent/newsletter-signup (view-script + stylesheet) + agent-schema-subscriber-storage; S5: scaffold -> LLM file map -> wp_block_build_test built:true with clean front smoke and zero style_warnings, in EXACTLY 1 block call + 0 repairs; S6: wp_schema_build_test built:true, uninstall_clean:true, zip produced; S7 reports no dead artifacts. URL-map preflight proven live: a public post type claiming /sample-page fails {code:'preflight_failed'} with the scaffold's warning verbatim and ZERO LLM calls spent. Unit: 4 factory tests (scaffold-before-LLM order, style-literal kill, thrown schemaGate envelope, meta hyphen->underscore mapping); suite 72/72.",
+      "updated_at": "2026-08-24T00:00:00Z"
+    },
+    "M5_publish_and_verify": {
+      "status": "done",
+      "evidence": "accept/m5.sh green (live 9410, cerebras/gpt-oss-120b, pinned temps): full S1-S9 run, CLEAN \u2014 8 ledger entries for ceiling 15 (brief 1, tokens 1, tree 3, block 1, schema 1, image 1; zero retries, zero repairs), predicted == actual in report.md. Installs sequential (schema:subscriber-storage then block:newsletter-signup), assembled page tree stamped with the LAST install's fingerprint (asserted), published with page-no-title, front page set, Sample Page deleted, nav + footer replaced via the compile lane, 1 image generated and applied. wp_verify: exactly one h1, outline sane, image loaded, exactly one screenshot.png.",
+      "updated_at": "2026-08-24T00:00:00Z"
+    },
+    "M6_end_to_end_determinism": {
+      "status": "done",
+      "evidence": "All three clauses green. (1) accept/m6-full.sh: Moulin-Rouge-class prompt (cabaret landing) -> S=5, B=3 (scrolling marquee + count-up stats + signup blocks), P=1, I=1; every factory gate passed, ZERO dead artifacts, published + verified + one screenshot, 13 calls spent of ceiling 23, zero human input (evidence runs/20260824-220132). (2) accept/m6-determinism.sh: capture run then two all-fake replays across three fresh boots -> trees + compiled pages byte-identical, ledgers identical timestamps-excepted, 8 entries each. (3) accept/m6-swap.sh: tree task swapped cerebras/gpt-oss-120b -> gemini/gemini-flash-latest by config edit alone; ledger provider fields prove it; git-clean pipeline/stages+lib+providers before and after.",
+      "updated_at": "2026-08-24T00:00:00Z"
+    },
+    "M7_design_system": {
+      "status": "implemented-unproven",
+      "evidence": "Code complete, unit-green, NOT yet run against a live instance. 125 unit tests pass (was 118 before M7's own suites; s3-kit 18, s3b-molecules 7). New: pipeline/stages/s3-kit.mjs (replaces s3-tokens.mjs; one call emits {spec, molecules}, gated by wp_spec_validate then the unchanged M2 tokens gate), pipeline/stages/s3b-molecules.mjs (concurrent generation, sequential wp_pattern_save with epoch adoption between each), pipeline/lib/kit.mjs (the pre-call screen: $ref-resolved design-spec validation, box containment, orphan content, quantization, role coverage, slug resolution), pipeline/schemas/molecules.schema.json, pipeline/prompts/kit.md + molecule.md (tokens.md folded in and deleted), the literal screen in lib/gates.mjs. Changed: S1 plans the fan-out but no longer fixes the ceiling; S2 persists manifest-blocks.json and block_names; S4 assembles from the saved patterns and is literal-screened; S9 passes kit.json to wp_verify with widened tolerances and writes design_conformance; report.md gains a Design conformance section; TASK_TYPES loses 'tokens' and gains 'kit' and 'molecule'; every accept script rerouted. tests/accept/m7.sh written, NOT yet executed: it needs a live Playground and real provider spend.",
+      "updated_at": "2026-08-25T00:00:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-24",
+      "what": "Implementation runs on branch `pipeline` in the main checkout, not a linked worktree.",
+      "why": "The build depends on live per-checkout state a worktree cannot share: x-agent/mcp/node_modules + dist, tools/node_modules, and tools/.runtime Playground descriptors. Tree was clean at branch time; isolation is by branch."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "pipeline/ is plain ESM .mjs importing x-agent/mcp/dist directly (no TypeScript, no build step, no new npm deps); unit tests run on node:test; JSON-Schema checks use a minimal in-repo draft-07 subset validator.",
+      "why": "The spec's environment says the pipeline imports dist; proof/ set the deps-free precedent; the house rule is no ajv (x-agent/tests/schemas.test.ts) and zod is not resolvable from repo root without a new node_modules."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "S3's dry-run drift gate fails only on diff kind=value_differs in spacing.spacingSizes/layout groups; missing_on_instance entries there are ignored.",
+      "why": "wp_get_global_settings serves origin-keyed spacingSizes ({default,theme}) which the emitter's differ (array-indexed) reports wholesale as missing_on_instance even for a byte-perfect pass-through; value_differs is the only kind that means an instance value would actually change. The byte-equality of the pass-through itself is asserted locally in tokenChecks."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "Acceptance playgrounds boot programmatically on a dedicated 'pipeline-accept' slot (accept/_playground.mjs holder) at port 9410.",
+      "why": "The boot CLI has no --slot flag and the default core-only-toolchain slot was held by the owner's persistent live instance on 9400, which must never be stopped or reused."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "S5/S6 with zero declared blocks/packages are real no-ops (they initialize their artifact maps and return); W_STYLE_UNKNOWN fails a tree artifact like W_ATTR_UNKNOWN.",
+      "why": "B=0/P=0 briefs must flow through the fixed stage list without factory work \u2014 the empty fan-out IS the correct behavior, not a placeholder. An is-style-* unregistered at the current fingerprint is an invented style; the spec's mechanical screen names only W_ATTR_UNKNOWN and W_STATIC_NEEDS_HARNESS, so the conservative reading fails the unknown style and the repair lane owns it."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "S9 verifies on a FRESH session: wp_disconnect first, then wp_verify/wp_screenshot; run.mjs holds a keepalive interval and flags event-loop drains.",
+      "why": "Observed repeatedly: after S8's install-triggered epoch reloads + the image pass, the warm session can be left dead-but-cached \u2014 wp_verify then pends forever with zero chromium children, and without a keepalive the drained event loop exits 0 mid-run, masquerading as success. Standalone verify of the same URL is clean. Toolchain backlog: dead-session detection in sessionFor."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "S2 converts pattern parsed_tree from Gutenberg parse shape (blockName/attrs, whitespace nodes) to TreeIR node shape before it enters payloads or baselines.",
+      "why": "The model copies whatever idiom it is shown \u2014 parse-shaped patterns caused systematic schema_failed retries (blockName/attrs echoed back); and an S7 pattern baseline in parse shape would die at S8's wp_validate. Mechanical key mapping, not authorship."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "Per-section heading discipline rides in the tree payload (hero: the page's single h1 with attributes.level 1 EXPLICIT; other sections: h2 top, h3 items) and S9 fails on outline jumps.",
+      "why": "core/heading defaults to level 2; without the rule the verifier caught real outlines with zero h1s and h1->h3 jumps. Authoring-side prevention keeps the strict verify gate meaningful."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "Concurrent factory gates get deterministic distinct sandbox ports (blocks 9440+2i, packages 9460+2i), reused by S7 repairs.",
+      "why": "Three concurrent wp_block_build_test calls racing for 'first free port' 9440 crashed a smoke sandbox ('exited with code 1 without writing a result'), killing an innocent artifact. Port assignment is pipeline plumbing, not a toolchain change \u2014 the tools accept {port}."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "Pattern baselines are gated: S7 wp_validates a substituted pattern baseline and degrades to the minimal core/group slot on failure; content-context patterns (comments/query/post-template) are excluded from S2 pattern picking.",
+      "why": "A comments-thread pattern was picked as a stats-section baseline and failed final-epoch validation, killing the whole run in S8 \u2014 a baseline that cannot pass the same gate is not a baseline. Both fixes are mechanical selection/validation, not authorship."
+    },
+    {
+      "when": "2026-08-24",
+      "what": "Temptation log: three places invited extra retries and were held to the bound \u2014 (a) S3's dry-run gate failing after the schema-retry was burned ends the run rather than regenerating tokens; (b) S7 repairs run with maxAttempts 1, so a malformed repair output is immediately dead; (c) sandbox-boot crashes in build tests burn the artifact's single repair even though they are infrastructure failures \u2014 the port isolation removed the known cause rather than adding a retry.",
+      "why": "The bounds held in every accepted run; the ceilings were never the binding constraint (13/23 on the full-scope run). Recording per the spec's progress protocol."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Added the x-pipeline CLI (pipeline/cli.mjs + root ./x-pipeline wrapper): site new/connect/status/stop, config init, build \u2014 one command from nothing to a published site (build --new-site auto-writes pipeline.config.json from stored provider keys and boots a companion Playground). The acceptance boot holder moved to pipeline/lib/site-holder.mjs.",
+      "why": "The manual path (boot holder, jq-merge .x-agent.json, hand-write pipeline.config.json) was operator hostile. The CLI writes only the files the pipeline already reads (.x-agent.json mode 0600, pipeline.config.json, tools/.runtime descriptors) \u2014 no new state, no toolchain surface; site connect verifies with wp_connect before writing and warns on production posture."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Holistic design pass (field report: only the first section styled, empty gallery, default alignments). The brief now REQUIRES a per-section design plan ({band, layout, notes?}, at most one accent band per page, palette must cover planned bands, galleries carry 3-6 image intents as an array); every S4 tree call receives the art direction, the page's full plan, and its band resolved to applied palette slugs with luminance-measured ink pairing; templates demand band wrappers (align:full + band colors + proportional padding), content density (real lists, not summary paragraphs), image geometry, and statement scale. Plus robustness found en route: REST lane salvages JSON from PHP-notice-corrupted responses (content-type-blind \u2014 notices break wp_send_json headers), generated PHP is screened for file-level non-compound `use` (one such warning broke wp_redirect site-wide), S9 verifies the SITE ROOT (canonical redirects die when notices precede headers) and retries once on an empty measurement, footer template-part updates carry area:'footer' so reruns can find the customized part.",
+      "why": "Each S4 call was blind to the site: no art direction, no neighbors, no image plan below the hero \u2014 the model economized exactly where the payload was silent. Validated live: the same beer-bar prompt now produces banded, rhythm-coherent pages with a filled gallery (5 images loaded), and a second build on the same instance UPDATES the page (id stable) instead of minting home-2."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "CLI inventory + removal: `x-pipeline builds` (every run, newest first, each probed LIVE/gone), `site status` probes each slot URL instead of trusting its descriptor, `site use --slot` adopts a running slot, and removal in both grains \u2014 `site stop [--all] [--purge]`, `site prune` (stopped sites' directories), `builds rm <id>\u2026 | --failed | --gone | --keep N | --all` with --dry-run, confirmation (--yes required when stdin is not a TTY), live-site protection, and an assertInside fence limiting deletes to runs/ and tools/.runtime/sites/.",
+      "why": "Sites are ephemeral and artifacts are not, so 'what exists' has two answers and the tooling has to tell them apart honestly \u2014 a stale descriptor was already reporting a dead slot as running. Disk made it urgent: stopped Playgrounds had left 345MB of orphaned site directories behind, which prune reclaimed."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "The design layer is a master/junior split: ONE kit call decides the system (tokens + page rhythm + a molecule inventory) and every generative call below it only instantiates that decision. The 'tokens' task type is subsumed by 'kit'.",
+      "why": "M2-M6 shipped a pipeline whose entire visual argument is brief.art_direction (one string) plus three per-section keywords, with S sections fanned out concurrently and each inventing its own layout idiom. Tokens vary appearance; molecules vary rhythm, and recurring rhythm IS cohesion. Deciding tokens apart from the concept that motivates them is the specific failure being fixed, so the two calls become one."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "The kit is ONE call emitting {spec, molecules}, written as two artifacts: kit.json, a strict DesignSpecIR with source.kind:'synthesized' validated by wp_spec_validate unmodified, and molecules.json, a pipeline-side inventory with a pipeline-side check. It becomes S9's diff target.",
+      "why": "DesignSpecIR, wp_spec_validate and wp_verify's numeric region diff are built and tested but reachable only from from-design mode, which greenfield builds never use. S9 today calls wp_verify with no spec, so it can only screen the heading outline and image loading: a page can be structurally perfect, visually incoherent, and pass every gate. source.kind already accepts 'synthesized', so the format anticipated this. Two artifacts rather than one because design-spec.schema.json is additionalProperties:false at its root \u2014 a molecules[] key inside the spec would be E_SPEC_SCHEMA, not an extension \u2014 and widening the contract for a single agent-side consumer is not worth it."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "The budget moment moves from after S1 to after S3_kit. M is read from the kit; S, B and P are still read from the brief.",
+      "why": "M is not knowable before any design decision exists, and asking the brief to size a design system is worse than announcing the ceiling one stage later. The ceiling stays hard and pre-declared before any fan-out; only the announcement moves. This is a deliberate weakening of the spec's 'known after the first call' promise and is recorded as such."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Molecule patterns persist on the instance under agent/<kit_id>-<molecule_id>; a re-run replaces its own entries rather than accumulating.",
+      "why": "wp_pattern_save's contract is that the corpus grows its own idiom and future sessions inherit it as vocabulary; saving and then sweeping would pay for a design system and discard it. They are ordinary registered block patterns a site editor can see, so they do not violate the 'no pipeline-owned state' non-goal \u2014 that non-goal is amended to name the exception."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Recorded, not fixed: x-companion/uninstall.php does not delete the x_companion_patterns option, so an uninstalled companion leaves the agent pattern corpus orphaned in wp_options.",
+      "why": "Found while settling the persistence decision above. Deliverable-purity says it should be swept, but it is a companion-side fix and does not belong in an agent-side spec amendment. Filed here so the next companion change picks it up."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "PRE_CEILING_ALLOWANCE goes 2 -> 4, and S1 writes state.budget_plan {S,B,P,I} while S3_kit writes the full state.budget {M,S,B,P,I,base,ceiling}.",
+      "why": "The ceiling is now fixed by the kit, so exactly two calls precede it (brief, kit) and each may burn one metered schema-retry. Splitting plan from budget keeps resume honest: run.mjs only adopts a ceiling that was really fixed, and report.md can say 'the run died before the kit' instead of 'no budget'."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "A molecule that fails its gate is DROPPED, not repaired; its role falls back to the theme's own pattern corpus. Zero survivors ends the run.",
+      "why": "Found while wiring S7: repair runs after S4/S5/S6, which is far too late for vocabulary S4 already needed. The molecule call has already spent its one metered schema-retry, so the repair economy is unchanged \u2014 only the stage that would host it does not exist. A site with no vocabulary would have every section inventing its own idiom, which is the failure S3b exists to prevent, so that case fails loudly."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "With a spec supplied, wp_verify's own `pass` no longer gates the run; only the outline and image screens do.",
+      "why": "wp_verify sets pass from diffs_outside_tolerance, so passing the kit in would have made a synthesized kit's own guesses fatal \u2014 the exact outcome decision (c) rules out. Design drift is reported and attributed in report.md; the hard gates are unchanged."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "source.files is required by design-spec.schema.json, so a synthesized kit emits files: []. The prompt says so explicitly.",
+      "why": "Caught by the kit test: the contract requires the key even where there is nothing to name. An empty array is the honest record of a spec lifted from nothing, and it keeps wp_spec_validate usable unmodified."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Installed @google/genai in x-agent/mcp (it was declared in package.json but absent from node_modules).",
+      "why": "pipeline/tests/run.test.mjs and toolchain.test.mjs were failing on ERR_MODULE_NOT_FOUND before any M7 change, which made it impossible to tell new breakage from old. Both pass now."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Field-fix batch after the first M7 builds: (1) screenTreeLiterals recalibrated to match styleLiteralSeverity \u2014 absolute lengths fail only under style.spacing or as a fontSize, where presets exist; letterSpacing/border widths/radii/em pass (the tree prompt's own letterspaced kickers were only expressible as literals, and every kicker cost a schema-retry and then lost the detail); tree.md now states the rule. (2) The S7 tree-repair lane now runs the same literal screen as authoring. (3) design-tokens typography.sizes accepts an optional name (palette and families already did; a kit died a 4-minute retry on the inconsistency) \u2014 all three vendored copies updated and pinned byte-identical by test. (4) kitChecks gates the reserved base/contrast pair: both slugs must exist and contrastRatio(base, contrast) >= 4.5:1 (the invisible-header field bug, now caught in the kit's own schema-retry lane). (5) Per-task speed knob (Anthropic fast mode) routed like effort; opt-in per config, example config stays standard-speed. (6) S7 repairs fan out under the stage limiter, barrier between factory and tree phases preserved.",
+      "why": "All six were field findings from live beer-bar builds, not speculation; each gate change is pinned by a unit test."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "FIXED the recorded-not-fixed companion item: uninstall.php now deletes the x_companion_patterns option, so an uninstalled companion no longer strands the pattern corpus in wp_options.",
+      "why": "Deliverable-purity: the corpus is plugin state, not content \u2014 published pages carry compiled markup and never reference it."
+    }
+  ]
 }

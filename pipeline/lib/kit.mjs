@@ -9,6 +9,7 @@
 // Everything below the kit instantiates; nothing below it designs.
 import { readFileSync } from 'node:fs';
 import { validateSchema } from './schema.mjs';
+import { contrastRatio } from './tokens.mjs';
 
 const contractUrl = (name) => new URL(`../../contract/schemas/${name}`, import.meta.url);
 
@@ -148,6 +149,26 @@ export function kitChecks(value, { briefPalette = [], sectionRoles = [] } = {}) 
     for (const p of briefPalette) {
         if (!declared.includes(String(p.color).toLowerCase())) {
             issues.push({ path: '/spec/tokens_candidates/palette', message: `the brief's ${p.name} ${p.color} is missing from the palette` });
+        }
+    }
+
+    // The theme wires body text straight to `contrast` on `base` (field bug:
+    // a dark brief once aliased contrast to a near-black "high-contrast dark"
+    // on a near-black ground and the header vanished at 1.06:1). base is the
+    // ground, contrast is the INK — the pair must exist and must read.
+    const bySlug = Object.fromEntries((spec.tokens_candidates?.palette ?? []).map((p) => [p.slug, String(p.color)]));
+    for (const slug of ['base', 'contrast']) {
+        if (!bySlug[slug]) {
+            issues.push({ path: '/spec/tokens_candidates/palette', message: `the theme's reserved "${slug}" slug is missing — the theme's own template parts resolve base (the ground) and contrast (the ink)` });
+        }
+    }
+    if (bySlug.base && bySlug.contrast) {
+        const ratio = contrastRatio(bySlug.base, bySlug.contrast);
+        if (ratio < 4.5) {
+            issues.push({
+                path: '/spec/tokens_candidates/palette',
+                message: `contrast ${bySlug.contrast} on base ${bySlug.base} reads at ${ratio.toFixed(2)}:1 — body text needs at least 4.5:1. "contrast" means the ink colour against the ground, not a high-contrast-looking dark; on a dark base it must be LIGHT`,
+            });
         }
     }
 

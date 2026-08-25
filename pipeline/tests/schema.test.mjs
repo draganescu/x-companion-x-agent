@@ -63,3 +63,30 @@ test('the vendored design-tokens contract validates the Moulin Rouge token set',
     const tokens = JSON.parse(readFileSync(new URL('../../sites/moulin-rouge/trees/tokens.json', import.meta.url), 'utf8'));
     assert.deepEqual(validateSchema(contract, tokens), []);
 });
+
+// The kit generalizes `name` across token groups — palette and families carry
+// it, and one M7 run died a 4-minute retry because sizes forbade it. Pin the
+// consistency, and pin the three vendored copies to each other: a contract
+// that drifts between agent, companion, and mcp is how that class of bug ships.
+test('design-tokens: every token group accepts a display name, and all three copies agree', async () => {
+    const { readFileSync } = await import('node:fs');
+    const copies = [
+        '../../contract/schemas/design-tokens.schema.json',
+        '../../x-companion/fixtures/schemas/design-tokens.schema.json',
+        '../../x-agent/schemas/design-tokens.schema.json',
+    ].map((p) => readFileSync(new URL(p, import.meta.url), 'utf8'));
+    assert.equal(copies[0], copies[1], 'companion copy drifted from the contract');
+    assert.equal(copies[0], copies[2], 'x-agent copy drifted from the contract');
+
+    const contract = JSON.parse(copies[0]);
+    const named = {
+        palette: [{ slug: 'base', color: '#ffffff', name: 'Base' }],
+        spacing: { scale_unit: 'px', steps: [{ slug: '50', size: '24px' }] },
+        typography: {
+            families: [{ slug: 'body', name: 'Body', fontFamily: 'serif' }],
+            sizes: [{ slug: 'display', size: '4rem', name: 'Display' }],
+        },
+        layout: { contentSize: '640px', wideSize: '1200px' },
+    };
+    assert.deepEqual(validateSchema(contract, named), []);
+});

@@ -240,3 +240,21 @@ test('pattern slugs are namespaced per kit and stay inside the companion window'
     assert.ok(patternSlug('x'.repeat(20), 'y'.repeat(40)).length <= 64);
     assert.match(patternSlug('the-rye-ember-bakery', 'hero-split'), /^agent\/[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
 });
+
+// ---- the contrast gate (the invisible-header field bug) ----------------------
+
+test('a kit whose contrast cannot be read on base is rejected with the ratio named', () => {
+    const issues = check((k) => {
+        const p = k.spec.tokens_candidates.palette;
+        p.find((e) => e.slug === 'base').color = '#14110e';
+        p.find((e) => e.slug === 'contrast').color = '#0b0908'; // the real bug: ink ≈ ground
+    });
+    assert.ok(issues.some((i) => /4\.5:1/.test(i.message) && /must be LIGHT/.test(i.message)), JSON.stringify(issues));
+});
+
+test('the reserved base/contrast slugs must both exist', () => {
+    const issues = check((k) => {
+        k.spec.tokens_candidates.palette = k.spec.tokens_candidates.palette.filter((e) => e.slug !== 'contrast');
+    });
+    assert.ok(issues.some((i) => /reserved "contrast" slug/.test(i.message)), JSON.stringify(issues));
+});

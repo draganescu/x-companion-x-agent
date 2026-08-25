@@ -68,7 +68,7 @@ function relativeLuminance(hex) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function contrastRatio(hexA, hexB) {
+export function contrastRatio(hexA, hexB) {
     const [hi, lo] = [relativeLuminance(hexA), relativeLuminance(hexB)].sort((a, b) => b - a);
     return (hi + 0.05) / (lo + 0.05);
 }

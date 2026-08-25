@@ -192,39 +192,57 @@ export function screenOutline(outline) {
 // page looks right on the day it is built and stops tracking the palette the
 // moment anyone edits one.
 //
-// FAIL: a hex colour anywhere in a tree's attributes; an absolute length
-//   (px/rem/em/pt) anywhere under a `style` subtree, where a preset always
-//   exists to spend through.
-// PASS: `%` (column widths are a layout mechanic with no preset), preset
-//   references in either spelling (var:preset|… and var(--wp--preset--…)),
-//   and anything outside `style` that merely contains digits.
+// Calibrated like styleLiteralSeverity above: hard ONLY where a preset exists
+// to spend through.
+// FAIL: a hex colour anywhere in a tree's attributes; an absolute length under
+//   style.spacing (padding/margin/blockGap — spacing presets exist) or as a
+//   fontSize under style (fontSize presets exist).
+// PASS: every other property under `style`. Not laxness — letterSpacing,
+//   border widths and radii, line heights have NO preset category to spend
+//   through, and the tree prompt's own editorial details (letterspaced
+//   kickers, hairline borders) are only expressible as literals. `em` never
+//   fails: it is relative to its own context — a mechanic, where every preset
+//   is an absolute step on a scale. `%` passes (layout mechanic, no preset),
+//   as do preset references in either spelling (var:preset|… and
+//   var(--wp--preset--…)) and anything outside `style` that carries digits.
 const HEX_LITERAL = /#[0-9a-f]{3}(?:[0-9a-f]{3}(?:[0-9a-f]{2})?)?\b/i;
 const ABS_LENGTH = /(?:^|[\s(,])-?\d*\.?\d+(px|rem|em|pt)\b/i;
 const PRESET_REF = /var:preset\||var\(\s*--wp--preset--/;
 
 export function screenTreeLiterals(tree) {
     const failures = [];
-    const scan = (value, path, inStyle) => {
+    const scan = (value, path, key, inStyle, inSpacing) => {
         if (typeof value === 'string') {
             if (PRESET_REF.test(value)) return;
             if (HEX_LITERAL.test(value)) {
                 failures.push({ code: 'literal_value', path, message: `hex colour literal "${value}" — spend the palette slug instead` });
-            } else if (inStyle && ABS_LENGTH.test(value)) {
-                failures.push({ code: 'literal_value', path, message: `absolute length "${value}" under style — spend a preset (var:preset|spacing|NN, or the fontSize slug attribute)` });
+                return;
             }
+            const m = inStyle ? value.match(ABS_LENGTH) : null;
+            if (!m) return;
+            if (m[1].toLowerCase() === 'em') return; // relative to its own context — a mechanic, not a design value
+            if (inSpacing) {
+                failures.push({ code: 'literal_value', path, message: `absolute length "${value}" under style.spacing — spend a spacing preset (var:preset|spacing|NN)` });
+            } else if (key === 'fontSize') {
+                failures.push({ code: 'literal_value', path, message: `absolute length "${value}" as a font size — use the fontSize slug attribute or a font-size preset` });
+            }
+            // Anything else under style (letterSpacing, border widths, radii…)
+            // has no preset to spend through — allowed.
             return;
         }
         if (Array.isArray(value)) {
-            value.forEach((v, i) => scan(v, `${path}/${i}`, inStyle));
+            value.forEach((v, i) => scan(v, `${path}/${i}`, key, inStyle, inSpacing));
             return;
         }
         if (value && typeof value === 'object') {
-            for (const [k, v] of Object.entries(value)) scan(v, `${path}/${k}`, inStyle || k === 'style');
+            for (const [k, v] of Object.entries(value)) {
+                scan(v, `${path}/${k}`, k, inStyle || k === 'style', inSpacing || (inStyle && k === 'spacing'));
+            }
         }
     };
     const walk = (node, path) => {
         if (!node || typeof node !== 'object') return;
-        if (node.attributes) scan(node.attributes, `${path}/attributes`, false);
+        if (node.attributes) scan(node.attributes, `${path}/attributes`, null, false, false);
         (node.innerBlocks ?? []).forEach((child, i) => walk(child, `${path}/innerBlocks/${i}`));
     };
     (tree?.blocks ?? []).forEach((node, i) => walk(node, `/blocks/${i}`));
