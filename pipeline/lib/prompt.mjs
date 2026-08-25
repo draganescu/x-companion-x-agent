@@ -36,3 +36,17 @@ export function askHidden(question) {
         });
     });
 }
+
+/**
+ * Destructive-action gate. Non-TTY callers must pass --yes explicitly: an
+ * unattended session must never delete because nobody answered.
+ */
+export async function confirm(question, { assumeYes = false } = {}) {
+    if (assumeYes) return true;
+    if (!process.stdin.isTTY) {
+        throw new PipelineError('preflight_failed', `${question} — refusing to delete without confirmation`,
+            'Re-run with --yes to confirm non-interactively.');
+    }
+    const answer = await ask(`${question} [y/N]`);
+    return /^y(es)?$/i.test(answer.trim());
+}

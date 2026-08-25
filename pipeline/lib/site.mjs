@@ -3,8 +3,8 @@
 // All state lives in the two files the pipeline already reads (.x-agent.json,
 // pipeline.config.json) plus tools/.runtime — no new state anywhere.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, openSync, chmodSync, rmSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, openSync, chmodSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PipelineError } from './errors.mjs';
 import { TASK_TYPES } from './config.mjs';
@@ -226,4 +226,100 @@ export function listBuilds(cwd) {
         });
     }
     return builds;
+}
+
+/* -------------------------------------------------------------------- removal */
+
+/** Refuse to delete anything outside a known parent — an rm -rf needs a fence. */
+function assertInside(parent, target) {
+    const p = resolve(parent);
+    const t = resolve(target);
+    if (t === p || !t.startsWith(`${p}${sep}`)) {
+        throw new PipelineError('preflight_failed', `refusing to delete ${t}: outside ${p}`);
+    }
+}
+
+/**
+ * Playground site directories on disk, one per slot. A stopped site leaves its
+ * whole WordPress behind (~120MB) — `live` marks the ones a holder still owns.
+ */
+export function listSiteDirs() {
+    const sitesDir = join(RUNTIME_DIR, 'sites');
+    let names = [];
+    try {
+        names = readdirSync(sitesDir);
+    } catch {
+        return [];
+    }
+    const liveSlots = new Set(listSites().filter((s) => s.alive !== false).map((s) => s.slot));
+    return names.map((slot) => ({
+        slot,
+        dir: join(sitesDir, slot),
+        live: liveSlots.has(slot),
+        bytes: dirSize(join(sitesDir, slot)),
+    }));
+}
+
+export function dirSize(dir) {
+    let total = 0;
+    let stack = [dir];
+    while (stack.length > 0) {
+        const cur = stack.pop();
+        let entries = [];
+        try {
+            entries = readdirSync(cur, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+        for (const e of entries) {
+            const p = join(cur, e.name);
+            if (e.isDirectory()) stack.push(p);
+            else {
+                try {
+                    total += statSync(p).size;
+                } catch {
+                    // vanished mid-walk: ignore
+                }
+            }
+        }
+    }
+    return total;
+}
+
+/** Delete one slot's site directory and its runtime files. Never a live slot. */
+export function removeSiteDir(slot, { force = false } = {}) {
+    const entry = listSiteDirs().find((s) => s.slot === slot);
+    if (!entry) throw new PipelineError('preflight_failed', `no site directory for slot "${slot}"`);
+    if (entry.live && !force) {
+        throw new PipelineError('preflight_failed', `slot "${slot}" is still running`,
+            `Stop it first: x-pipeline site stop --slot ${slot}`);
+    }
+    assertInside(join(RUNTIME_DIR, 'sites'), entry.dir);
+    rmSync(entry.dir, { recursive: true, force: true });
+    for (const f of [`${slot}.json`, `${slot}.pid`, `${slot}.boot.log`, `${slot}.log`, `${slot}.ready.json`]) {
+        rmSync(join(RUNTIME_DIR, f), { force: true });
+    }
+    return { slot, bytes: entry.bytes };
+}
+
+/** Delete build artifact directories. Returns what was removed. */
+export function removeBuilds(cwd, runs) {
+    const runsRoot = join(cwd, 'runs');
+    const removed = [];
+    for (const run of runs) {
+        const dir = join(runsRoot, run);
+        assertInside(runsRoot, dir);
+        if (!existsSync(dir)) continue;
+        const bytes = dirSize(dir);
+        rmSync(dir, { recursive: true, force: true });
+        removed.push({ run, bytes });
+    }
+    return removed;
+}
+
+export function formatBytes(n) {
+    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}GB`;
+    if (n >= 1e6) return `${Math.round(n / 1e6)}MB`;
+    if (n >= 1e3) return `${Math.round(n / 1e3)}KB`;
+    return `${n}B`;
 }

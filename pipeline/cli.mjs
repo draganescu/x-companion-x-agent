@@ -6,6 +6,8 @@
 //   x-pipeline site status     show connected site + Playground slots, probed live
 //   x-pipeline site use        build against an already-running slot
 //   x-pipeline builds          every site built here, newest first, with live/gone state
+//   x-pipeline builds rm       delete build artifacts (by id, --failed/--gone/--keep/--all)
+//   x-pipeline site prune      reclaim disk from stopped sites
 //   x-pipeline site stop       stop a booted Playground and clear its connection
 //   x-pipeline config init     write pipeline.config.json (and store a provider key)
 //   x-pipeline build "<prompt>"  run the compiler S1→S9 (auto-writes config if missing)
@@ -13,14 +15,15 @@
 // State lives only where the pipeline already reads it: .x-agent.json
 // (connection + provider keys, chmod 600, gitignored), pipeline.config.json
 // (task routing, gitignored), tools/.runtime (Playground descriptors).
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PipelineError } from './lib/errors.mjs';
 import { loadPipelineConfig, readProviderKeys } from './lib/config.mjs';
-import { ask, askHidden } from './lib/prompt.mjs';
+import { ask, askHidden, confirm } from './lib/prompt.mjs';
 import {
-    bootSite, stopSite, listSites, listBuilds, readDescriptor, mergeConnection, scrubConnection, readAgentConfig,
+    bootSite, stopSite, listSites, listBuilds, readDescriptor, mergeConnection,
+    listSiteDirs, removeSiteDir, removeBuilds, formatBytes, dirSize as sizeOf, scrubConnection, readAgentConfig,
     storeProviderKey, defaultBuildConfig, pickProvider, writeBuildConfig,
     PROVIDER_DEFAULT_MODELS, PROVIDER_KEY_FIELDS, DEFAULT_SLOT, DEFAULT_PORT,
 } from './lib/site.mjs';
@@ -51,8 +54,11 @@ usage:
   x-pipeline site connect   [--url URL] [--user USER] [--app-password PASS]
   x-pipeline site status
   x-pipeline site use       --slot NAME                 build against an already-running slot
-  x-pipeline site stop      [--slot ${DEFAULT_SLOT}] [--port N]
-  x-pipeline builds         [--all] [--limit N]     every site built here, newest first
+  x-pipeline site stop      [--slot ${DEFAULT_SLOT}] [--all] [--purge] [--yes]
+  x-pipeline site prune     [--dry-run] [--yes]                reclaim disk from stopped sites
+  x-pipeline builds         [--all] [--limit N]                every site built here, newest first
+  x-pipeline builds rm      <run-id>… | --failed | --gone | --keep N | --all
+                            [--dry-run] [--yes]                delete build artifacts
   x-pipeline config init    [--provider cerebras|gemini|anthropic|openai] [--model ID] [--key API_KEY] [--force]
   x-pipeline build "<prompt>" [--until STAGE] [--resume RUN_DIR] [--config PATH]
                               [--new-site] [--port N] [--slot NAME]
@@ -130,6 +136,14 @@ async function siteUse(flags) {
     log(`now building against slot ${slot}: ${info.site_url} (posture ${info.posture}, fingerprint ${info.fingerprint.slice(0, 8)}…)`);
 }
 
+function dirBytes(dir) {
+    try {
+        return statSync(dir).isDirectory() ? sizeOf(dir) : 0;
+    } catch {
+        return 0;
+    }
+}
+
 async function reachable(url) {
     try {
         const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(4000) });
@@ -174,6 +188,73 @@ async function builds(flags) {
     }
 }
 
+async function buildsRm(flags, positionals) {
+    const all = listBuilds(process.cwd());
+    if (all.length === 0) {
+        log('no builds to remove');
+        return;
+    }
+
+    let selected;
+    if (positionals.length > 0) {
+        const known = new Map(all.map((b) => [b.run, b]));
+        const missing = positionals.filter((r) => !known.has(r));
+        if (missing.length > 0) {
+            throw new PipelineError('preflight_failed', `no such build(s): ${missing.join(', ')}`,
+                'List them with: x-pipeline builds --all');
+        }
+        selected = positionals.map((r) => known.get(r));
+    } else if (flags.failed) {
+        selected = all.filter((b) => b.status.startsWith('failed') || b.status === 'empty');
+    } else if (flags.gone) {
+        const live = new Map();
+        for (const url of new Set(all.map((b) => b.url).filter(Boolean))) live.set(url, await reachable(url));
+        selected = all.filter((b) => !b.url || !live.get(b.url));
+    } else if (flags.keep !== undefined) {
+        selected = all.slice(Number(flags.keep));
+    } else if (flags.all) {
+        selected = all;
+    } else {
+        throw new PipelineError('preflight_failed', 'nothing selected',
+            'Pass run ids, or one of --failed | --gone | --keep N | --all (see --help).');
+    }
+
+    if (selected.length === 0) {
+        log('nothing matched — nothing removed');
+        return;
+    }
+
+    // Never quietly discard the record of a site that is still serving.
+    const liveChecks = new Map();
+    for (const url of new Set(selected.map((b) => b.url).filter(Boolean))) {
+        liveChecks.set(url, await reachable(url));
+    }
+    const stillLive = selected.filter((b) => b.url && liveChecks.get(b.url));
+    if (stillLive.length > 0 && !flags['include-live']) {
+        for (const b of stillLive) log(`keeping ${b.run} — its site is still LIVE at ${b.url}`);
+        selected = selected.filter((b) => !(b.url && liveChecks.get(b.url)));
+        log('(pass --include-live to remove those too; the site keeps running either way)');
+        if (selected.length === 0) {
+            log('nothing left to remove');
+            return;
+        }
+    }
+
+    const total = selected.reduce((n, b) => n + dirBytes(b.runDir), 0);
+    log(`${selected.length} build(s) to remove, ${formatBytes(total)}:`);
+    for (const b of selected) log(`  ${b.run}  ${b.title} — ${b.status}`);
+    if (flags['dry-run']) {
+        log('dry run — nothing deleted');
+        return;
+    }
+    if (!await confirm(`Delete ${selected.length} build director(ies)?`, { assumeYes: Boolean(flags.yes) })) {
+        log('cancelled');
+        return;
+    }
+    const removed = removeBuilds(process.cwd(), selected.map((b) => b.run));
+    log(`removed ${removed.length} build(s), reclaimed ${formatBytes(removed.reduce((n, r) => n + r.bytes, 0))}`);
+}
+
 async function siteStatus() {
     const sites = listSites();
     if (sites.length === 0) log('no Playground slots known to this checkout');
@@ -199,13 +280,65 @@ async function siteStatus() {
     }
 }
 
-async function siteStop(flags) {
-    const slot = flags.slot ?? DEFAULT_SLOT;
-    const { port, url } = stopSite({ slot, ...(flags.port ? { port: Number(flags.port) } : {}) });
-    log(`stopped port ${port}${url ? ` (${url})` : ''}`);
+async function stopOne(slot, { port, purge }) {
+    const { port: stoppedPort, url } = stopSite({ slot, ...(port ? { port: Number(port) } : {}) });
+    log(`stopped slot ${slot} on port ${stoppedPort}${url ? ` (${url})` : ''}`);
     if (url && scrubConnection(process.cwd(), { onlyUrl: url })) {
-        log('cleared the matching connection from .x-agent.json (provider keys kept)');
+        log('  cleared the matching connection from .x-agent.json (provider keys kept)');
     }
+    if (purge) {
+        try {
+            const { bytes } = removeSiteDir(slot, { force: true });
+            log(`  purged its site directory (${formatBytes(bytes)} reclaimed)`);
+        } catch (e) {
+            log(`  could not purge the site directory: ${e.message}`);
+        }
+    }
+}
+
+async function siteStop(flags) {
+    if (flags.all) {
+        const slots = listSites();
+        if (slots.length === 0) {
+            log('no slots to stop');
+            return;
+        }
+        log(`this will stop ${slots.length} site(s) — a stopped Playground is GONE:`);
+        for (const s of slots) log(`  ${s.slot}: ${s.url}`);
+        if (!await confirm(`Stop all ${slots.length}?`, { assumeYes: Boolean(flags.yes) })) {
+            log('cancelled');
+            return;
+        }
+        for (const s of slots) await stopOne(s.slot, { purge: flags.purge });
+        return;
+    }
+    await stopOne(flags.slot ?? DEFAULT_SLOT, { port: flags.port, purge: flags.purge });
+}
+
+async function sitePrune(flags) {
+    const orphans = listSiteDirs().filter((s) => !s.live);
+    if (orphans.length === 0) {
+        log('no stopped site directories — nothing to reclaim');
+        return;
+    }
+    const total = orphans.reduce((n, s) => n + s.bytes, 0);
+    log(`${orphans.length} stopped site director(ies), ${formatBytes(total)}:`);
+    for (const s of orphans) log(`  ${s.slot}  ${formatBytes(s.bytes)}`);
+    if (flags['dry-run']) {
+        log('dry run — nothing deleted');
+        return;
+    }
+    if (!await confirm(`Delete these ${orphans.length} director(ies)?`, { assumeYes: Boolean(flags.yes) })) {
+        log('cancelled');
+        return;
+    }
+    let freed = 0;
+    for (const s of orphans) {
+        const { bytes } = removeSiteDir(s.slot);
+        freed += bytes;
+        log(`  removed ${s.slot}`);
+    }
+    log(`reclaimed ${formatBytes(freed)}`);
 }
 
 async function configInit(flags) {
@@ -308,8 +441,14 @@ export async function main(argv) {
             const { flags } = parseArgs(rest);
             await siteUse(flags);
         } else if (cmd === 'site' && sub === 'stop') {
-            const { flags } = parseArgs(rest);
+            const { flags } = parseArgs(rest, { booleans: ['all', 'purge', 'yes'] });
             await siteStop(flags);
+        } else if (cmd === 'site' && sub === 'prune') {
+            const { flags } = parseArgs(rest, { booleans: ['yes', 'dry-run'] });
+            await sitePrune(flags);
+        } else if (cmd === 'builds' && sub === 'rm') {
+            const { flags, positionals } = parseArgs(rest, { booleans: ['all', 'failed', 'gone', 'yes', 'dry-run', 'include-live'] });
+            await buildsRm(flags, positionals);
         } else if (cmd === 'builds') {
             const { flags } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['all'] });
             await builds(flags);

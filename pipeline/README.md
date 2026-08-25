@@ -34,6 +34,31 @@ compiled markup, ledger, report, screenshot. To bring a design back, rebuild fro
 same prompt; to look at what a past build produced, open its `report.md` and
 `screenshot.png`.
 
+## Removing things
+
+```bash
+# one at a time
+./x-pipeline site stop --slot my-site            # stop a site (a stopped Playground is gone)
+./x-pipeline site stop --slot my-site --purge    # …and delete its ~120MB WordPress directory
+./x-pipeline builds rm 20260825-112451           # delete one build's artifacts
+
+# in bulk
+./x-pipeline site stop --all [--purge]           # stop every running site
+./x-pipeline site prune                          # delete every STOPPED site's directory
+./x-pipeline builds rm --failed                  # every build that failed or never got going
+./x-pipeline builds rm --gone                    # every build whose site no longer answers
+./x-pipeline builds rm --keep 5                  # keep the 5 newest, delete the rest
+./x-pipeline builds rm --all
+```
+
+Safety, in every one of them: `--dry-run` shows exactly what would go and deletes
+nothing; you are asked to confirm before anything is removed (`--yes` skips the
+prompt, and is **required** when stdin is not a terminal — an unattended run never
+deletes by default); a build whose site is still LIVE is kept back unless you pass
+`--include-live`; a running slot's directory is never deleted; and deletion is
+fenced to `runs/` and `tools/.runtime/sites/`, so a stray argument cannot reach
+anything else.
+
 ## Commands
 
 | command | what it does |
@@ -43,7 +68,9 @@ same prompt; to look at what a past build produced, open its `report.md` and
 | `x-pipeline site status` | every Playground slot, **probed live** (a descriptor is a claim, not proof), plus the current connection |
 | `x-pipeline site use --slot NAME` | point builds at an already-running slot, using its stored credentials |
 | `x-pipeline builds [--all] [--limit N]` | every site built from this checkout, newest first: title, budget, artifacts, and whether its URL still answers |
-| `x-pipeline site stop [--slot NAME]` | stop the Playground and clear its connection (provider keys stay) |
+| `x-pipeline site stop [--slot NAME] [--all] [--purge]` | stop one site or all of them; `--purge` also deletes the site directory |
+| `x-pipeline site prune` | delete the directories of already-stopped sites (each is ~120MB) |
+| `x-pipeline builds rm …` | delete build artifacts: by run id, or `--failed` / `--gone` / `--keep N` / `--all` |
 | `x-pipeline config init [--provider P] [--model M]` | write `pipeline.config.json` with the proven per-task temperatures; stores the provider key in `.x-agent.json` if missing |
 | `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first |
 

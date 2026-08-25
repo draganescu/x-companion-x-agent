@@ -109,3 +109,37 @@ test('listBuilds reads every run newest-first with title, url and status', async
 
     assert.deepEqual(listBuilds(mkdtempSync(join(tmpdir(), 'x-pipeline-empty-'))), []);
 });
+
+test('removeBuilds deletes only the named runs and refuses to escape runs/', async () => {
+    const { removeBuilds, formatBytes } = await import('../lib/site.mjs');
+    const cwd = mkdtempSync(join(tmpdir(), 'x-pipeline-rm-'));
+    for (const run of ['20260101-000000', '20260102-000000', '20260103-000000']) {
+        mkdirSync(join(cwd, 'runs', run), { recursive: true });
+        writeFileSync(join(cwd, 'runs', run, 'state.json'), JSON.stringify({ completed: [] }));
+    }
+    const sentinel = join(cwd, 'precious.txt');
+    writeFileSync(sentinel, 'do not delete');
+
+    const removed = removeBuilds(cwd, ['20260101-000000', '20260103-000000']);
+    assert.deepEqual(removed.map((r) => r.run), ['20260101-000000', '20260103-000000']);
+    assert.ok(removed.every((r) => r.bytes > 0));
+    assert.equal(existsSync(join(cwd, 'runs', '20260102-000000')), true);
+    assert.equal(existsSync(join(cwd, 'runs', '20260101-000000')), false);
+
+    // path traversal is fenced, and the sentinel survives
+    assert.throws(() => removeBuilds(cwd, ['../..']), (e) => /refusing to delete/.test(e.message));
+    assert.throws(() => removeBuilds(cwd, ['../precious.txt']), (e) => /refusing to delete/.test(e.message));
+    assert.equal(existsSync(sentinel), true);
+
+    // unknown runs are skipped, not fatal
+    assert.deepEqual(removeBuilds(cwd, ['20991231-235959']), []);
+    assert.equal(formatBytes(1_500_000), '2MB');
+    assert.equal(formatBytes(512), '512B');
+});
+
+test('confirm refuses to delete unattended without --yes', async () => {
+    const { confirm } = await import('../lib/prompt.mjs');
+    assert.equal(await confirm('Delete everything?', { assumeYes: true }), true);
+    // stdin is not a TTY under the test runner: must refuse rather than hang
+    await assert.rejects(confirm('Delete everything?'), (e) => e.code === 'preflight_failed' && /--yes/.test(e.hint));
+});
