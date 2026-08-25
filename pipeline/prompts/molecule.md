@@ -1,6 +1,6 @@
 ---
 task_type: molecule
-required: [molecule, art_direction, region, band_colors, manifest_slice, token_slugs, epoch]
+required: [molecule, art_direction, band_colors, manifest_slice, token_slugs, epoch]
 ---
 You are building ONE reusable arrangement as TreeIR JSON. The design is already
 decided; your job is to realize the recipe below exactly, in blocks the site has.
@@ -34,10 +34,6 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 {{molecule}}
 
 **Art direction, for tone only:** {{art_direction}}
-
-**The page region this arrangement lives in** (null if it is used in several places —
-then build it to stand on its own):
-{{region}}
 
 **Band colours** — the resolved slugs for this arrangement's band. Spend these, not
 your own reading of the palette:

@@ -37,23 +37,6 @@ export function writeReport(runDir, { state, budget, ledger }) {
     }
     lines.push('');
 
-    const conf = state.design_conformance;
-    if (conf) {
-        lines.push('## Design conformance', '');
-        lines.push(`The finished page measured against \`kit.json\`: **${conf.within_tolerance} of ${conf.regions}** planned region(s) within tolerance.`, '');
-        lines.push('A synthesized kit is inference, not measurement, so this is diffed at region granularity with widened tolerances and never fails the run. Every drift below is attributable: a kit decision, a mapping approximation, or a gap in the available blocks.', '');
-        if (conf.drift.length === 0) {
-            lines.push('No region drifted.', '');
-        } else {
-            lines.push('| region | role | from molecule | kind | expected | actual | delta |', '|---|---|---|---|---|---|---|');
-            for (const d of conf.drift) {
-                const fmt = (v) => (v === null || v === undefined ? '—' : `\`${JSON.stringify(v)}\``);
-                lines.push(`| ${d.region_id} | ${d.role ?? '—'} | ${d.molecule ?? '—'} | ${d.kind} | ${fmt(d.expected)} | ${fmt(d.actual)} | ${fmt(d.delta)} |`);
-            }
-            lines.push('');
-        }
-    }
-
     const arts = state.artifacts ?? {};
     const rows = [];
     for (const kind of ['molecules', 'trees', 'blocks', 'packages']) {

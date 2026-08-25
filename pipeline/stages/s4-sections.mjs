@@ -22,7 +22,6 @@ export async function run(ctx) {
     const allowedUnknown = new Set(brief.custom_blocks.map((b) => `agent/${b.slug}`));
     // The vocabulary S3b saved. A section ASSEMBLES from these rather than
     // inventing its own idiom — recurrence of structure is what cohesion is.
-    const kit = JSON.parse(readFileSync(join(ctx.runDir, 'kit.json'), 'utf8'));
     const { molecules, saved = [] } = JSON.parse(readFileSync(join(ctx.runDir, 'molecules.json'), 'utf8'));
     const savedIds = new Set(saved.map((s2) => s2.id));
     const moleculeTree = (id) => {
@@ -32,9 +31,6 @@ export async function run(ctx) {
             return null;
         }
     };
-    const kitRegions = new Map();
-    const walkRegions = (rs) => (rs ?? []).forEach((r) => { kitRegions.set(r.role, kitRegions.get(r.role) ?? r); walkRegions(r.children); });
-    walkRegions(kit.regions);
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -86,7 +82,6 @@ export async function run(ctx) {
             // The kit's vocabulary first; the theme's corpus only as a fallback
             // for a role the kit somehow left uncovered.
             molecules: forRole,
-            kit_region: kitRegions.get(section.role) ?? null,
             pattern_tree: forRole.length > 0 ? null : (entry.pattern?.parsed_tree ?? null),
             token_slugs: tokenSlugs,
             epoch,

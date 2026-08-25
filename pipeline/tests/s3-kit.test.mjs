@@ -20,69 +20,34 @@ const THEME_TOKENS = {
     layout: { contentSize: '640px', wideSize: '1200px' },
 };
 
-function goodSpec() {
-    const spacing = deriveThemeSpacing(THEME_TOKENS);
-    const layout = deriveThemeLayout(THEME_TOKENS);
-    const palette = [
-        { slug: 'base', name: 'Base', color: '#F6EFE6' },
-        { slug: 'contrast', name: 'Contrast', color: '#3B2A1E' },
-        { slug: 'ember', name: 'Ember', color: '#D96C2C', role: 'accent' },
-        { slug: 'crust', name: 'Crust', color: '#8A5A33', role: 'primary' },
-    ];
-    const sizes = [{ slug: 'display', size: '4rem', fluid: { min: '2.75rem', max: '6rem' } }];
+function goodTokens() {
     return {
-        version: 1,
-        source: { kind: 'synthesized', files: [], viewport: { width: 1440, height: 2400 } },
-        tokens_candidates: {
-            palette,
-            spacing,
-            typography: { families: [{ slug: 'serif-display', name: 'Serif Display', fontFamily: 'Georgia, serif' }], sizes },
-            layout,
-            quantization_log: [
-                ...palette.map((p) => ({ observed: p.color, snapped_to: p.color, delta: '0', note: `${p.name} — the brief's own` })),
-                ...spacing.steps.map((s) => ({ observed: s.size, snapped_to: s.size, delta: '0', note: "the theme's own step, passed through" })),
-                { observed: '4rem', snapped_to: '4rem', delta: '0', note: 'display step: one clear tier above the body scale' },
-                { observed: '640px', snapped_to: '640px', delta: '0', note: "the theme's measured text column" },
-                { observed: '1200px', snapped_to: '1200px', delta: '0', note: "the theme's wide rail" },
-            ],
+        palette: [
+            { slug: 'base', name: 'Base', color: '#F6EFE6' },
+            { slug: 'contrast', name: 'Contrast', color: '#3B2A1E' },
+            { slug: 'ember', name: 'Ember', color: '#D96C2C', role: 'accent' },
+            { slug: 'crust', name: 'Crust', color: '#8A5A33', role: 'primary' },
+        ],
+        spacing: deriveThemeSpacing(THEME_TOKENS),
+        typography: {
+            families: [{ slug: 'serif-display', name: 'Serif Display', fontFamily: 'Georgia, serif' }],
+            sizes: [{ slug: 'display', size: '4rem', name: 'Display', fluid: { min: '2.75rem', max: '6rem' } }],
         },
-        content: [
-            { id: 'c-headline', kind: 'heading', text: 'Bread worth the walk', region_id: 'r-hero' },
-            { id: 'c-lede', kind: 'paragraph', text: 'Sourdough pulled from the oven every morning at six.', region_id: 'r-hero' },
-            { id: 'c-features', kind: 'heading', text: 'What we bake', region_id: 'r-features' },
-            { id: 'c-cta', kind: 'button', text: 'Reserve a loaf', region_id: 'r-cta' },
-        ],
-        regions: [
-            {
-                id: 'r-hero', role: 'hero', box: { x: 0, y: 0, w: 1440, h: 760 },
-                layout: { direction: 'row', gap_px: 48 }, style_refs: { background_palette_slug: 'base', palette_slug: 'contrast', font_size_slug: 'display' },
-                responsive_assumptions: [{ breakpoint: '<=781px', change: 'the two columns stack; copy leads', confidence: 'synthesized' }],
-            },
-            {
-                id: 'r-features', role: 'features', box: { x: 0, y: 760, w: 1440, h: 900 },
-                layout: { direction: 'grid', gap_px: 32, columns: 3 }, style_refs: { background_palette_slug: 'base', palette_slug: 'contrast' },
-                responsive_assumptions: [{ breakpoint: '<=781px', change: 'three columns become one', confidence: 'synthesized' }],
-            },
-            {
-                id: 'r-cta', role: 'cta', box: { x: 0, y: 1660, w: 1440, h: 460 },
-                layout: { direction: 'column', gap_px: 24 }, style_refs: { background_palette_slug: 'ember', palette_slug: 'contrast' },
-                responsive_assumptions: [{ breakpoint: '<=781px', change: 'outer padding drops one step', confidence: 'synthesized' }],
-            },
-        ],
+        layout: deriveThemeLayout(THEME_TOKENS),
     };
 }
 
 function goodMolecules() {
     return [
-        { id: 'hero-split', role: 'hero', when_to_use: 'The opening statement, copy left and image right.', recipe: { blocks: ['core/group', 'core/columns'], layout: 'split' }, style_refs: { background_palette_slug: 'base', spacing_slugs: ['50'] }, region_id: 'r-hero' },
+        { id: 'hero-split', role: 'hero', when_to_use: 'The opening statement, copy left and image right.', recipe: { blocks: ['core/group', 'core/columns'], layout: 'split' }, style_refs: { background_palette_slug: 'base', spacing_slugs: ['50'] } },
         { id: 'card-row', role: 'features', when_to_use: 'Three or more short items that read as peers.', recipe: { blocks: ['core/columns', 'core/column'], layout: 'grid' }, style_refs: { background_palette_slug: 'base' } },
         { id: 'cta-band', role: 'cta', when_to_use: 'A full-bleed band asking for one action.', recipe: { blocks: ['core/group', 'core/buttons'], layout: 'centered' }, style_refs: { background_palette_slug: 'ember' } },
     ];
 }
 
-const goodKit = () => ({ spec: goodSpec(), molecules: goodMolecules() });
+const goodKit = () => ({ tokens: goodTokens(), molecules: goodMolecules() });
 
-function makeCtx({ outputs, dryDiff = [], specDiagnostics = [] }) {
+function makeCtx({ outputs, dryDiff = [] }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s3kit-'));
     mkdirSync(join(runDir, 'molecules'), { recursive: true });
     const budget = new BudgetMeter({});
@@ -96,9 +61,6 @@ function makeCtx({ outputs, dryDiff = [], specDiagnostics = [] }) {
         log: () => {},
         call: async (name, args) => {
             calls.push([name, args]);
-            if (name === 'wp_spec_validate') {
-                return { ok: true, data: { valid: specDiagnostics.length === 0, diagnostics: specDiagnostics } };
-            }
             assert.equal(name, 'wp_tokens_apply');
             if (args.dry_run) {
                 return { ok: true, data: { applied: false, dry_run: true, theme_json_preview: { color: { palette: args.palette } }, diff_against_instance: dryDiff, fingerprint: 'f1' } };
@@ -108,12 +70,13 @@ function makeCtx({ outputs, dryDiff = [], specDiagnostics = [] }) {
     };
 }
 
-test('S3 happy path: spec gate, budget fixed HERE, dry run, real apply moves the fingerprint', async () => {
+test('S3 happy path: budget fixed HERE, dry run, real apply moves the fingerprint', async () => {
     const ctx = makeCtx({ outputs: [JSON.stringify(goodKit())] });
     await s3.run(ctx);
-    assert.deepEqual(ctx.calls.map((c) => c[0]), ['wp_spec_validate', 'wp_tokens_apply', 'wp_tokens_apply']);
-    assert.equal(ctx.calls[1][1].dry_run, true);
-    assert.equal(ctx.calls[2][1].dry_run, undefined);
+    // The lean kit has no spec gate: two tool calls, both the tokens gate's.
+    assert.deepEqual(ctx.calls.map((c) => c[0]), ['wp_tokens_apply', 'wp_tokens_apply']);
+    assert.equal(ctx.calls[0][1].dry_run, true);
+    assert.equal(ctx.calls[1][1].dry_run, undefined);
     for (const f of ['kit.json', 'molecules.json', 'tokens.json', 'tokens-dry-run.json']) {
         assert.ok(existsSync(join(ctx.runDir, f)), `${f} written`);
     }
@@ -121,33 +84,16 @@ test('S3 happy path: spec gate, budget fixed HERE, dry run, real apply moves the
     assert.equal(ctx.state.budget.M, 3);
     assert.equal(ctx.budget.ceiling, 2 * (1 + 1 + 3 + 3 + 1 + 1) + ctx.state.budget.I);
     assert.equal(ctx.state.fingerprint, 'f2');
-    assert.equal(JSON.parse(readFileSync(join(ctx.runDir, 'kit.json'), 'utf8')).source.kind, 'synthesized');
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(ctx.runDir, 'kit.json'), 'utf8'))).sort(), ['molecules', 'tokens']);
 });
 
-test('an unlogged token value burns the schema-retry, then the logged kit passes', async () => {
+test('a semantic miss burns the schema-retry, then a clean kit passes', async () => {
     const bad = goodKit();
-    bad.spec.tokens_candidates.quantization_log = bad.spec.tokens_candidates.quantization_log.filter((q) => q.snapped_to !== '#D96C2C');
+    bad.molecules = bad.molecules.filter((m) => m.role !== 'cta'); // a brief role left uncovered
     const ctx = makeCtx({ outputs: [JSON.stringify(bad), JSON.stringify(goodKit())] });
     await s3.run(ctx);
     assert.equal(ctx.budget.spent, 2);
     assert.deepEqual(ctx.ledger.entries.map((e) => e.outcome), ['schema_failed', 'ok']);
-});
-
-test('wp_spec_validate errors are a gate failure and the tokens never apply', async () => {
-    const ctx = makeCtx({
-        outputs: [JSON.stringify(goodKit())],
-        specDiagnostics: [{ code: 'E_BOX_OVERLAP', severity: 'error', path: '/regions/0', message: 'child escapes parent' }],
-    });
-    await assert.rejects(s3.run(ctx), (e) => e.code === 'gate_failed' && /E_BOX_OVERLAP/.test(e.message));
-    assert.deepEqual(ctx.calls.map((c) => c[0]), ['wp_spec_validate']);
-});
-
-test('W_UNQUANTIZED from the server gate is promoted to a failure', async () => {
-    const ctx = makeCtx({
-        outputs: [JSON.stringify(goodKit())],
-        specDiagnostics: [{ code: 'W_UNQUANTIZED', severity: 'warning', path: '/tokens_candidates', message: 'no log entry for #D96C2C' }],
-    });
-    await assert.rejects(s3.run(ctx), (e) => e.code === 'gate_failed' && /W_UNQUANTIZED/.test(e.message));
 });
 
 test('R9 drift in the dry-run diff is still a gate failure', async () => {
@@ -171,28 +117,6 @@ test('a clean kit produces no issues', () => {
     assert.deepEqual(check(() => {}), []);
 });
 
-test('a lifted spec is rejected: a kit is inferred, and says so', () => {
-    const issues = check((k) => { k.spec.source.kind = 'image'; });
-    assert.ok(issues.some((i) => /synthesized/.test(i.message)), JSON.stringify(issues));
-});
-
-test('a child box escaping its parent is caught before the round trip', () => {
-    const issues = check((k) => {
-        k.spec.regions[0].children = [{ id: 'r-hero-copy', role: 'column', box: { x: 0, y: 0, w: 1440, h: 2000 } }];
-    });
-    assert.ok(issues.some((i) => /escapes parent/.test(i.message)), JSON.stringify(issues));
-});
-
-test('content pointing at no region is caught', () => {
-    const issues = check((k) => { k.spec.content[0].region_id = 'r-nowhere'; });
-    assert.ok(issues.some((i) => /not a region/.test(i.message)));
-});
-
-test('a contentless kit is refused: the verifier matches on text as well as geometry', () => {
-    const issues = check((k) => { k.spec.content = [{ id: 'c1', kind: 'other', text: 'ok', region_id: 'r-hero' }]; });
-    assert.ok(issues.some((i) => /real copy/.test(i.message)), JSON.stringify(issues));
-});
-
 test('a role the brief uses with no molecule is refused', () => {
     const issues = check((k) => { k.molecules = k.molecules.filter((m) => m.role !== 'cta'); });
     assert.ok(issues.some((i) => /no molecule for the "cta"/.test(i.message)));
@@ -208,30 +132,35 @@ test('a non-core block in a recipe is refused: an atom is never a custom block',
     assert.ok(issues.some((i) => /molecules/.test(i.path)), JSON.stringify(issues));
 });
 
-test('a top-level region with no responsive assumption is refused', () => {
-    const issues = check((k) => { delete k.spec.regions[1].responsive_assumptions; });
-    assert.ok(issues.some((i) => /responsive_assumption/.test(i.message)));
-});
-
 test('a dropped brief colour is refused', () => {
     const issues = check((k) => {
-        k.spec.tokens_candidates.palette = k.spec.tokens_candidates.palette.filter((p) => p.slug !== 'ember');
+        k.tokens.palette = k.tokens.palette.filter((p) => p.slug !== 'ember');
     });
     assert.ok(issues.some((i) => /Ember #D96C2C is missing/.test(i.message)), JSON.stringify(issues));
 });
 
-test('the envelope is {spec, molecules} and nothing else', () => {
+test('a duplicate molecule id is refused', () => {
+    const issues = check((k) => { k.molecules[1].id = k.molecules[0].id; });
+    assert.ok(issues.some((i) => /duplicate molecule id/.test(i.message)));
+});
+
+test('the envelope is {tokens, molecules} and nothing else', () => {
     const issues = check((k) => { k.notes = 'thoughts'; });
     assert.ok(issues.some((i) => /nothing else/.test(i.message)));
 });
 
 // ---- derivations -------------------------------------------------------------
 
-test('tokens_candidates IS a DesignTokens document', () => {
-    const tokens = tokensFromKit(goodSpec());
+test('tokensFromKit shapes for the tool: four groups, sizes stripped to what wp_tokens_apply accepts', () => {
+    const tokens = tokensFromKit(goodKit());
     assert.deepEqual(Object.keys(tokens).sort(), ['layout', 'palette', 'spacing', 'typography']);
     assert.deepEqual(tokens.spacing, deriveThemeSpacing(THEME_TOKENS));
     assert.deepEqual(tokens.layout, deriveThemeLayout(THEME_TOKENS));
+    // The tool's own input validation is a fourth copy of the shape and rejects
+    // sizes[].name (field bug: a live kit died on it) — the strip is the seam.
+    assert.deepEqual(tokens.typography.sizes, [{ slug: 'display', size: '4rem', fluid: { min: '2.75rem', max: '6rem' } }]);
+    // families keep their name — the tool has always accepted it.
+    assert.equal(tokens.typography.families[0].name, 'Serif Display');
 });
 
 test('pattern slugs are namespaced per kit and stay inside the companion window', () => {
@@ -245,7 +174,7 @@ test('pattern slugs are namespaced per kit and stay inside the companion window'
 
 test('a kit whose contrast cannot be read on base is rejected with the ratio named', () => {
     const issues = check((k) => {
-        const p = k.spec.tokens_candidates.palette;
+        const p = k.tokens.palette;
         p.find((e) => e.slug === 'base').color = '#14110e';
         p.find((e) => e.slug === 'contrast').color = '#0b0908'; // the real bug: ink ≈ ground
     });
@@ -254,7 +183,7 @@ test('a kit whose contrast cannot be read on base is rejected with the ratio nam
 
 test('the reserved base/contrast slugs must both exist', () => {
     const issues = check((k) => {
-        k.spec.tokens_candidates.palette = k.spec.tokens_candidates.palette.filter((e) => e.slug !== 'contrast');
+        k.tokens.palette = k.tokens.palette.filter((e) => e.slug !== 'contrast');
     });
     assert.ok(issues.some((i) => /reserved "contrast" slug/.test(i.message)), JSON.stringify(issues));
 });

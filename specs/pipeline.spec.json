@@ -1,51 +1,45 @@
 {
   "spec_version": "1.0.0",
   "id": "x-pipeline",
-  "title": "X Pipeline — a deterministic, LLM-powered site compiler over the x-companion/x-agent toolchain: fixed steps, a call budget known after the design kit, swappable models per task, a design system authored once and instantiated everywhere, and every artifact born against a contract schema and shipped only through the existing gates",
-
-  "mission": "Remove the agent from orchestration without removing the LLM from authorship: a fixed pipeline whose deterministic steps group the existing wp_* tools, whose generative steps are single-purpose LLM calls validated against the repo's published contract schemas, and whose total number of LLM calls is a function of the brief — computed after step one, enforced during the run, reported at the end. The data model (TreeIR), the flow (validate -> compile -> verify), and real WordPress (the companion, the harness, markup only ever from save()) are unchanged; they stop being an agent's habits and become the pipeline's acceptance gates. The design layer follows the same rule: one master call decides the system — tokens, page rhythm, and a molecule inventory — as a synthesized DesignSpecIR; junior calls only instantiate that system into instance vocabulary and pages. The kit is the thing the finished site is measured against, so \"cohesive\" stops being a hope about one model's consistency across independent calls and becomes a diff.",
-
+  "title": "X Pipeline \u2014 a deterministic, LLM-powered site compiler over the x-companion/x-agent toolchain: fixed steps, a call budget known after the design kit, swappable models per task, a design system authored once and instantiated everywhere, and every artifact born against a contract schema and shipped only through the existing gates",
+  "mission": "Remove the agent from orchestration without removing the LLM from authorship: a fixed pipeline whose deterministic steps group the existing wp_* tools, whose generative steps are single-purpose LLM calls validated against the repo's published contract schemas, and whose total number of LLM calls is a function of the brief \u2014 computed after step one, enforced during the run, reported at the end. The data model (TreeIR), the flow (validate -> compile -> verify), and real WordPress (the companion, the harness, markup only ever from save()) are unchanged; they stop being an agent's habits and become the pipeline's acceptance gates. The design layer follows the same rule: one master call decides the system \u2014 tokens, page rhythm, and a molecule inventory \u2014 as a synthesized DesignSpecIR; junior calls only instantiate that system into instance vocabulary and pages. The kit is the thing the finished site is measured against, so \"cohesive\" stops being a hope about one model's consistency across independent calls and becomes a diff.",
   "problem_context": {
-    "why": "Field evidence, two builds and one investigation. (1) The agentic loop produces excellent results but a nondeterministic bill: call counts depend on how many times the agent iterates, and two late discoveries on a schema build each cost a full bump->gate->install->republish cycle. (2) The checkout-vs-plugin investigation showed the agent's quality tracks how much of the repo's structure is in context — which is another way of saying the structure, not the agent's judgment, carries most of the value on greenfield builds. (3) wpforge demonstrates the target shape working in production: a fixed pipeline, concurrency bounded by a plan, providers swapped per task — but wpforge trusts its generations and verifies only at the end. This repo has the piece wpforge lacks: deterministic gates that check every artifact the moment it is born.",
-    "canon_principle": "The LLM authors; code decides. Every generative task is (prompt template, context payload) -> JSON validated against a published contract schema; every artifact ships through the same gate the agent would have used, or dies with its diagnostics attached. The pipeline never improvises around a dead artifact, never retries beyond its budget, and never lets a model write anything the toolchain would not accept from an agent — including, above all, serialized markup.",
+    "why": "Field evidence, two builds and one investigation. (1) The agentic loop produces excellent results but a nondeterministic bill: call counts depend on how many times the agent iterates, and two late discoveries on a schema build each cost a full bump->gate->install->republish cycle. (2) The checkout-vs-plugin investigation showed the agent's quality tracks how much of the repo's structure is in context \u2014 which is another way of saying the structure, not the agent's judgment, carries most of the value on greenfield builds. (3) wpforge demonstrates the target shape working in production: a fixed pipeline, concurrency bounded by a plan, providers swapped per task \u2014 but wpforge trusts its generations and verifies only at the end. This repo has the piece wpforge lacks: deterministic gates that check every artifact the moment it is born.",
+    "canon_principle": "The LLM authors; code decides. Every generative task is (prompt template, context payload) -> JSON validated against a published contract schema; every artifact ships through the same gate the agent would have used, or dies with its diagnostics attached. The pipeline never improvises around a dead artifact, never retries beyond its budget, and never lets a model write anything the toolchain would not accept from an agent \u2014 including, above all, serialized markup.",
     "amends": "This spec amends x-agent (specs/agent-plugin.spec.json) and sits beside x-canon-factory (specs/canon-factory.spec.json). The base specs stay canonical for the contract (auth, postures, TreeIR, Diagnostics, epoch, the tools themselves). Everything here is additive and agent-side only: the companion gains NO new surface, and the wp_* tools are consumed exactly as they exist. On conflict the base specs win.",
-    "recorded_decision": "An in-repo pipeline/ runner that calls the MCP tool handlers in-process (they are plain functions behind defineTool), not a fork and not a second server: one holder of epoch state, one config chain, one redaction layer. Prompts are excerpts of the skills — the skills remain the single source of truth for the method; a prompt file that contradicts its skill is a bug. R13 compatibility is explicit: the pipeline fixes WHEN and HOW OFTEN the model is asked, it never writes toolchain inputs mechanically — every tree, token set and block file is still authored by a model against the manifest. The agentic skills are not replaced: the pipeline is for greenfield prompt->site; interactive editing, debugging and everything after first publish stays agentic.",
-    "why_design_layer": "Three observations from the implemented pipeline. (1) The whole visual argument is one string — brief.art_direction — and per-section design is three keywords (design.band, design.layout, design.notes) decided by the brief call before any design decision exists. (2) S4 fans S sections out concurrently and each section invents its own layout idiom from scratch; nothing recurs, and recurrence of structure IS visual cohesion. Tokens vary appearance; molecules vary rhythm, and rhythm is what makes two token-different sites read as the same site. (3) S9 calls wp_verify with no spec, so it returns box_tree and pass:true and can only screen the heading outline and image loading. A page can be structurally perfect and visually incoherent and pass every gate in the run. Meanwhile the strict path already exists and is tested — DesignSpecIR, wp_spec_validate, wp_verify's numeric region diff — and is reachable only from from-design mode, which is not the mode greenfield builds use. The machinery was built and then never pointed at the path that matters most.",
-    "recorded_decision_design_layer": "Three decisions taken deliberately, each with its cost stated. (a) THE BUDGET MOMENT MOVES. M is knowable only after the kit, so the budget is computed and printed after S3_kit — the second generative call — not after S1. This weakens the original 'known after the first call' promise by exactly one stage; the alternative is asking the brief to size a design system before any design decision exists, which is worse. The ceiling stays hard and pre-declared. (b) MOLECULE PATTERNS PERSIST. wp_pattern_save's own contract is that the corpus grows its own idiom and future sessions inherit it as vocabulary; a pipeline that saved and then swept its molecules would pay for a design system and throw it away. Slugs are namespaced agent/<kit_id>-<molecule_id> so a second run against the same instance replaces its own entries rather than accumulating. Known wart, recorded not fixed here: x-companion's uninstall.php deletes the caps posture, the manifest cache key and the transients, but NOT the x_companion_patterns option — so an uninstalled companion leaves the corpus orphaned in the options table. Deliverable-purity says that should be swept; it is a companion-side fix and does not belong in this spec's diff. (c) A SYNTHESIZED KIT IS VERIFIED LOOSELY. It is inference, not measurement — the design-spec discipline is explicit that a guessed value that looks precise is worse than an honest snap. So S9 diffs it at region granularity with widened tolerances and never fails the run on it. A kit verified as strictly as a lifted spec would turn every run into an argument with its own guesses."
+    "recorded_decision": "An in-repo pipeline/ runner that calls the MCP tool handlers in-process (they are plain functions behind defineTool), not a fork and not a second server: one holder of epoch state, one config chain, one redaction layer. Prompts are excerpts of the skills \u2014 the skills remain the single source of truth for the method; a prompt file that contradicts its skill is a bug. R13 compatibility is explicit: the pipeline fixes WHEN and HOW OFTEN the model is asked, it never writes toolchain inputs mechanically \u2014 every tree, token set and block file is still authored by a model against the manifest. The agentic skills are not replaced: the pipeline is for greenfield prompt->site; interactive editing, debugging and everything after first publish stays agentic.",
+    "why_design_layer": "Three observations from the implemented pipeline. (1) The whole visual argument is one string \u2014 brief.art_direction \u2014 and per-section design is three keywords (design.band, design.layout, design.notes) decided by the brief call before any design decision exists. (2) S4 fans S sections out concurrently and each section invents its own layout idiom from scratch; nothing recurs, and recurrence of structure IS visual cohesion. Tokens vary appearance; molecules vary rhythm, and rhythm is what makes two token-different sites read as the same site. (3) S9 calls wp_verify with no spec, so it returns box_tree and pass:true and can only screen the heading outline and image loading. A page can be structurally perfect and visually incoherent and pass every gate in the run. Meanwhile the strict path already exists and is tested \u2014 DesignSpecIR, wp_spec_validate, wp_verify's numeric region diff \u2014 and is reachable only from from-design mode, which is not the mode greenfield builds use. The machinery was built and then never pointed at the path that matters most.",
+    "recorded_decision_design_layer": "Three decisions taken deliberately, each with its cost stated. (a) THE BUDGET MOMENT MOVES. M is knowable only after the kit, so the budget is computed and printed after S3_kit \u2014 the second generative call \u2014 not after S1. This weakens the original 'known after the first call' promise by exactly one stage; the alternative is asking the brief to size a design system before any design decision exists, which is worse. The ceiling stays hard and pre-declared. (b) MOLECULE PATTERNS PERSIST. wp_pattern_save's own contract is that the corpus grows its own idiom and future sessions inherit it as vocabulary; a pipeline that saved and then swept its molecules would pay for a design system and throw it away. Slugs are namespaced agent/<kit_id>-<molecule_id> so a second run against the same instance replaces its own entries rather than accumulating. Known wart, recorded not fixed here: x-companion's uninstall.php deletes the caps posture, the manifest cache key and the transients, but NOT the x_companion_patterns option \u2014 so an uninstalled companion leaves the corpus orphaned in the options table. Deliverable-purity says that should be swept; it is a companion-side fix and does not belong in this spec's diff. (c) A SYNTHESIZED KIT IS VERIFIED LOOSELY. It is inference, not measurement \u2014 the design-spec discipline is explicit that a guessed value that looks precise is worse than an honest snap. So S9 diffs it at region granularity with widened tolerances and never fails the run on it. A kit verified as strictly as a lifted spec would turn every run into an argument with its own guesses."
   },
-
   "operating_rules_for_implementing_agent": [
     "Read specs/agent-plugin.spec.json and specs/canon-factory.spec.json first; this spec assumes their vocabulary (TreeIR, epoch, gates, rungs).",
     "Never bypass a gate to make a stage green. A stage that cannot pass wp_validate / wp_block_build_test / wp_schema_build_test fails with diagnostics in the run report.",
     "Every provider call goes through the one LlmProvider interface. No provider SDK import outside pipeline/providers/.",
     "Temperature and model ids are config, never hardcoded in a stage.",
     "The budget module is consulted BEFORE every generative call; exceeding the ceiling is a thrown structured error, not a warning.",
-    "The kit is the only stage that DESIGNS. Every generative call below it instantiates a decision the kit already made; a molecule or section call that cannot express its recipe fails with diagnostics and is repaired once against the SAME recipe. It never redesigns — redesign is a kit-level decision and the pipeline does not make it twice in a run.",
+    "The kit is the only stage that DESIGNS. Every generative call below it instantiates a decision the kit already made; a molecule or section call that cannot express its recipe fails with diagnostics and is repaired once against the SAME recipe. It never redesigns \u2014 redesign is a kit-level decision and the pipeline does not make it twice in a run.",
     "Slugs below the kit, never literals. A hex colour, a px font size or a raw length anywhere in a molecule or section fragment is a dead artifact, not a warning: a molecule that hardcodes a value defeats the token system it exists to express.",
     "Atoms are never custom blocks. The kit may express an atom only at rungs 1 and 2 of the vocabulary-gap ladder (recomposition; a registered block style or pattern). A kit entry that genuinely needs rung 3 travels as a brief custom_blocks[] entry with its gap_argument, through S5, like every other block.",
-    "wp_pattern_save moves the epoch, so molecule saves are sequential in one burst — generation is concurrent, saving is not. Pages fan out only against the fingerprint of the last save."
+    "wp_pattern_save moves the epoch, so molecule saves are sequential in one burst \u2014 generation is concurrent, saving is not. Pages fan out only against the fingerprint of the last save."
   ],
-
   "environment": {
     "runtime": "Node >= 20, repo checkout (the pipeline imports x-agent/mcp/dist and tools/playground directly).",
     "instance": "Any x-companion instance in toolchain posture: a Playground booted by tools/playground/boot.mjs or a real staging site. Connection via the standard .x-agent.json chain.",
-    "provider_keys": "In .x-agent.json alongside the existing keys (gemini_api_key precedent): cerebras_api_key, anthropic_api_key, openai_api_key — each optional, each registered as a secret on resolution, each used only if pipeline.config.json routes a task to that provider.",
+    "provider_keys": "In .x-agent.json alongside the existing keys (gemini_api_key precedent): cerebras_api_key, anthropic_api_key, openai_api_key \u2014 each optional, each registered as a secret on resolution, each used only if pipeline.config.json routes a task to that provider.",
     "config_file": "pipeline.config.json in the working directory: {tasks: {<task_type>: {provider, model, temperature?, effort?}}, concurrency?, budget_hard_cap?}. The kit and molecule task types are required entries. Missing task entries fail at preflight, not mid-run."
   },
-
   "file_layout": {
     "pipeline/run.mjs": "CLI entry: node pipeline/run.mjs \"<prompt>\" [--config pipeline.config.json] [--resume <run_dir>]. Prints the budget after stage S1 and refuses to continue past it.",
     "pipeline/stages/": "One module per stage below; a stage exports {id, kind, run(ctx)} and nothing else.",
     "pipeline/providers/": "One module per provider implementing LlmProvider; plus fake.mjs, a fixture-replay provider for deterministic tests.",
     "pipeline/prompts/": "One markdown template per task_type, assembled from skill excerpts; templates declare their required payload fields in frontmatter.",
     "pipeline/prompts/kit.md": "The master designer prompt: brief + instance vocabulary -> a DesignSpecIR with a molecules inventory. Assembled from wp-blocks R9 (decide the system first; theme.json is a compile target, not the design system), R7 (the vocabulary-gap ladder) and references/design-spec.md (measure don't trace; quantize every value and log the delta with a note saying why).",
-    "pipeline/prompts/molecule.md": "The junior prompt: one molecule spec -> one TreeIR fragment. Deliberately narrow — it instantiates a recipe against the manifest, it does not design. Its context is the recipe, the slice, the slugs, and nothing about the brand.",
+    "pipeline/prompts/molecule.md": "The junior prompt: one molecule spec -> one TreeIR fragment. Deliberately narrow \u2014 it instantiates a recipe against the manifest, it does not design. Its context is the recipe, the slice, the slugs, and nothing about the brand.",
     "pipeline/budget.mjs": "Computes the budget from the brief, meters every call, writes the ledger.",
     "pipeline/schemas/brief.schema.json": "The one NEW contract this spec introduces (see llm_contract.task_types.brief).",
-    "pipeline/schemas/": "brief.schema.json is the only NEW contract. kit.json validates against the repo's existing contract/schemas/design-spec.schema.json with source.kind:\"synthesized\" — a value that schema already accepts — with NO extension: the schema is additionalProperties:false and stays that way. molecules.json is a pipeline-side artifact with a pipeline-side check, deliberately not promoted to the contract until a second consumer needs it.",
+    "pipeline/schemas/": "brief.schema.json is the only NEW contract. kit.json validates against the repo's existing contract/schemas/design-spec.schema.json with source.kind:\"synthesized\" \u2014 a value that schema already accepts \u2014 with NO extension: the schema is additionalProperties:false and stays that way. molecules.json is a pipeline-side artifact with a pipeline-side check, deliberately not promoted to the contract until a second consumer needs it.",
     "runs/<timestamp>/": "Per-run artifact directory: brief.json, kit.json, molecules.json, tokens.json, molecules/, trees/, blocks/, packages/, images/, ledger.json, report.md. Every stage reads its inputs from here and writes its outputs here; --resume replays completed stages from disk."
   },
-
   "stages": [
     {
       "id": "S1_brief",
@@ -59,7 +53,11 @@
     {
       "id": "S2_read_instance",
       "kind": "deterministic",
-      "tools": ["wp_connect", "wp_manifest", "wp_patterns"],
+      "tools": [
+        "wp_connect",
+        "wp_manifest",
+        "wp_patterns"
+      ],
       "calls": "0",
       "outputs": "manifest slices per section (only the block families the section role needs), the pattern each section starts from, theme token inventory, the fingerprint"
     },
@@ -68,18 +66,18 @@
       "kind": "generative",
       "llm_task": "kit",
       "calls": "1",
-      "inputs": "brief identity, art_direction and palette; the theme's own spacing and layout verbatim (the wp-blocks R9 pass-through, unchanged); the manifest's block families and registered block styles; a summary of the pattern corpus",
-      "outputs": "ONE call emits the envelope {spec, molecules}, written as TWO artifacts because design-spec.schema.json is additionalProperties:false at its root and an inventory key inside it would be E_SPEC_SCHEMA, not an extension. (1) kit.json — a strict DesignSpecIR with source.kind:\"synthesized\" and source.files:[] (the contract requires the key; a synthesized kit was lifted from nothing, and saying so is the honest record): tokens_candidates (the DesignTokens this run will apply, each concrete value carrying a quantization_log entry whose note states WHY that value and not its neighbour), regions (the page rhythm the concept implies — band order, section heights, content width — at the kit's declared viewport), and content (the copy inventory lifted from the brief's copy_notes, every item pointing at a region). (2) molecules.json — one entry per reusable arrangement: {id, role, when_to_use, recipe stated structurally in core blocks and layout, style_refs as slugs}. The kit is the master designer's entire output and it contains no TreeIR and no markup.",
-      "gate": "wp_spec_validate on kit.json unmodified — the same call from-design mode makes, which is the point: E_SPEC_SCHEMA ends the run, E_BOX_OVERLAP and E_ORPHAN_CONTENT fail the artifact, and W_UNQUANTIZED fails it too — in a synthesized kit an unlogged value is a value nobody decided. molecules.json is checked by the pipeline itself: every id unique, every role present in the kit's regions, every style_refs slug resolving to a token the kit declares. Then tokens_candidates is extracted to DesignTokens and shipped through the existing tokens gate unchanged: wp_tokens_apply dry_run diff reviewed deterministically (every brief palette entry present, theme spacing and layout byte-identical to the instance's own), then wp_tokens_apply; new fingerprint recorded. THE BUDGET IS COMPUTED AND PRINTED HERE — this stage, not S1, fixes the fan-out."
+      "inputs": "brief identity, art_direction and palette; the page plan and section roles; the theme's own spacing and layout verbatim (the wp-blocks R9 pass-through, unchanged); the instance's block names; the design-tokens and molecules contracts",
+      "outputs": "ONE call emits the lean envelope {tokens, molecules}, written as kit.json (the record) plus molecules.json (the inventory S3b consumes). tokens is a DesignTokens document \u2014 the M2 contract, with the theme's spacing and layout passed through byte-for-byte (R9) and the theme's reserved base/contrast pair mapped and legible (contrast ratio >= 4.5:1, mechanically checked). molecules is the reusable-arrangement inventory: {id, role, when_to_use, recipe {blocks, layout, notes?}, style_refs} with every style_ref resolving to a slug the kit declares. AMENDED 2026-08-26: the envelope previously also carried a full DesignSpecIR (regions with pixel boxes, quantization_log, content copy, wp_spec_validate as gate 1) \u2014 measurement apparatus reused for an invented design. Field evidence (five kit contract incidents in three evenings, two dead runs) showed it made the one unsubstitutable call fragile while nothing from-prompt consumed it beyond a never-fatal S9 diff. The owner's rule: improve design, never at the expense of normal operation.",
+      "gate": "kitChecks (envelope shape via design-tokens + molecules contracts, brief palette coverage, base/contrast presence and legibility, molecule role coverage, slug resolution) with one schema-retry; then the M2 tokens gate unchanged \u2014 wp_tokens_apply dry_run diff review (R9 pass-through, palette presence) and the real apply; new fingerprint recorded. The budget ceiling is fixed and printed here: M is not knowable before the kit exists."
     },
     {
       "id": "S3b_molecules",
       "kind": "gated-generative",
       "llm_task": "molecule",
       "calls": "M (one per kit molecules[] entry), concurrent generation, sequential save",
-      "inputs": "per molecule: its kit entry, the manifest slice its recipe needs, the registered block styles available, the token slugs just applied, and the parsed_tree of the closest existing pattern from wp_patterns — retrieve before inventing, as the agentic skill already requires",
-      "outputs": "one TreeIR fragment per molecule, compiled and saved to the instance with wp_pattern_save under agent/<kit_id>-<molecule_id>; molecules/ in the run dir keeps the fragment and the returned pattern name. After this stage the design system is not a document — it is vocabulary the instance holds and wp_patterns lists under the x-agent category.",
-      "gate": "wp_validate valid:true (W_ATTR_UNKNOWN fails the artifact) -> wp_compile all_valid:true -> the literal screen: any hex colour, px font size or raw length that is not a preset slug fails the artifact -> wp_pattern_save. Saves run SEQUENTIALLY in one burst because each moves the epoch (wp-blocks R12: the epoch is the only serialization point); the fingerprint after the last save is the one every page tree carries. Extend tier — a production posture refuses the save, so this stage is toolchain-only, like every other mutation the pipeline makes. A molecule that fails has already spent its one metered schema-retry and is DROPPED, not repaired: S7 runs after S4, which is far too late for vocabulary S4 needed. Its role falls back to the theme's own pattern corpus, which is the honest fallback and is recorded in the report. Zero survivors ends the run — a site with no vocabulary would have every section inventing its own idiom, which is the failure this stage exists to prevent."
+      "inputs": "per molecule: its kit entry, the manifest slice its recipe needs, the registered block styles available, the token slugs just applied, and the parsed_tree of the closest existing pattern from wp_patterns \u2014 retrieve before inventing, as the agentic skill already requires",
+      "outputs": "one TreeIR fragment per molecule, compiled and saved to the instance with wp_pattern_save under agent/<kit_id>-<molecule_id>; molecules/ in the run dir keeps the fragment and the returned pattern name. After this stage the design system is not a document \u2014 it is vocabulary the instance holds and wp_patterns lists under the x-agent category.",
+      "gate": "wp_validate valid:true (W_ATTR_UNKNOWN fails the artifact) -> wp_compile all_valid:true -> the literal screen: any hex colour, px font size or raw length that is not a preset slug fails the artifact -> wp_pattern_save. Saves run SEQUENTIALLY in one burst because each moves the epoch (wp-blocks R12: the epoch is the only serialization point); the fingerprint after the last save is the one every page tree carries. Extend tier \u2014 a production posture refuses the save, so this stage is toolchain-only, like every other mutation the pipeline makes. A molecule that fails has already spent its one metered schema-retry and is DROPPED, not repaired: S7 runs after S4, which is far too late for vocabulary S4 needed. Its role falls back to the theme's own pattern corpus, which is the honest fallback and is recorded in the report. Zero survivors ends the run \u2014 a site with no vocabulary would have every section inventing its own idiom, which is the failure this stage exists to prevent."
     },
     {
       "id": "S4_sections",
@@ -88,7 +86,7 @@
       "calls": "S (one per section in the brief), concurrent",
       "inputs": "per section: its brief entry (role, copy_notes, design.band / design.layout / design.notes), its kit region, the pattern names of the molecules the kit assigns to that role plus their parsed_tree, its manifest slice, and the applied token slugs",
       "outputs": "one TreeIR fragment per section, ASSEMBLED from its molecules and filled with real copy rather than invented from scratch, validated against tree-ir.schema.json locally, then wp_validate at the current fingerprint",
-      "gate": "wp_validate valid:true with warnings reviewed mechanically (W_ATTR_UNKNOWN fails the artifact; W_STATIC_NEEDS_HARNESS passes), plus the same literal screen as S3b — a section carries copy and slugs, never a hardcoded design value"
+      "gate": "wp_validate valid:true with warnings reviewed mechanically (W_ATTR_UNKNOWN fails the artifact; W_STATIC_NEEDS_HARNESS passes), plus the same literal screen as S3b \u2014 a section carries copy and slugs, never a hardcoded design value"
     },
     {
       "id": "S5_blocks",
@@ -120,45 +118,59 @@
     {
       "id": "S8_publish",
       "kind": "deterministic",
-      "tools": ["wp_schema_install", "wp_block_install", "wp_compile", "wp_images_generate", "wp_images_apply"],
+      "tools": [
+        "wp_schema_install",
+        "wp_block_install",
+        "wp_compile",
+        "wp_images_generate",
+        "wp_images_apply"
+      ],
       "calls": "0 text calls; I image calls (one per surviving image_intent) inside wp_images_generate",
       "outputs": "installs run SEQUENTIALLY from the single runner (the epoch discipline of wp-blocks R12); final fingerprint stamped into the assembled page tree; page compiled on the harness, published with the theme's no-title template; front page, navigation and footer set from the brief via the same core-REST lane the tools already use; images generated and swapped by the existing image pass"
     },
     {
       "id": "S9_verify",
       "kind": "deterministic",
-      "tools": ["wp_verify", "wp_screenshot"],
+      "tools": [
+        "wp_verify",
+        "wp_screenshot"
+      ],
       "calls": "0",
-      "outputs": "wp_verify at the site root diffed against kit.json — the numeric design oracle from-prompt has never had; exactly one screenshot; report.md gains a design-conformance section: per-region diffs, which molecule each drifting region came from, and every diff attributed to a kit decision, a mapping approximation, or a gap in the available blocks",
-      "gate": "A synthesized kit is inference, not measurement, so it is diffed at REGION granularity with widened tolerances — band order, section height, content width, gap step — and never at leaf typography or per-element position. A diff outside tolerance is reported and attributed; it never fails the run. The hard gates stay what they were: wp_verify pass, one h1, a sane heading outline, every image loaded."
+      "outputs": "wp_verify at the site root diffed against kit.json \u2014 the numeric design oracle from-prompt has never had; exactly one screenshot; report.md gains a design-conformance section: per-region diffs, which molecule each drifting region came from, and every diff attributed to a kit decision, a mapping approximation, or a gap in the available blocks",
+      "gate": "A synthesized kit is inference, not measurement, so it is diffed at REGION granularity with widened tolerances \u2014 band order, section height, content width, gap step \u2014 and never at leaf typography or per-element position. A diff outside tolerance is reported and attributed; it never fails the run. The hard gates stay what they were: wp_verify pass, one h1, a sane heading outline, every image loaded."
     }
   ],
-
   "llm_contract": {
-    "task_types": ["brief", "kit", "molecule", "tree", "block", "schema", "repair", "image"],
+    "task_types": [
+      "brief",
+      "kit",
+      "molecule",
+      "tree",
+      "block",
+      "schema",
+      "repair",
+      "image"
+    ],
     "io": "Every generative task is (prompt template, JSON context payload) -> JSON (or file map, for block/schema) validated against its contract: brief.schema.json, design-spec.schema.json (the kit's spec half), design-tokens.schema.json, tree-ir.schema.json, the factory gates. One schema-retry per call, metered. There is no free-text output anywhere in the pipeline.",
-    "provider_interface": "LlmProvider = { id, complete(task_type, prompt, payload, {model, temperature}) -> {text, usage} }. Providers are dumb pipes: no provider-specific prompt forks, no silent model fallback, no internal retries beyond transport errors. The 'image' task is already implemented — wp_images_generate's Gemini client is the reference shape and stays as is.",
+    "provider_interface": "LlmProvider = { id, complete(task_type, prompt, payload, {model, temperature}) -> {text, usage} }. Providers are dumb pipes: no provider-specific prompt forks, no silent model fallback, no internal retries beyond transport errors. The 'image' task is already implemented \u2014 wp_images_generate's Gemini client is the reference shape and stays as is.",
     "routing": "pipeline.config.json maps task_type -> {provider, model, effort?}. Rationale for per-task routing: the kit is the one call worth paying reasoning effort for, because it is the only call that decides anything about the whole site; molecules are narrow structural calls a mid model does well because the recipe is already written; trees and repair want the strongest model available; copy inside trees tolerates a mid model; blocks and schema are code tasks. Swapping a provider is a config edit, never a code change.",
     "task_types_note": "The 'tokens' task is SUBSUMED by 'kit': a design system decided apart from the concept that motivates it is the failure this amendment exists to fix, so pipeline/prompts/tokens.md folds into kit.md and the tokens gate survives intact inside the kit gate. 'molecule' is new and deliberately small."
   },
-
   "call_budget": {
-    "formula": "base = 1 (brief) + 1 (kit) + M + S + B + P; ceiling = 2 * base + I — the 2x covers one schema-retry OR one repair per artifact, whichever fires; I is one image call per surviving image_intent (transport retries inside the Gemini client are not new calls).",
+    "formula": "base = 1 (brief) + 1 (kit) + M + S + B + P; ceiling = 2 * base + I \u2014 the 2x covers one schema-retry OR one repair per artifact, whichever fires; I is one image call per surviving image_intent (transport retries inside the Gemini client are not new calls).",
     "enforcement": "budget.mjs is consulted before every generative call; call base+n past the ceiling throws {code:'budget_exceeded'} and the run ends with a report, never with silent extra spending.",
-    "reporting": "After S3_kit: 'this build costs at most N calls (M=?, S=?, B=?, P=?, I=?)' — printed before the third call is made. After S9: predicted vs actual, per task_type, per provider, with token usage from the ledger.",
-    "budget_moment": "AMENDED. S, B and P are read from the brief; M is read from the kit. The budget is therefore computed and printed after S3_kit — the second generative call — not after S1. The ceiling remains hard and pre-declared before any fan-out; only the moment it is announced moves by one stage. See problem_context.recorded_decision_design_layer (a)."
+    "reporting": "After S3_kit: 'this build costs at most N calls (M=?, S=?, B=?, P=?, I=?)' \u2014 printed before the third call is made. After S9: predicted vs actual, per task_type, per provider, with token usage from the ledger.",
+    "budget_moment": "AMENDED. S, B and P are read from the brief; M is read from the kit. The budget is therefore computed and printed after S3_kit \u2014 the second generative call \u2014 not after S1. The ceiling remains hard and pre-declared before any fan-out; only the moment it is announced moves by one stage. See problem_context.recorded_decision_design_layer (a)."
   },
-
   "determinism": {
-    "claim": "Same prompt + same instance fingerprint + pinned models at temperature 0 => the same call sequence against the same contracts; with the fake provider replaying fixtures, byte-identical artifacts — kit.json, molecules.json and molecules/ included.",
+    "claim": "Same prompt + same instance fingerprint + pinned models at temperature 0 => the same call sequence against the same contracts; with the fake provider replaying fixtures, byte-identical artifacts \u2014 kit.json, molecules.json and molecules/ included.",
     "ledger": "runs/<ts>/ledger.json records every call: {task_type, provider, model, prompt_hash, payload_hash, usage, outcome}. The ledger IS the audit trail: no LLM call exists that is not in it.",
     "resume": "--resume <run_dir> replays completed stages from disk artifacts; only failed or pending stages call providers. A resumed run's ledger appends, never rewrites."
   },
-
   "milestones": [
     {
       "id": "M1_provider_shim_and_budget",
-      "goal": "LlmProvider interface, the fake fixture provider, config routing, and the budget meter — no real provider yet.",
+      "goal": "LlmProvider interface, the fake fixture provider, config routing, and the budget meter \u2014 no real provider yet.",
       "acceptance": [
         "pipeline.config.json routing task->fake provider resolves at preflight; a missing task entry fails preflight naming the task",
         "budget: with a brief fixture declaring S=3,B=1,P=1,I=2 the printed ceiling is 2*(2+3+1+1)+2=16; the 17th generative call throws {code:'budget_exceeded'}",
@@ -216,28 +228,26 @@
         "the kit call emits {spec, molecules}; kit.json passes wp_spec_validate UNMODIFIED with source.kind == \"synthesized\" and zero W_UNQUANTIZED, and molecules.json passes the pipeline check (unique ids, roles present in regions, every style_refs slug declared); the budget prints after it, naming M",
         "M molecules become M patterns under agent/<kit_id>-*, listed by wp_patterns in the x-agent category; a fragment with a deliberately hardcoded #hex is rejected by the literal screen as a dead artifact, not warned about",
         "pattern saves appear sequentially in the ledger and every page tree carries the fingerprint of the last one",
-        "every section tree references at least one molecule pattern; a run whose sections invent their own trees fails M7 even though every gate passed — that is the whole point of the milestone",
+        "every section tree references at least one molecule pattern; a run whose sections invent their own trees fails M7 even though every gate passed \u2014 that is the whole point of the milestone",
         "S9's report.md shows per-region diffs against kit.json, so a build whose band order contradicts the kit is legible without a human opening the screenshot",
         "two runs of the same brief with the fake provider produce byte-identical kit.json, molecules.json, molecule fragments and ledgers",
         "a second run against the same instance REPLACES its own agent/<kit_id>-* patterns rather than accumulating them"
       ]
     }
   ],
-
   "progress_protocol": {
-    "same_as": "companion spec progress_protocol — identical PROGRESS.json schema and rules; record here every budget formula decision and every place a stage was tempted to retry beyond its bound (the temptation log is the review surface for whether the bounds are right)."
+    "same_as": "companion spec progress_protocol \u2014 identical PROGRESS.json schema and rules; record here every budget formula decision and every place a stage was tempted to retry beyond its bound (the temptation log is the review surface for whether the bounds are right)."
   },
-
   "non_goals": [
-    "No agentic fallback inside the pipeline: a dead artifact is reported with diagnostics and substituted with its pattern baseline or dropped — never improvised around. Judgment lives in the agentic skills, which this pipeline does not replace.",
+    "No agentic fallback inside the pipeline: a dead artifact is reported with diagnostics and substituted with its pattern baseline or dropped \u2014 never improvised around. Judgment lives in the agentic skills, which this pipeline does not replace.",
     "No new companion surface and no changes to the wp_* tools: the pipeline is a consumer of the toolchain exactly as shipped.",
     "No LLM-authored markup, ever: models emit TreeIR and files for the factories; markup exists only as wp_compile output (base spec R1, unchanged).",
     "No provider-specific prompts: one template per task_type; if a provider needs different words, that is a provider bug or a template bug, not a fork.",
     "No hidden retries and no soft budgets: every call is in the ledger, the ceiling is hard, and 'it almost passed' is a dead artifact.",
-    "No pipeline-owned state on the instance — with one deliberate, named exception. runs/<ts>/ on disk is the only pipeline MEMORY, and the site remains fully explicable from wp-admin (deliverable-purity applies — the companion comes out when the run is done). Molecule patterns are the exception and are not a violation: they are registered block patterns a site editor can see and reach for, they belong to the site rather than to the run, and nothing in them refers to the pipeline. See problem_context.recorded_decision_design_layer (b), including the uninstall wart that follows from keeping them.",
+    "No pipeline-owned state on the instance \u2014 with one deliberate, named exception. runs/<ts>/ on disk is the only pipeline MEMORY, and the site remains fully explicable from wp-admin (deliverable-purity applies \u2014 the companion comes out when the run is done). Molecule patterns are the exception and are not a violation: they are registered block patterns a site editor can see and reach for, they belong to the site rather than to the run, and nothing in them refers to the pipeline. See problem_context.recorded_decision_design_layer (b), including the uninstall wart that follows from keeping them.",
     "No design judgment below the kit. A molecule or section call that cannot express its recipe fails with diagnostics and is repaired once against the same recipe; it never redesigns. The pipeline does not make a design decision twice in one run.",
-    "No hardcoded design values under the kit. Molecules and sections carry slugs and copy; a literal colour, font size or length is a dead artifact, not a warning — otherwise the molecule library quietly defeats the token system it exists to express.",
+    "No hardcoded design values under the kit. Molecules and sections carry slugs and copy; a literal colour, font size or length is a dead artifact, not a warning \u2014 otherwise the molecule library quietly defeats the token system it exists to express.",
     "No atom that is secretly a custom block. The kit expresses atoms at rungs 1 and 2 only; a genuine rung-3 need travels through the brief's custom_blocks[] with its gap_argument, like every other block.",
-    "No screenshot-based design review. The kit is the diff target and wp_verify is the oracle; the screenshot stays what it has always been — terminal evidence, taken exactly once."
+    "No screenshot-based design review. The kit is the diff target and wp_verify is the oracle; the screenshot stays what it has always been \u2014 terminal evidence, taken exactly once."
   ]
 }

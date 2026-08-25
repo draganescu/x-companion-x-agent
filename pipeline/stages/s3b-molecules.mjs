@@ -22,7 +22,6 @@ export const kind = 'gated-generative';
 
 export async function run(ctx) {
     const brief = ctx.state.brief;
-    const spec = JSON.parse(readFileSync(join(ctx.runDir, 'kit.json'), 'utf8'));
     const { molecules } = JSON.parse(readFileSync(join(ctx.runDir, 'molecules.json'), 'utf8'));
     const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
     const epoch = ctx.state.fingerprint;
@@ -38,21 +37,16 @@ export async function run(ctx) {
     // is: the recipe already names the blocks, and a wider slice is a wider
     // invitation to redesign.
     const manifestBlocks = JSON.parse(readFileSync(join(ctx.runDir, 'manifest-blocks.json'), 'utf8'));
-    const regionById = new Map();
-    const walkRegions = (rs) => (rs ?? []).forEach((r) => { regionById.set(r.id, r); walkRegions(r.children); });
-    walkRegions(spec.regions);
 
     ctx.state.artifacts = ctx.state.artifacts ?? {};
     ctx.state.artifacts.molecules = ctx.state.artifacts.molecules ?? {};
 
     const built = [];
     const runMolecule = async (m) => {
-        const region = m.region_id ? regionById.get(m.region_id) : null;
-        const band = (region?.style_refs?.background_palette_slug) ?? m.style_refs?.background_palette_slug ?? 'base';
+        const band = m.style_refs?.background_palette_slug ?? 'base';
         const payload = {
             molecule: m,
             art_direction: brief.art_direction,
-            region: region ? { id: region.id, role: region.role, box: region.box, layout: region.layout, style_refs: region.style_refs } : null,
             band_colors: resolveBandColors(band, brief.palette, tokens.palette),
             manifest_slice: sliceManifest(manifestBlocks, { role: m.role }, brief),
             token_slugs: tokenSlugs,

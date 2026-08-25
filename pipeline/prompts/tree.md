@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, art_direction, voice, page_plan, design, band_colors, manifest_slice, molecules, kit_region, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, voice, page_plan, design, band_colors, manifest_slice, molecules, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation. The section must look like it belongs
@@ -99,11 +99,6 @@ sections that share an arrangement look designed; five sections that each invent
 own look like five people worked alone. If more than one fits, pick the one whose
 `when_to_use` matches this section and follow its tree's structure closely:
 {{molecules}}
-
-**The page region the kit planned for this role** (its rhythm, band and slugs — honour
-them; the finished page is measured against this):
-{{kit_region}}
-
 
 Starting pattern (adapt its idiom to YOUR band and layout; null means compose fresh):
 {{pattern_tree}}
