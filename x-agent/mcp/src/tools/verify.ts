@@ -23,6 +23,7 @@ import {
   classNameMap,
   collectImages,
   diffAgainstSpec,
+  eagerLoadImages,
   extractLayout,
   prepareTarget,
   resolveTolerances,
@@ -150,6 +151,11 @@ export const wpVerify = defineTool({
       const manifest = await ctx.manifestCache.get();
       const lookup = classNameMap(Object.keys(manifest.blocks));
       const extracted = await extractLayout(target.page, lookup);
+      // Measure images only after the lazy ones have actually been asked for.
+      // WordPress marks everything below the fold loading="lazy"; without this
+      // the oracle reports natural 0x0 for images a human scrolling the page
+      // sees perfectly well, and a long page fails its own verification.
+      await eagerLoadImages(target.page);
       const images = await collectImages(target.page);
 
       let diffs: Diff[] = [];

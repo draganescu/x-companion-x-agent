@@ -957,7 +957,10 @@ export function styleLintWarnings(dir: string): StyleWarning[] {
   const lines = fs.readFileSync(p, 'utf8').split('\n');
   lines.forEach((text, i) => {
     const trimmed = text.trim();
-    if (trimmed.startsWith('*') || trimmed.startsWith('/*') || trimmed.includes('var(--wp--preset')) return;
+    // WordPress CSS style puts spaces inside the parens — `var( --wp--preset--… )` —
+    // and the scaffold generator emits exactly that. A substring test for the
+    // unspaced form flagged every correctly-tokenized line in the file.
+    if (trimmed.startsWith('*') || trimmed.startsWith('/*') || /var\(\s*--wp--preset/.test(trimmed)) return;
     const hex = /#[0-9a-fA-F]{3,8}\b/.exec(text);
     const size = /(?<![\w-])\d+(?:\.\d+)?(?:px|rem|em)\b/.exec(text);
     const hit = hex?.[0] ?? size?.[0];

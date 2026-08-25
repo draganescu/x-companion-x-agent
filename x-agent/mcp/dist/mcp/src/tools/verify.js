@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { ConnectionArgsShape, defineTool } from './_shared.js';
 import { XError } from '../errors.js';
 import { DesignSpecIRSchema } from '../schemas.js';
-import { DEFAULT_VIEWPORT, classNameMap, collectImages, diffAgainstSpec, extractLayout, prepareTarget, resolveTolerances, toBoxTree, } from '../oracle.js';
+import { DEFAULT_VIEWPORT, classNameMap, collectImages, diffAgainstSpec, eagerLoadImages, extractLayout, prepareTarget, resolveTolerances, toBoxTree, } from '../oracle.js';
 const ViewportSchema = z.object({ width: z.number().gt(0), height: z.number().gt(0) });
 const BoxSchema = z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() });
 const InputSchema = z.looseObject({
@@ -120,6 +120,11 @@ export const wpVerify = defineTool({
             const manifest = await ctx.manifestCache.get();
             const lookup = classNameMap(Object.keys(manifest.blocks));
             const extracted = await extractLayout(target.page, lookup);
+            // Measure images only after the lazy ones have actually been asked for.
+            // WordPress marks everything below the fold loading="lazy"; without this
+            // the oracle reports natural 0x0 for images a human scrolling the page
+            // sees perfectly well, and a long page fails its own verification.
+            await eagerLoadImages(target.page);
             const images = await collectImages(target.page);
             let diffs = [];
             let pass = true;
