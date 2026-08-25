@@ -37,3 +37,25 @@ test('the real contracts narrow cleanly: no unsupported keyword survives, every 
         walk(schema);
     }
 });
+
+// The API refuses any-value schemas ("Empty schema ({}) ... is not supported",
+// req_011CeQ4aPHCf8mijEjyyzJaK) — a live brief call died on attributes[].default.
+test('no empty schema survives narrowing — every schema position gets a concrete type', () => {
+    const brief = JSON.parse(readFileSync(new URL('../schemas/brief.schema.json', import.meta.url), 'utf8'));
+    for (const schema of [toStructuredSchema(brief), toStructuredSchema(kitEnvelopeSchema)]) {
+        const walk = (o, path) => {
+            if (Array.isArray(o)) return o.forEach((v, i) => walk(v, `${path}/${i}`));
+            if (!o || typeof o !== 'object') return;
+            assert.ok(Object.keys(o).length > 0, `empty {} survived at ${path}`);
+            Object.entries(o).forEach(([k, v]) => walk(v, `${path}/${k}`));
+        };
+        walk(schema, '');
+    }
+    // the substitution itself: an any-value default becomes a concrete union
+    const out = toStructuredSchema({ type: 'object', properties: { default: { description: 'any value' } } });
+    assert.ok(Array.isArray(out.properties.default.anyOf));
+    assert.equal(out.properties.default.description, 'any value');
+    // ...but keyword maps are never touched: required stays a plain array
+    const req = toStructuredSchema({ type: 'object', required: ['a'], properties: { a: { type: 'string' } } });
+    assert.deepEqual(req.required, ['a']);
+});
