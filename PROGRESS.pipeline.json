@@ -32,8 +32,8 @@
             "updated_at": "2026-08-24T00:00:00Z"
         },
         "M7_design_system": {
-            "status": "planned",
-            "evidence": "Spec-only so far. specs/pipeline.spec.json amended: S3_tokens -> S3_kit (one master call emitting {spec, molecules} as kit.json + molecules.json), new S3b_molecules (junior calls -> TreeIR fragments -> wp_pattern_save, concurrent generation and sequential saves), S4 assembles from molecule patterns, S9 diffs the built site against kit.json. No pipeline/ code written yet.",
+            "status": "implemented-unproven",
+            "evidence": "Code complete, unit-green, NOT yet run against a live instance. 125 unit tests pass (was 118 before M7's own suites; s3-kit 18, s3b-molecules 7). New: pipeline/stages/s3-kit.mjs (replaces s3-tokens.mjs; one call emits {spec, molecules}, gated by wp_spec_validate then the unchanged M2 tokens gate), pipeline/stages/s3b-molecules.mjs (concurrent generation, sequential wp_pattern_save with epoch adoption between each), pipeline/lib/kit.mjs (the pre-call screen: $ref-resolved design-spec validation, box containment, orphan content, quantization, role coverage, slug resolution), pipeline/schemas/molecules.schema.json, pipeline/prompts/kit.md + molecule.md (tokens.md folded in and deleted), the literal screen in lib/gates.mjs. Changed: S1 plans the fan-out but no longer fixes the ceiling; S2 persists manifest-blocks.json and block_names; S4 assembles from the saved patterns and is literal-screened; S9 passes kit.json to wp_verify with widened tolerances and writes design_conformance; report.md gains a Design conformance section; TASK_TYPES loses 'tokens' and gains 'kit' and 'molecule'; every accept script rerouted. tests/accept/m7.sh written, NOT yet executed: it needs a live Playground and real provider spend.",
             "updated_at": "2026-08-25T00:00:00Z"
         }
     },
@@ -132,6 +132,31 @@
             "when": "2026-08-25",
             "what": "Recorded, not fixed: x-companion/uninstall.php does not delete the x_companion_patterns option, so an uninstalled companion leaves the agent pattern corpus orphaned in wp_options.",
             "why": "Found while settling the persistence decision above. Deliverable-purity says it should be swept, but it is a companion-side fix and does not belong in an agent-side spec amendment. Filed here so the next companion change picks it up."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "PRE_CEILING_ALLOWANCE goes 2 -> 4, and S1 writes state.budget_plan {S,B,P,I} while S3_kit writes the full state.budget {M,S,B,P,I,base,ceiling}.",
+            "why": "The ceiling is now fixed by the kit, so exactly two calls precede it (brief, kit) and each may burn one metered schema-retry. Splitting plan from budget keeps resume honest: run.mjs only adopts a ceiling that was really fixed, and report.md can say 'the run died before the kit' instead of 'no budget'."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "A molecule that fails its gate is DROPPED, not repaired; its role falls back to the theme's own pattern corpus. Zero survivors ends the run.",
+            "why": "Found while wiring S7: repair runs after S4/S5/S6, which is far too late for vocabulary S4 already needed. The molecule call has already spent its one metered schema-retry, so the repair economy is unchanged \u2014 only the stage that would host it does not exist. A site with no vocabulary would have every section inventing its own idiom, which is the failure S3b exists to prevent, so that case fails loudly."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "With a spec supplied, wp_verify's own `pass` no longer gates the run; only the outline and image screens do.",
+            "why": "wp_verify sets pass from diffs_outside_tolerance, so passing the kit in would have made a synthesized kit's own guesses fatal \u2014 the exact outcome decision (c) rules out. Design drift is reported and attributed in report.md; the hard gates are unchanged."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "source.files is required by design-spec.schema.json, so a synthesized kit emits files: []. The prompt says so explicitly.",
+            "why": "Caught by the kit test: the contract requires the key even where there is nothing to name. An empty array is the honest record of a spec lifted from nothing, and it keeps wp_spec_validate usable unmodified."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "Installed @google/genai in x-agent/mcp (it was declared in package.json but absent from node_modules).",
+            "why": "pipeline/tests/run.test.mjs and toolchain.test.mjs were failing on ERR_MODULE_NOT_FOUND before any M7 change, which made it impossible to tell new breakage from old. Both pass now."
         }
     ]
 }

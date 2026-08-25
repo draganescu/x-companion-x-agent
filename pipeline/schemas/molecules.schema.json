@@ -1,0 +1,75 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "x-pipeline/molecules.schema.json",
+    "title": "Molecule inventory",
+    "description": "The reusable section arrangements the design kit declares. Deliberately pipeline-side and NOT promoted to contract/schemas/: kit.json is a strict DesignSpecIR (additionalProperties:false at its root) and this inventory cannot live inside it. One entry becomes one TreeIR fragment, one saved block pattern, and one piece of the instance's vocabulary.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["molecules"],
+    "properties": {
+        "molecules": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 10,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "role", "when_to_use", "recipe", "style_refs"],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$",
+                        "description": "Slug fragment. The saved pattern is agent/<kit_id>-<id>, and the companion caps that whole slug at 64 characters."
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": ["header", "hero", "features", "gallery", "testimonial", "pricing", "faq", "cta", "contact", "content", "footer", "section"],
+                        "description": "The brief section role this molecule serves. Every role used by a brief section must have at least one molecule."
+                    },
+                    "when_to_use": {
+                        "type": "string",
+                        "minLength": 12,
+                        "description": "One sentence a site editor would understand. Becomes the saved pattern's description."
+                    },
+                    "recipe": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["blocks", "layout"],
+                        "properties": {
+                            "blocks": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": { "type": "string", "pattern": "^core/[a-z0-9-]+$" },
+                                "description": "The core blocks the arrangement is built from, outermost first. core/ only: an atom is a recomposition or a registered block style (ladder rungs 1-2), never a new block."
+                            },
+                            "layout": {
+                                "type": "string",
+                                "enum": ["centered", "left-aligned", "split", "asymmetric", "grid", "stacked"],
+                                "description": "How the children sit. Same vocabulary the brief's per-section design plan uses."
+                            },
+                            "notes": {
+                                "type": "string",
+                                "description": "The structural detail that makes this arrangement itself and not its neighbour: which child dominates, where the gap falls, what alignment carries the rhythm."
+                            }
+                        }
+                    },
+                    "style_refs": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "palette_slug": { "type": "string" },
+                            "background_palette_slug": { "type": "string" },
+                            "font_size_slug": { "type": "string" },
+                            "spacing_slugs": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "description": "Slugs the kit declares in tokens_candidates. SLUGS ONLY — a literal here is the same defect as a literal in the fragment."
+                    },
+                    "region_id": {
+                        "type": "string",
+                        "description": "Optional: the kit region this molecule realizes, when one region is its home."
+                    }
+                }
+            }
+        }
+    }
+}

@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit } from '../lib/limit.mjs';
-import { screenTreeDiagnostics, localTreeCheck } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck } from '../lib/gates.mjs';
 import { resolveBandColors } from '../lib/tokens.mjs';
 import { sectionImageIntents } from '../budget.mjs';
 
@@ -20,6 +20,21 @@ export async function run(ctx) {
         font_families: tokens.typography.families.map((f) => f.slug),
     };
     const allowedUnknown = new Set(brief.custom_blocks.map((b) => `agent/${b.slug}`));
+    // The vocabulary S3b saved. A section ASSEMBLES from these rather than
+    // inventing its own idiom — recurrence of structure is what cohesion is.
+    const kit = JSON.parse(readFileSync(join(ctx.runDir, 'kit.json'), 'utf8'));
+    const { molecules, saved = [] } = JSON.parse(readFileSync(join(ctx.runDir, 'molecules.json'), 'utf8'));
+    const savedIds = new Set(saved.map((s2) => s2.id));
+    const moleculeTree = (id) => {
+        try {
+            return JSON.parse(readFileSync(join(ctx.runDir, 'molecules', `${id}.json`), 'utf8')).tree;
+        } catch {
+            return null;
+        }
+    };
+    const kitRegions = new Map();
+    const walkRegions = (rs) => (rs ?? []).forEach((r) => { kitRegions.set(r.role, kitRegions.get(r.role) ?? r); walkRegions(r.children); });
+    walkRegions(kit.regions);
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -47,6 +62,18 @@ export async function run(ctx) {
             ? 'This section carries the page\'s SINGLE h1: the statement headline MUST be a core/heading with attributes.level set to 1 EXPLICITLY (core/heading defaults to level 2 when level is omitted). Any further headings inside this section are level 2.'
             : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
         const design = section.design ?? { band: 'base', layout: 'centered' };
+        // Every arrangement the kit assigned to this role, with the tree the
+        // junior actually built and the pattern name it now lives under.
+        const forRole = molecules
+            .filter((m) => m.role === section.role && savedIds.has(m.id))
+            .map((m) => ({
+                id: m.id,
+                when_to_use: m.when_to_use,
+                recipe: m.recipe,
+                pattern: (saved.find((s2) => s2.id === m.id) ?? {}).pattern,
+                tree: moleculeTree(m.id),
+            }))
+            .filter((m) => m.tree);
         const payload = {
             section,
             page: entry.page,
@@ -56,7 +83,11 @@ export async function run(ctx) {
             design,
             band_colors: resolveBandColors(design.band, brief.palette, tokens.palette),
             manifest_slice: entry.manifest_slice,
-            pattern_tree: entry.pattern?.parsed_tree ?? null,
+            // The kit's vocabulary first; the theme's corpus only as a fallback
+            // for a role the kit somehow left uncovered.
+            molecules: forRole,
+            kit_region: kitRegions.get(section.role) ?? null,
+            pattern_tree: forRole.length > 0 ? null : (entry.pattern?.parsed_tree ?? null),
             token_slugs: tokenSlugs,
             epoch,
             image_note: imageNote,
@@ -68,7 +99,11 @@ export async function run(ctx) {
                 task_type: 'tree',
                 label: `${s.page}/${s.id}`,
                 payload,
-                validate: (v) => localTreeCheck(v, { epoch }),
+                validate: (v) => {
+                    const issues = localTreeCheck(v, { epoch });
+                    if (issues.length > 0) return issues;
+                    return screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
+                },
             }));
         } catch (e) {
             if (e.code !== 'contract_failed' && e.code !== 'output_truncated') throw e;
@@ -83,6 +118,10 @@ export async function run(ctx) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for ${s.key}: ${res.data.message}`, res.data.hint ?? '');
         }
         const screen = screenTreeDiagnostics(res.data, { allowedUnknown });
+        // A section carries copy and slugs, never a hardcoded design value.
+        const literals = screenTreeLiterals(tree);
+        screen.failures = [...screen.failures, ...literals];
+        screen.status = screen.failures.length === 0 ? 'pass' : 'fail';
         const gate = { ...screen, diagnostics: res.data.diagnostics };
         writeFileSync(join(ctx.runDir, 'trees', `${s.key}.json`), JSON.stringify({ tree, gate }, null, 2));
         ctx.state.artifacts.trees[s.key] = { status: screen.status, deferred: screen.deferred, failures: screen.failures };

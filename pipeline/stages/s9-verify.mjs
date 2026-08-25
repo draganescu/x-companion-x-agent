@@ -1,7 +1,14 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { screenOutline } from '../lib/gates.mjs';
+
+// A synthesized kit is inference, not measurement. It is diffed at REGION
+// granularity with widened tolerances — band order, section height, content
+// width, gap step — and never at leaf typography or per-element position. A kit
+// verified as strictly as a lifted spec would turn every run into an argument
+// with its own guesses, so a design diff is REPORTED and ATTRIBUTED, never fatal.
+const SYNTHESIZED_TOLERANCES = { position_px: 48, size_pct: 12, gap_steps: 2, font_size_px: 6 };
 
 export const id = 'S9_verify';
 export const kind = 'deterministic';
@@ -26,9 +33,21 @@ export async function run(ctx) {
     // And right after S8's mutations the lone worker can abort one navigation,
     // measuring an empty page (0 outline, 0 boxes): that is a transient, not a
     // verdict — retry once after a beat (session-log lesson).
+    // The design kit is the diff target — the numeric design oracle from-prompt has
+    // never had. A run that died before S3 has none; verification still happens.
+    let kit = null;
+    try {
+        kit = JSON.parse(readFileSync(join(ctx.runDir, 'kit.json'), 'utf8'));
+    } catch {
+        ctx.log('no design kit on disk — verifying structure only, with nothing to diff against');
+    }
+
     let verify;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
-        const res = await ctx.call('wp_verify', { url, wait: 'domcontentloaded', nav_timeout_ms: 120000 });
+        const res = await ctx.call('wp_verify', {
+            url, wait: 'domcontentloaded', nav_timeout_ms: 120000,
+            ...(kit ? { spec: kit, tolerances: SYNTHESIZED_TOLERANCES } : {}),
+        });
         if (!res.ok) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_verify failed: ${res.data.message}`, res.data.hint ?? '');
         }
@@ -41,7 +60,10 @@ export async function run(ctx) {
     writeFileSync(join(ctx.runDir, 'verify.json'), JSON.stringify(verify, null, 2));
 
     const failures = [];
-    if (verify.pass === false) failures.push({ code: 'verify', message: 'wp_verify pass=false' });
+    // With a spec supplied, wp_verify's `pass` reports design conformance, and a
+    // synthesized kit must never make its own guesses fatal (see the tolerance
+    // note above). The hard gates below — outline, images — are unchanged.
+    if (!kit && verify.pass === false) failures.push({ code: 'verify', message: 'wp_verify pass=false' });
     failures.push(...screenOutline(verify.a11y_outline));
     for (const img of verify.images ?? []) {
         if (img.loaded !== true || img.natural_w === 0) {
@@ -61,6 +83,31 @@ export async function run(ctx) {
         throw new PipelineError(shot.data.code ?? 'companion_error', `wp_screenshot failed: ${shot.data.message}`);
     }
     ctx.state.screenshot_taken = true;
+    // Design conformance: reported and attributed, never fatal.
+    const diffs = verify.diffs ?? [];
+    const drift = diffs.filter((d) => d.within_tolerance === false);
+    if (kit) {
+        const byMolecule = ctx.state.kit?.saved ?? [];
+        const roleOf = new Map((kit.regions ?? []).map((r) => [r.id, r.role]));
+        ctx.state.design_conformance = {
+            regions: diffs.length,
+            within_tolerance: diffs.length - drift.length,
+            drift: drift.map((d) => ({
+                region_id: d.region_id,
+                role: roleOf.get(d.region_id) ?? null,
+                kind: d.kind,
+                expected: d.expected,
+                actual: d.actual,
+                delta: d.delta,
+                // Which arrangement this region was built from, when the kit assigned one.
+                molecule: (byMolecule.find((m) => m.role === roleOf.get(d.region_id)) ?? {}).id ?? null,
+            })),
+        };
+        ctx.log(drift.length === 0
+            ? `design conformance: every one of ${diffs.length} planned region(s) landed within tolerance of the kit`
+            : `design conformance: ${drift.length} of ${diffs.length} region(s) drifted from the kit (${drift.slice(0, 3).map((d) => `${d.region_id} ${d.kind}`).join(', ')}) — reported, not fatal: a synthesized kit is inference, not measurement`);
+    }
+
     ctx.state.verified = { url, headings: (verify.a11y_outline ?? []).length, images: (verify.images ?? []).length };
     ctx.log(`verified ${url} — heading structure sane, ${(verify.images ?? []).length} image(s) all loaded, screenshot saved`);
 }

@@ -33,9 +33,9 @@ EOF
 
 python3 - <<'EOF'
 import json
-temps = {"brief": 0.5, "tokens": 0.4, "tree": 0.3, "block": 0.2, "schema": 0.2, "repair": 0.2}
+temps = {"brief": 0.5, "kit": 0.4, "molecule": 0.3, "tree": 0.3, "block": 0.2, "schema": 0.2, "repair": 0.2}
 tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b", "temperature": temps[t]} for t in
-         ("brief", "tokens", "tree", "block", "schema", "repair")}
+         ("brief", "kit", "molecule", "tree", "block", "schema", "repair")}
 json.dump({"tasks": tasks, "concurrency": 3, "budget_hard_cap": 80},
           open('pipeline.config.json', 'w'), indent=2)
 EOF

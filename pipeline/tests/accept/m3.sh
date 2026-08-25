@@ -48,7 +48,7 @@ EOF
 python3 - "$POISON_DIR" <<'EOF'
 import json, sys
 tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b"} for t in
-         ("brief", "tokens", "tree", "block", "schema", "repair")}
+         ("brief", "kit", "molecule", "tree", "block", "schema", "repair")}
 json.dump({"tasks": tasks, "concurrency": 3, "budget_hard_cap": 80, "prompts_dir": sys.argv[1]},
           open('pipeline.config.json', 'w'), indent=2)
 EOF

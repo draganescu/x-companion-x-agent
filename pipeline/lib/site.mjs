@@ -75,7 +75,9 @@ export const PROVIDER_KEY_FIELDS = {
 };
 
 // The temperature set every accepted milestone ran with.
-const PROVEN_TEMPS = { brief: 0.5, tokens: 0.4, tree: 0.3, block: 0.2, schema: 0.2, repair: 0.2 };
+// The kit is the one call that decides anything about the whole site, so it runs
+// coolest of the design tasks; a molecule only instantiates a recipe already written.
+const PROVEN_TEMPS = { brief: 0.5, kit: 0.4, molecule: 0.3, tree: 0.3, block: 0.2, schema: 0.2, repair: 0.2 };
 
 // Anthropic's current models removed the sampling parameters outright — sending a
 // temperature is a 400, not a nudge. Steer those with the prompt and `effort`.

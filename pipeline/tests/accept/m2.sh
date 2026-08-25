@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# M2 acceptance (spec M2_brief_and_tokens): S1+S2+S3 against a live Playground
-# with one real provider. Provider keys come from .x-agent.json (or, bootstrap
+# M2 acceptance (spec M2_brief_and_tokens, as amended by M7): S1+S2+S3 against a
+# live Playground with one real provider. The tokens task is subsumed by the kit,
+# so this now proves the kit's token half; M7 proves the design half. Provider keys come from .x-agent.json (or, bootstrap
 # convenience, CEREBRAS_API_KEY / GEMINI_API_KEY in the environment).
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
@@ -35,15 +36,16 @@ EOF
 python3 - <<'EOF'
 import json
 tasks = {t: {"provider": "cerebras", "model": "gpt-oss-120b"} for t in
-         ("brief", "tokens", "tree", "block", "schema", "repair")}
+         ("brief", "kit", "molecule", "tree", "block", "schema", "repair")}
 tasks["brief"]["temperature"] = 0.5
-tasks["tokens"]["temperature"] = 0.4
+tasks["kit"]["temperature"] = 0.4
+tasks["molecule"]["temperature"] = 0.3
 json.dump({"tasks": tasks, "concurrency": 3, "budget_hard_cap": 60},
           open('pipeline.config.json', 'w'), indent=2)
 EOF
 
 node pipeline/run.mjs "A one-page site for a small artisan bakery called Hearth & Crumb: warm, floury, honest. A hero, what we bake, and a newsletter signup that stores subscribers." \
-    --until S3_tokens
+    --until S3b_molecules
 
 RUN_DIR=$(ls -td runs/*/ | head -1)
 node - "$RUN_DIR" <<'EOF'
@@ -59,7 +61,13 @@ const issues = validateSchema(schema, brief);
 if (issues.length) throw new Error(`brief.json invalid: ${JSON.stringify(issues.slice(0, 5))}`);
 
 const state = read('state.json');
-if (!state.budget?.ceiling) throw new Error('no budget fixed after S1');
+// The ceiling is fixed by the KIT, not the brief: M is not knowable before it.
+if (state.budget_plan === undefined) throw new Error('S1 did not plan the fan-out');
+if (!state.budget?.ceiling) throw new Error('no budget fixed after the design kit');
+if (state.budget.M === undefined) throw new Error('the fixed budget does not carry M');
+
+const kit = read('kit.json');
+if (kit.source?.kind !== 'synthesized') throw new Error('the kit must declare itself inferred, not measured');
 
 const tokens = read('tokens.json');
 const instance = read('instance.json');

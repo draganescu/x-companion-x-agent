@@ -13,10 +13,20 @@ only through the existing gates.
 ```
 
 That is the whole thing: `--new-site` boots a WordPress+x-companion Playground, wires
-the connection, and the build runs S1→S9 — brief, design tokens, concurrent section
-trees, block/schema factories, bounded repair, sequential installs, publish, image
-pass, verification, one screenshot. The budget prints right after the brief
-(`this brief costs at most N calls (S=…, B=…, P=…, I=…)`) and is hard-enforced.
+the connection, and the build runs S1→S9 — brief, **design kit**, **design vocabulary**,
+concurrent section trees, block/schema factories, bounded repair, sequential installs,
+publish, image pass, verification against the kit, one screenshot.
+
+The design layer is a master/junior split. One kit call decides everything about how
+the site looks — tokens, page rhythm, and an inventory of reusable arrangements — as a
+DesignSpecIR with `source.kind: "synthesized"`. Junior calls then build each arrangement
+and save it to the instance with `wp_pattern_save`, so the design system stops being a
+document and becomes vocabulary the site holds. Sections assemble from it rather than
+inventing their own idiom, and S9 diffs the finished page back against the kit.
+
+The budget prints right after the kit — not after the brief — because `S`, `B` and `P`
+come from the brief but `M` comes from the kit: `this build costs at most N calls
+(M=…, S=…, B=…, P=…, I=…)`. It is hard-enforced from that moment on.
 
 The site stays up afterwards. Iterate with more builds (a rebuild **updates** the
 page in place), and stop it with `./x-pipeline site stop`.
@@ -29,8 +39,10 @@ page in place), and stop it with `./x-pipeline site stop`.
 ```
 
 Playground sites are **ephemeral**: when a slot stops, its WordPress goes with it and
-the build shows as `gone`. What persists is `runs/<timestamp>/` — brief, tokens, trees,
-compiled markup, ledger, report, screenshot. To bring a design back, rebuild from the
+the build shows as `gone`. What persists is `runs/<timestamp>/` — brief, kit, molecules,
+tokens, trees, compiled markup, ledger, report, screenshot. The saved patterns persist
+on the instance too, for as long as the instance does: a re-run replaces its own
+`agent/<kit>-*` entries rather than piling more on. To bring a design back, rebuild from the
 same prompt; to look at what a past build produced, open its `report.md` and
 `screenshot.png`.
 
@@ -79,14 +91,18 @@ anything else.
 - `.x-agent.json` (repo root, gitignored, mode 0600) — site connection + provider API
   keys (`cerebras_api_key`, `gemini_api_key`, `anthropic_api_key`, `openai_api_key`;
   `gemini_api_key` also drives the image pass).
-- `pipeline.config.json` (gitignored) — task → `{provider, model, temperature}` routing.
-  Swapping a provider is a config edit, never a code change.
-- `runs/<timestamp>/` — every artifact of a run: `brief.json`, `tokens.json`, `trees/`,
-  `blocks/`, `packages/`, `images/`, `ledger.json`, `report.md`, `screenshot.png`.
+- `pipeline.config.json` (gitignored) — task → `{provider, model, temperature?, effort?}`
+  routing, one entry per task type (`brief`, `kit`, `molecule`, `tree`, `block`,
+  `schema`, `repair`). The kit is the one call worth paying reasoning effort for; a
+  molecule only instantiates a recipe already written. Swapping a provider is a config
+  edit, never a code change.
+- `runs/<timestamp>/` — every artifact of a run: `brief.json`, `kit.json`,
+  `molecules.json`, `molecules/`, `tokens.json`, `trees/`, `blocks/`, `packages/`,
+  `images/`, `ledger.json`, `report.md`, `screenshot.png`.
 
 ## Tests
 
 - Unit: `node --test pipeline/tests/*.test.mjs` (no network, no instance).
 - Milestone acceptance (live Playground + real provider keys in the environment):
-  `pipeline/tests/accept/m1.sh` … `m6-full.sh` — these boot their own instance on
+  `pipeline/tests/accept/m1.sh` … `m7.sh` — these boot their own instance on
   port 9410 and tear it down.

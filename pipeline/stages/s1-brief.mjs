@@ -19,8 +19,10 @@ export async function run(ctx) {
     });
     writeFileSync(join(ctx.runDir, 'brief.json'), JSON.stringify(brief, null, 2));
     ctx.state.brief = brief;
-    const budget = computeBudget(brief);
-    ctx.budget.setCeiling(budget.ceiling); // throws budget_exceeded if > hard cap — before call #2
-    ctx.state.budget = budget;
-    ctx.log(`this brief costs at most ${budget.ceiling} calls (S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I})`);
+    // S, B and P are fixed here; M is not knowable until the design kit exists, so
+    // the CEILING is set in S3_kit. Until then the meter allows exactly the two
+    // calls that precede it (brief, kit) plus their one retry each.
+    const plan = computeBudget(brief);
+    ctx.state.budget_plan = { S: plan.S, B: plan.B, P: plan.P, I: plan.I };
+    ctx.log(`the plan is ${plan.S} section(s), ${plan.B} custom block(s), ${plan.P} data package(s), ${plan.I} image(s) — the call ceiling is fixed once the design kit says how many arrangements it needs`);
 }

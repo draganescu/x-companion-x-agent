@@ -29,14 +29,18 @@ function makeCtx({ provider }) {
     };
 }
 
-test('S1 with the fake provider: brief.json written, ceiling 16 fixed, budget line logged', async () => {
+test('S1 with the fake provider: brief.json written, the fan-out planned, the ceiling NOT yet fixed', async () => {
     const ctx = makeCtx({ provider: createFake({}) });
     await s1.run(ctx);
     assert.ok(existsSync(join(ctx.runDir, 'brief.json')));
     assert.deepEqual(JSON.parse(readFileSync(join(ctx.runDir, 'brief.json'), 'utf8')), fixtureBrief);
-    assert.equal(ctx.state.budget.ceiling, 16);
-    assert.equal(ctx.budget.ceiling, 16);
-    assert.ok(ctx.logs.some((l) => /at most 16 calls \(S=3, B=1, P=1, I=2\)/.test(l)));
+    // S, B, P and I come from the brief; M comes from the kit, so the ceiling is
+    // fixed one stage later. Announcing a ceiling here would be announcing a guess.
+    assert.deepEqual(ctx.state.budget_plan, { S: 3, B: 1, P: 1, I: 2 });
+    assert.equal(ctx.state.budget, undefined);
+    assert.equal(ctx.budget.ceiling, null);
+    assert.ok(ctx.logs.some((l) => /3 section\(s\), 1 custom block\(s\), 1 data package\(s\), 2 image\(s\)/.test(l)));
+    assert.ok(ctx.logs.some((l) => /ceiling is fixed once the design kit/.test(l)));
 });
 
 test('a cross-check violation burns the one schema-retry, then a clean brief passes', async () => {

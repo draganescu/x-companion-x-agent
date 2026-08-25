@@ -1,7 +1,14 @@
-// The bill is a function of the brief: base = 1 (brief) + 1 (tokens) + S + B + P;
-// ceiling = 2*base + I. The 2x covers one schema-retry OR one repair per artifact,
-// whichever fires. Consulted BEFORE every generative call; a breach is a thrown
-// structured error, never a warning (spec operating rule 5).
+// The bill: base = 1 (brief) + 1 (kit) + M + S + B + P; ceiling = 2*base + I. The 2x
+// covers one schema-retry OR one repair per artifact, whichever fires. Consulted
+// BEFORE every generative call; a breach is a thrown structured error, never a
+// warning (spec operating rule 5).
+//
+// S, B and P are read from the brief; M is read from the KIT, so the ceiling is
+// computed and printed after S3_kit rather than after S1. That is a deliberate
+// one-stage weakening of the spec's original "known after the first call" promise:
+// M is not knowable before any design decision exists, and asking the brief to size
+// a design system is worse than announcing the ceiling one stage later. The ceiling
+// is still hard and still pre-declared before any fan-out.
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from './lib/errors.mjs';
@@ -13,16 +20,18 @@ export function sectionImageIntents(section) {
     return v ? [v] : [];
 }
 
-export function computeBudget(brief) {
+export function computeBudget(brief, { M = 0 } = {}) {
     const S = brief.pages.reduce((n, p) => n + p.sections.length, 0);
     const B = brief.custom_blocks.length;
     const P = brief.schema_packages.length;
     const I = brief.pages.reduce((n, p) => n + p.sections.reduce((m, s) => m + sectionImageIntents(s).length, 0), 0);
-    const base = 1 + 1 + S + B + P;
-    return { S, B, P, I, base, ceiling: 2 * base + I };
+    const base = 1 + 1 + M + S + B + P;
+    return { M, S, B, P, I, base, ceiling: 2 * base + I };
 }
 
-const PRE_CEILING_ALLOWANCE = 2; // S1 + its one schema-retry; nothing else may run before the ceiling exists
+// S1 + its retry, then S3_kit + its retry. Those are the only two calls that may
+// run before the ceiling exists, and the kit is the call that fixes it.
+const PRE_CEILING_ALLOWANCE = 4;
 
 export class BudgetMeter {
     #ceiling = null;

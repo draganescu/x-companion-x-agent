@@ -14,7 +14,8 @@ import { writeReport } from './lib/report.mjs';
 import { fmtClock, fmtDur } from './lib/clock.mjs';
 import * as s1 from './stages/s1-brief.mjs';
 import * as s2 from './stages/s2-read-instance.mjs';
-import * as s3 from './stages/s3-tokens.mjs';
+import * as s3 from './stages/s3-kit.mjs';
+import * as s3b from './stages/s3b-molecules.mjs';
 import * as s4 from './stages/s4-sections.mjs';
 import * as s5 from './stages/s5-blocks.mjs';
 import * as s6 from './stages/s6-schema-packages.mjs';
@@ -22,20 +23,21 @@ import * as s7 from './stages/s7-repair.mjs';
 import * as s8 from './stages/s8-publish.mjs';
 import * as s9 from './stages/s9-verify.mjs';
 
-const DEFAULT_STAGES = [s1, s2, s3, s4, s5, s6, s7, s8, s9];
+const DEFAULT_STAGES = [s1, s2, s3, s3b, s4, s5, s6, s7, s8, s9];
 
 // What each stage means in the user's terms. Stage ids (S1_brief…) stay the
 // vocabulary of state.json, --until and the spec; the log speaks plainly.
 const STAGE_INFO = {
-    S1_brief: { title: 'Planning the site', doing: 'one model call turns your prompt into the full plan — pages, sections, custom blocks, data model — and fixes the call budget' },
+    S1_brief: { title: 'Planning the site', doing: 'one model call turns your prompt into the full plan — pages, sections, custom blocks, data model' },
     S2_read_instance: { title: 'Reading the site', doing: 'listing the blocks, patterns and theme settings the connected WordPress actually has' },
-    S3_tokens: { title: 'Designing the look', doing: 'palette, typography and spacing derived from the plan and applied to the theme' },
-    S4_sections: { title: 'Writing the sections', doing: 'one model call per section, in parallel; every result is validated against the site before it may ship' },
+    S3_kit: { title: 'Designing the look', doing: 'one model call decides the whole design — palette, type, page rhythm and the reusable arrangements every section is built from — and fixes the call budget' },
+    S3b_molecules: { title: 'Building the design vocabulary', doing: 'one small model call per arrangement, in parallel; each is validated, compiled by the site\'s own editor code and saved as a pattern the site keeps' },
+    S4_sections: { title: 'Writing the sections', doing: 'one model call per section, in parallel, assembling from the saved arrangements; every result is validated against the site before it may ship' },
     S5_blocks: { title: 'Building custom blocks', doing: 'scaffold, model-written code, then a build and smoke test in a throwaway WordPress — the site is untouched' },
     S6_schema_packages: { title: 'Building the data model', doing: 'post types, fields and REST routes, proven (install, probe, clean uninstall) in a throwaway WordPress' },
     S7_repair: { title: 'Repairing failures', doing: 'anything that failed its gate gets exactly one repair attempt; a second failure is substituted, never improvised' },
     S8_publish: { title: 'Publishing', doing: 'installing what was built, compiling pages with the site\'s own editor code, publishing, generating images' },
-    S9_verify: { title: 'Verifying', doing: 'measuring the live front page and taking the one screenshot' },
+    S9_verify: { title: 'Verifying', doing: 'measuring the live front page against the design kit and taking the one screenshot' },
 };
 
 function timestamp() {
@@ -50,7 +52,7 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, cwd = 
     const providers = await createProviders({ config, keys });
 
     const runDir = resumeDir ?? join(cwd, 'runs', timestamp());
-    for (const d of ['', 'trees', 'blocks', 'packages', 'images', 'sections', 'pages']) {
+    for (const d of ['', 'trees', 'molecules', 'blocks', 'packages', 'images', 'sections', 'pages']) {
         mkdirSync(join(runDir, d), { recursive: true });
     }
     const statePath = join(runDir, 'state.json');

@@ -5,10 +5,15 @@
             "model": "claude-opus-5",
             "effort": "high"
         },
-        "tokens": {
+        "kit": {
             "provider": "anthropic",
             "model": "claude-opus-5",
-            "effort": "high"
+            "effort": "xhigh"
+        },
+        "molecule": {
+            "provider": "cerebras",
+            "model": "gpt-oss-120b",
+            "temperature": 0.3
         },
         "tree": {
             "provider": "anthropic",
@@ -32,5 +37,5 @@
         }
     },
     "concurrency": 3,
-    "budget_hard_cap": 60
+    "budget_hard_cap": 80
 }
