@@ -72,6 +72,22 @@ test('anthropic: temperature and max_tokens ride through only when routed', asyn
     assert.ok(!('output_config' in stub.calls[0].init), 'effort must not be sent when the route omits it');
 });
 
+test('anthropic: a contract becomes output_config.format, merged beside effort', async () => {
+    const stub = sseStub(sseOk('{"ok":true}'));
+    const p = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: stub.fetch } });
+    const contract = { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } } };
+    await p.complete('kit', 'P', {}, { model: 'claude-opus-5', effort: 'high', contract });
+    const oc = stub.calls[0].init.output_config;
+    assert.equal(oc.effort, 'high');
+    assert.equal(oc.format.type, 'json_schema');
+    assert.equal(oc.format.schema.additionalProperties, false); // narrowed, not passed raw
+    // without a contract, no format rides along
+    const plain = sseStub(sseOk('OUT'));
+    const p2 = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: plain.fetch } });
+    await p2.complete('kit', 'P', {}, { model: 'claude-opus-5', effort: 'high' });
+    assert.ok(!('format' in plain.calls[0].init.output_config));
+});
+
 test('anthropic: fast mode sends the speed param AND its beta header together, or neither', async () => {
     const fast = sseStub(sseOk('OUT'));
     const p1 = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: fast.fetch } });

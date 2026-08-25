@@ -43,6 +43,18 @@ function resolveRefs(node, depth = 0) {
 
 export const specSchema = resolveRefs(rawSpecSchema);
 
+// The {spec, molecules} envelope as ONE schema — what the kit call may emit,
+// for providers that can constrain generation to it (structured outputs).
+export const kitEnvelopeSchema = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['spec', 'molecules'],
+    properties: {
+        spec: specSchema,
+        molecules: moleculesSchema.properties.molecules,
+    },
+};
+
 /** Every region in the tree, flattened, with its parent for containment checks. */
 export function flattenRegions(regions, parent = null, out = []) {
     for (const r of regions ?? []) {

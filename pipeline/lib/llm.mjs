@@ -31,7 +31,7 @@ export function createLlm({ providers, promptsDir, budget, ledger, log }) {
         return templates.get(taskType);
     };
 
-    async function generate({ task_type, label, payload, validate, maxAttempts = 2 }) {
+    async function generate({ task_type, label, payload, validate, contract, maxAttempts = 2 }) {
         const route = providers.get(task_type);
         if (!route) {
             throw new PipelineError('preflight_failed', `no provider routed for task "${task_type}"`);
@@ -54,6 +54,10 @@ export function createLlm({ providers, promptsDir, budget, ledger, log }) {
                 ...(route.effort !== undefined ? { effort: route.effort } : {}),
                 ...(route.max_tokens !== undefined ? { max_tokens: route.max_tokens } : {}),
                 ...(route.speed !== undefined ? { speed: route.speed } : {}),
+                // The task's contract schema, for providers that can constrain
+                // generation to it (Anthropic structured outputs). Advisory:
+                // the validate() gate below never trusts it.
+                ...(contract ? { contract } : {}),
                 label,
                 // Providers with long silent calls heartbeat through this; the
                 // prefix keeps their lines attributable under concurrency.

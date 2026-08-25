@@ -4,6 +4,7 @@
 // single call can run for minutes and a buffered request would hit the socket
 // timeout before the first byte. max_tokens is a hard cap on thinking AND text.
 import { PipelineError } from '../lib/errors.mjs';
+import { toStructuredSchema } from '../lib/structured.mjs';
 
 const RETRYABLE = new Set([408, 429, 500, 502, 503, 504, 529]);
 const DEFAULT_MAX_TOKENS = 32000;
@@ -17,7 +18,14 @@ export function create({ keys, options = {} } = {}) {
 
     return {
         id: 'anthropic',
-        async complete(_taskType, prompt, _payload, { model, temperature, effort, max_tokens, speed, log }) {
+        async complete(_taskType, prompt, _payload, { model, temperature, effort, max_tokens, speed, contract, log }) {
+            // effort and structured-output format share the output_config envelope.
+            // A contract makes malformed JSON and stray keys unwritable at the
+            // grammar level; the pipeline's own validate gate still runs after.
+            const output_config = {
+                ...(effort !== undefined ? { effort } : {}),
+                ...(contract ? { format: { type: 'json_schema', schema: toStructuredSchema(contract) } } : {}),
+            };
             const body = {
                 model,
                 max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS,
@@ -27,7 +35,7 @@ export function create({ keys, options = {} } = {}) {
                 // rejected for non-default values on sonnet-5 — send it only when the
                 // route explicitly asks, so those models can simply omit it.
                 ...(temperature !== undefined ? { temperature } : {}),
-                ...(effort !== undefined ? { output_config: { effort } } : {}),
+                ...(Object.keys(output_config).length > 0 ? { output_config } : {}),
                 // Fast mode (research preview): same model, ~2.5x output tokens/s,
                 // premium price. Opus 5 / 4.8 only — the route opts in per task.
                 ...(speed !== undefined ? { speed } : {}),

@@ -77,7 +77,10 @@ synthesized kit was lifted from nothing, and saying so is the honest record.
   spacing step size, every typography size, `contentSize` and `wideSize`. `snapped_to`
   must be **byte-identical** to the value you wrote. Deltas are honest and specific
   (`"+2px"`, `"dE 0.9"`); `"small"` is not a delta. The `note` is the most valuable
-  field in the file — it is where you say why.
+  field in the file — it is where you say why. Before you finish, walk
+  `tokens_candidates` once more and check that EVERY colour, size, spacing and layout
+  string has its exactly-matching `snapped_to` entry — one missing entry rejects the
+  whole kit.
 
 `regions` — the page rhythm, top to bottom, one region per section of the front page,
 in order, at your declared viewport. Each has `id`, `role`, `box {x,y,w,h}`, `layout`

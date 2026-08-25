@@ -167,6 +167,11 @@
       "when": "2026-08-25",
       "what": "FIXED the recorded-not-fixed companion item: uninstall.php now deletes the x_companion_patterns option, so an uninstalled companion no longer strands the pattern corpus in wp_options.",
       "why": "Deliverable-purity: the corpus is plugin state, not content \u2014 published pages carry compiled markup and never reference it."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Structured outputs on the two run-fatal serial calls: generate() takes an optional contract schema, routed to the provider; the anthropic provider narrows it (toStructuredSchema: strip pattern/length/items constraints, oneOf->anyOf, close every object) and sends output_config.format json_schema beside effort. S1 passes brief.schema.json; S3_kit passes the composed {spec, molecules} envelope. The local validate gate is unchanged and still authoritative.",
+      "why": "Five kit incidents in three evenings \u2014 a sizes.name contract miss, a raw JSON syntax slip at char 29863, a notes_unused key mangle, an empty-string property key, and a quantization_log exact-string miss \u2014 and two of the runs died because BOTH attempts were burned on syntax/key failures. Grammar-constrained generation makes those unwritable, so the metered schema-retry is spent on the semantic checks only the pipeline can express (contrast, containment, quantization). Providers stay dumb pipes: the contract is advisory input, never trusted output."
     }
   ]
 }

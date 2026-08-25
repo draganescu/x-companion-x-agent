@@ -37,6 +37,7 @@ export async function run(ctx) {
         task_type: 'brief',
         label: 'brief',
         payload: { prompt: ctx.prompt, contract: schema, mode_note: brochure ? BROCHURE_NOTE : '' },
+        contract: schema,
         validate: (v) => [
             ...validateSchema(schema, v),
             ...crossChecks(v),
