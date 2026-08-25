@@ -18,8 +18,21 @@ trees, block/schema factories, bounded repair, sequential installs, publish, ima
 pass, verification, one screenshot. The budget prints right after the brief
 (`this brief costs at most N calls (S=…, B=…, P=…, I=…)`) and is hard-enforced.
 
-The site stays up afterwards. Iterate with more builds, inspect with
-`./x-pipeline site status`, and stop it with `./x-pipeline site stop`.
+The site stays up afterwards. Iterate with more builds (a rebuild **updates** the
+page in place), and stop it with `./x-pipeline site stop`.
+
+## Seeing what you have made
+
+```bash
+./x-pipeline builds        # every build, newest first, each marked LIVE or gone
+./x-pipeline site status   # which Playground slots are actually answering right now
+```
+
+Playground sites are **ephemeral**: when a slot stops, its WordPress goes with it and
+the build shows as `gone`. What persists is `runs/<timestamp>/` — brief, tokens, trees,
+compiled markup, ledger, report, screenshot. To bring a design back, rebuild from the
+same prompt; to look at what a past build produced, open its `report.md` and
+`screenshot.png`.
 
 ## Commands
 
@@ -27,7 +40,9 @@ The site stays up afterwards. Iterate with more builds, inspect with
 |---|---|
 | `x-pipeline site new [--port 9430] [--slot NAME]` | boot a companion Playground on its own slot and write the connection into `.x-agent.json` |
 | `x-pipeline site connect` | connect an existing x-companion site — prompts for url/user/app-password (or takes `--url --user --app-password`), verifies with `wp_connect`, warns on production posture |
-| `x-pipeline site status` | running Playground slots + the current connection, verified live |
+| `x-pipeline site status` | every Playground slot, **probed live** (a descriptor is a claim, not proof), plus the current connection |
+| `x-pipeline site use --slot NAME` | point builds at an already-running slot, using its stored credentials |
+| `x-pipeline builds [--all] [--limit N]` | every site built from this checkout, newest first: title, budget, artifacts, and whether its URL still answers |
 | `x-pipeline site stop [--slot NAME]` | stop the Playground and clear its connection (provider keys stay) |
 | `x-pipeline config init [--provider P] [--model M]` | write `pipeline.config.json` with the proven per-task temperatures; stores the provider key in `.x-agent.json` if missing |
 | `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first |

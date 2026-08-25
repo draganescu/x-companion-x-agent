@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from '../cli.mjs';
@@ -65,4 +65,47 @@ test('pickProvider prefers cerebras, then gemini, then anthropic; null with no k
     assert.equal(pickProvider({ gemini_api_key: 'g' }), 'gemini');
     assert.equal(pickProvider({ gemini_api_key: 'g', cerebras_api_key: 'c' }), 'cerebras');
     assert.equal(pickProvider({ anthropic_api_key: 'a' }), 'anthropic');
+});
+
+test('listBuilds reads every run newest-first with title, url and status', async () => {
+    const { listBuilds } = await import('../lib/site.mjs');
+    const cwd = mkdtempSync(join(tmpdir(), 'x-pipeline-builds-'));
+    const mkRun = (stamp, state, brief) => {
+        const dir = join(cwd, 'runs', stamp);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'state.json'), JSON.stringify(state));
+        if (brief) writeFileSync(join(dir, 'brief.json'), JSON.stringify(brief));
+    };
+    mkRun('20260101-090000', {
+        completed: ['S1_brief', 'S2_read_instance'],
+        prompt: 'a bindery',
+        budget: { S: 2, B: 0, P: 0, I: 1 },
+    }, { identity: { site_title: 'Stitch & Bind' } });
+    mkRun('20260102-101500', {
+        completed: ['S1_brief', 'S8_publish', 'S9_verify'],
+        published: { pages: [{ slug: 'home', front_page: true, link: 'http://127.0.0.1:9430/home/' }] },
+        budget: { S: 5, B: 1, P: 1, I: 3 },
+    }, { identity: { site_title: 'Beer Station' } });
+    mkRun('20260103-120000', {
+        completed: ['S1_brief', 'S4_sections'],
+        failure: { code: 'gate_failed', message: 'nope' },
+    }, { identity: { site_title: 'Broken Co' } });
+    mkdirSync(join(cwd, 'runs', 'not-a-run'), { recursive: true });   // ignored
+
+    const builds = listBuilds(cwd);
+    assert.deepEqual(builds.map((b) => b.run), ['20260103-120000', '20260102-101500', '20260101-090000']);
+
+    const [broken, published, partial] = builds;
+    assert.equal(broken.status, 'failed at S4_sections: gate_failed');
+    assert.equal(broken.url, null);
+
+    assert.equal(published.title, 'Beer Station');
+    assert.equal(published.status, 'verified');
+    assert.equal(published.url, 'http://127.0.0.1:9430/');          // normalized to the site root
+    assert.deepEqual(published.budget, { S: 5, B: 1, P: 1, I: 3 });
+
+    assert.equal(partial.status, 'stopped after S2_read_instance');
+    assert.equal(partial.prompt, 'a bindery');
+
+    assert.deepEqual(listBuilds(mkdtempSync(join(tmpdir(), 'x-pipeline-empty-'))), []);
 });

@@ -3,7 +3,9 @@
 //
 //   x-pipeline site new        boot a WordPress+x-companion Playground and wire the connection
 //   x-pipeline site connect    connect an existing x-companion site (asks for what it needs)
-//   x-pipeline site status     show connected site + running Playground slots
+//   x-pipeline site status     show connected site + Playground slots, probed live
+//   x-pipeline site use        build against an already-running slot
+//   x-pipeline builds          every site built here, newest first, with live/gone state
 //   x-pipeline site stop       stop a booted Playground and clear its connection
 //   x-pipeline config init     write pipeline.config.json (and store a provider key)
 //   x-pipeline build "<prompt>"  run the compiler S1→S9 (auto-writes config if missing)
@@ -18,7 +20,7 @@ import { PipelineError } from './lib/errors.mjs';
 import { loadPipelineConfig, readProviderKeys } from './lib/config.mjs';
 import { ask, askHidden } from './lib/prompt.mjs';
 import {
-    bootSite, stopSite, listSites, mergeConnection, scrubConnection, readAgentConfig,
+    bootSite, stopSite, listSites, listBuilds, readDescriptor, mergeConnection, scrubConnection, readAgentConfig,
     storeProviderKey, defaultBuildConfig, pickProvider, writeBuildConfig,
     PROVIDER_DEFAULT_MODELS, PROVIDER_KEY_FIELDS, DEFAULT_SLOT, DEFAULT_PORT,
 } from './lib/site.mjs';
@@ -48,7 +50,9 @@ usage:
   x-pipeline site new       [--port ${DEFAULT_PORT}] [--slot ${DEFAULT_SLOT}] [--plugin ./x-companion]
   x-pipeline site connect   [--url URL] [--user USER] [--app-password PASS]
   x-pipeline site status
+  x-pipeline site use       --slot NAME                 build against an already-running slot
   x-pipeline site stop      [--slot ${DEFAULT_SLOT}] [--port N]
+  x-pipeline builds         [--all] [--limit N]     every site built here, newest first
   x-pipeline config init    [--provider cerebras|gemini|anthropic|openai] [--model ID] [--key API_KEY] [--force]
   x-pipeline build "<prompt>" [--until STAGE] [--resume RUN_DIR] [--config PATH]
                               [--new-site] [--port N] [--slot NAME]
@@ -105,12 +109,83 @@ async function siteConnect(flags) {
     log('connection written to .x-agent.json (mode 0600)');
 }
 
+async function siteUse(flags) {
+    const sites = listSites();
+    const slot = flags.slot ?? (sites.length === 1 ? sites[0].slot : null);
+    if (!slot) {
+        log(sites.length === 0 ? 'no known slots — run: x-pipeline site new' : `--slot is required; known: ${sites.map((s) => s.slot).join(', ')}`);
+        throw new PipelineError('preflight_failed', 'no slot chosen');
+    }
+    const d = readDescriptor(slot);
+    if (!d?.url) {
+        throw new PipelineError('preflight_failed', `no runtime descriptor for slot "${slot}"`,
+            `Known slots: ${sites.map((s) => s.slot).join(', ') || '(none)'}`);
+    }
+    if (!await reachable(d.url)) {
+        throw new PipelineError('preflight_failed', `slot "${slot}" is not responding at ${d.url}`,
+            `Its holder is gone. Clear it with: x-pipeline site stop --slot ${slot}`);
+    }
+    mergeConnection(process.cwd(), { url: d.url, user: d.admin.user, app_password: d.admin.app_password });
+    const info = await verifyConnection();
+    log(`now building against slot ${slot}: ${info.site_url} (posture ${info.posture}, fingerprint ${info.fingerprint.slice(0, 8)}…)`);
+}
+
+async function reachable(url) {
+    try {
+        const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(4000) });
+        return res.status < 500;
+    } catch {
+        return false;
+    }
+}
+
+async function builds(flags) {
+    const all = listBuilds(process.cwd());
+    if (all.length === 0) {
+        log('no builds yet — run: x-pipeline build "<prompt>" --new-site');
+        return;
+    }
+    const limit = flags.limit ? Number(flags.limit) : (flags.all ? all.length : 10);
+    const shown = all.slice(0, limit);
+
+    // A build's site is live only if something still answers at its URL.
+    const live = new Map();
+    for (const url of new Set(shown.map((b) => b.url).filter(Boolean))) {
+        live.set(url, await reachable(url));
+    }
+    const slotByUrl = new Map(listSites().map((s) => [new URL('/', s.url).href, s.slot]));
+    let liveCount = 0;
+
+    for (const b of shown) {
+        const isLive = Boolean(b.url && live.get(b.url));
+        if (isLive) liveCount += 1;
+        const slot = b.url ? slotByUrl.get(b.url) : null;
+        const state = b.url
+            ? (isLive ? `LIVE  ${b.url}${slot ? `  (slot ${slot})` : ''}` : `gone  (was ${b.url})`)
+            : 'not published';
+        log(`${b.run}  ${state}`);
+        log(`    ${b.title} — ${b.status}${b.budget ? ` (S=${b.budget.S} B=${b.budget.B} P=${b.budget.P} I=${b.budget.I})` : ''}`);
+        log(`    artifacts: ${b.runDir}`);
+    }
+    if (all.length > shown.length) log(`… ${all.length - shown.length} older build(s); --all to list them`);
+    log(`${liveCount} live of ${shown.length} shown`);
+    if (shown.some((b) => b.url && !live.get(b.url))) {
+        log('a "gone" site was a Playground that has since stopped — its artifacts remain; rebuild with: x-pipeline build "<prompt>" --new-site');
+    }
+}
+
 async function siteStatus() {
     const sites = listSites();
-    if (sites.length === 0) log('no Playground slots running from this checkout');
+    if (sites.length === 0) log('no Playground slots known to this checkout');
+    let stale = 0;
     for (const s of sites) {
-        log(`slot ${s.slot}: ${s.url} ${s.alive === false ? '(holder DEAD — site likely gone)' : ''}`);
+        // A descriptor is a claim, not proof: probe the URL. Holders can die
+        // (a reaped process group, a machine sleep) and leave the file behind.
+        const up = await reachable(s.url);
+        if (!up) stale += 1;
+        log(`slot ${s.slot}: ${s.url} — ${up ? 'LIVE' : 'NOT RESPONDING (stale descriptor; the site is gone)'}`);
     }
+    if (stale > 0) log(`clear a stale slot with: x-pipeline site stop --slot <name>`);
     const cfg = readAgentConfig(process.cwd());
     if (!cfg.url) {
         log('no connection in .x-agent.json — run: x-pipeline site new (or site connect)');
@@ -229,9 +304,15 @@ export async function main(argv) {
             await siteConnect(flags);
         } else if (cmd === 'site' && sub === 'status') {
             await siteStatus();
+        } else if (cmd === 'site' && sub === 'use') {
+            const { flags } = parseArgs(rest);
+            await siteUse(flags);
         } else if (cmd === 'site' && sub === 'stop') {
             const { flags } = parseArgs(rest);
             await siteStop(flags);
+        } else if (cmd === 'builds') {
+            const { flags } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['all'] });
+            await builds(flags);
         } else if (cmd === 'config' && sub === 'init') {
             const { flags } = parseArgs(rest, { booleans: ['force'] });
             await configInit(flags);

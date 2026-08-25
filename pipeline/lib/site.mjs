@@ -183,3 +183,47 @@ export function listSites() {
     }
     return sites;
 }
+
+/* --------------------------------------------------------------------- builds */
+
+/**
+ * Every build this checkout has made, newest first: one record per runs/<ts>
+ * directory. Sites themselves are ephemeral (a stopped Playground slot takes
+ * its WordPress with it) — the run directory is the durable artifact.
+ */
+export function listBuilds(cwd) {
+    let dirs = [];
+    try {
+        dirs = readdirSync(join(cwd, 'runs')).filter((d) => /^\d{8}-\d{6}$/.test(d)).sort().reverse();
+    } catch {
+        return [];
+    }
+    const builds = [];
+    for (const dir of dirs) {
+        const runDir = join(cwd, 'runs', dir);
+        const readJson = (f) => {
+            try {
+                return JSON.parse(readFileSync(join(runDir, f), 'utf8'));
+            } catch {
+                return null;
+            }
+        };
+        const state = readJson('state.json') ?? {};
+        const brief = readJson('brief.json');
+        const front = state.published?.pages?.find((p) => p.front_page);
+        const completed = state.completed ?? [];
+        builds.push({
+            run: dir,
+            runDir,
+            title: brief?.identity?.site_title ?? '(no brief)',
+            prompt: state.prompt ?? '',
+            url: front ? new URL('/', front.link).href : null,
+            status: state.failure
+                ? `failed at ${completed.length ? completed[completed.length - 1] : 'start'}: ${state.failure.code}`
+                : completed.includes('S9_verify') ? 'verified'
+                    : completed.length ? `stopped after ${completed[completed.length - 1]}` : 'empty',
+            budget: state.budget ?? null,
+        });
+    }
+    return builds;
+}
