@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { deriveThemeSpacing, deriveThemeLayout, tokenChecks } from '../lib/tokens.mjs';
-import { kitChecks, tokensFromKit, kitId, moleculesSchema, kitEnvelopeSchema } from '../lib/kit.mjs';
+import { kitChecks, tokensFromKit, kitId, moleculesSchema } from '../lib/kit.mjs';
 import { computeBudget } from '../budget.mjs';
 
 const specContract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-spec.schema.json', import.meta.url), 'utf8'));
@@ -49,7 +49,8 @@ export async function run(ctx) {
         task_type: 'kit',
         label: 'kit',
         payload,
-        contract: kitEnvelopeSchema,
+        // NOT passed as a structured-outputs contract — see s1-brief.mjs: the
+        // envelope is larger still than the brief schema the API refused.
         validate: (v) => {
             const issues = kitChecks(v, { briefPalette: brief.palette, sectionRoles });
             if (issues.length > 0) return issues;

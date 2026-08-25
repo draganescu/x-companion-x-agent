@@ -172,6 +172,11 @@
       "when": "2026-08-25",
       "what": "Structured outputs on the two run-fatal serial calls: generate() takes an optional contract schema, routed to the provider; the anthropic provider narrows it (toStructuredSchema: strip pattern/length/items constraints, oneOf->anyOf, close every object) and sends output_config.format json_schema beside effort. S1 passes brief.schema.json; S3_kit passes the composed {spec, molecules} envelope. The local validate gate is unchanged and still authoritative.",
       "why": "Five kit incidents in three evenings \u2014 a sizes.name contract miss, a raw JSON syntax slip at char 29863, a notes_unused key mangle, an empty-string property key, and a quantization_log exact-string miss \u2014 and two of the runs died because BOTH attempts were burned on syntax/key failures. Grammar-constrained generation makes those unwritable, so the metered schema-retry is spent on the semantic checks only the pipeline can express (contrast, containment, quantization). Providers stay dumb pipes: the contract is advisory input, never trusted output."
+    },
+    {
+      "when": "2026-08-25",
+      "what": "Structured outputs UNWIRED from brief and kit the same evening they were wired: after the empty-schema rule was satisfied, the API rejected the narrowed brief contract outright \u2014 'The compiled grammar is too large' (req_011CeQ6s...) \u2014 and the kit envelope is larger still. The generate() contract knob, toStructuredSchema, and their tests stay as dormant, documented capability for small contracts; the two call sites carry comments stating the field-tested boundary.",
+      "why": "Two API surprises in one evening was the agreed complexity budget. The failure mode was the designed one \u2014 a 1-second 400 on call 1, zero tokens \u2014 but chasing the provider's grammar-size envelope with schema simplification would trade contract fidelity for a moving target. The kit's reliability problem returns to prompt pins (recipe keys, quantization walk, sizes.name) which address three of the five observed incident classes; the two purely syntactic classes remain the residual risk of freehand 30KB JSON."
     }
   ]
 }

@@ -37,7 +37,10 @@ export async function run(ctx) {
         task_type: 'brief',
         label: 'brief',
         payload: { prompt: ctx.prompt, contract: schema, mode_note: brochure ? BROCHURE_NOTE : '' },
-        contract: schema,
+        // NOT passed as a structured-outputs contract: this schema compiles to
+        // a grammar the API rejects as too large (field-tested 2026-08-25,
+        // req_011CeQ6s…). The generate() contract knob works only for schemas
+        // far smaller than the pipeline's real ones.
         validate: (v) => [
             ...validateSchema(schema, v),
             ...crossChecks(v),
