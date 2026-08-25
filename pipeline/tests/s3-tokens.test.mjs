@@ -139,7 +139,8 @@ test('resolveBandColors maps bands to applied slugs via brief roles', async () =
         { slug: 'contrast', name: 'Contrast', color: '#3B2A1E' },
         { slug: 'ember', name: 'Ember', color: '#d96c2c' },
     ];
-    assert.deepEqual(resolveBandColors('accent', briefPalette, applied), { background: 'ember', text: 'base' });
+    // luminance-measured: mid-bright ember gets DARK ink, not whichever slug is named 'base'
+    assert.deepEqual(resolveBandColors('accent', briefPalette, applied), { background: 'ember', text: 'contrast' });
     assert.deepEqual(resolveBandColors('contrast', briefPalette, applied), { background: 'contrast', text: 'base' });
     assert.deepEqual(resolveBandColors('base', briefPalette, applied), { background: 'base', text: 'contrast' });
 });

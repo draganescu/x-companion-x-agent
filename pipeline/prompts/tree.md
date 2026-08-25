@@ -46,13 +46,31 @@ Your section's design: {{design}}
 
 BAND DISCIPLINE (non-negotiable): your root node is ONE core/group with
 attributes {"align": "full", "backgroundColor": "<band background slug>",
-"textColor": "<band text slug>", "layout": {"type": "constrained"}} and generous
-vertical padding from the spacing presets (style.spacing.padding top and bottom,
-spelled "var:preset|spacing|<slug>" — pick one of the LARGER slugs available).
-Your band's colors: {{band_colors}}
-If that text/background pairing would read poorly for some element, adjust with
-other palette slugs — never with raw colors. Inner content uses the constrained
-width; use "wide" on individual inner blocks where the layout calls for breadth.
+"textColor": "<band text slug>", "layout": {"type": "constrained"}} and vertical
+padding from the spacing presets (style.spacing.padding top and bottom, spelled
+"var:preset|spacing|<slug>"). Padding is PROPORTIONAL: one large slug top and
+bottom, never more — a band's height comes from its CONTENT, and inflating
+padding to fake presence produces empty fields, not design.
+Your band's colors (chosen by measured contrast — use them): {{band_colors}}
+Inner content uses the constrained width; use "wide" on individual inner blocks
+where the layout calls for breadth.
+
+CONTENT DENSITY: realize the copy notes FULLY. Notes promising a list (taps,
+menu items, hours, features) become an ACTUAL styled list or card grid with 4-6
+real entries — invented faithfully in the site's voice, never summarized into
+one thin paragraph. A section whose band is mostly empty background is
+unfinished work.
+
+IMAGE GEOMETRY: every image is a composition element, never a thumbnail. In a
+split or left-aligned layout the image fills its column (core/columns with the
+image column at 50-58%, or core/media-text with the image side). A lone hero
+image is large (sizeSlug "large", or the band's media half). Gallery images
+share one consistent aspectRatio. Set width/aspectRatio deliberately on every
+core/image — a default-sized image floating in a band is a defect.
+
+STATEMENT SCALE: hero and cta sections carry one display-scale statement (the
+largest font-size slug available) — a cta whose text whispers in a loud band is
+a defect.
 
 LAYOUT: realize design.layout, not a default stack —
 - "centered": constrained column, display-scale heading, deliberate whitespace.

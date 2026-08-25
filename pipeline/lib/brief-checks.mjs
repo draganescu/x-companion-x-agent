@@ -27,6 +27,16 @@ export function crossChecks(brief) {
             if (!pageSlugs.has(it.page_slug)) issues.push({ path: `/${field}/items/${i}/page_slug`, message: `no page "${it.page_slug}"` });
         });
     }
+    // Planned bands must be expressible in the palette, or alternation silently
+    // collapses (a surface band falling back to base merges adjacent sections).
+    const roles = new Set((brief.palette ?? []).map((p) => p.role));
+    const planned = new Set((brief.pages ?? []).flatMap((p) => (p.sections ?? []).map((s) => s.design?.band)));
+    if (planned.has('surface') && !roles.has('surface') && !roles.has('background')) {
+        issues.push({ path: '/palette', message: 'a section plans a "surface" band but the palette has no role "surface" (or "background") entry — add a tint one step off the background, or plan "base"' });
+    }
+    if (planned.has('accent') && !roles.has('accent') && !roles.has('primary')) {
+        issues.push({ path: '/palette', message: 'a section plans an "accent" band but the palette has no role "accent" (or "primary") entry' });
+    }
     const fronts = (brief.pages ?? []).filter((p) => p.front_page).length;
     if (fronts !== 1) issues.push({ path: '/pages', message: `exactly one page must set front_page:true (got ${fronts})` });
     const dupSlugs = (list, where) => {

@@ -149,7 +149,7 @@ test('every section payload carries the shared design language', async () => {
     assert.deepEqual(hero.band_colors, { background: 'contrast', text: 'base' }); // hero band: contrast
 
     const signup = ctx.payloads['home/signup'];
-    assert.deepEqual(signup.band_colors, { background: 'ember', text: 'base' }); // accent resolves by hex
+    assert.deepEqual(signup.band_colors, { background: 'ember', text: 'contrast' }); // accent by hex; dark ink by luminance
 
     const features = ctx.payloads['home/what-we-bake'];
     assert.equal(features.design.layout, 'grid');

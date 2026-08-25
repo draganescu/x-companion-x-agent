@@ -55,9 +55,27 @@ export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette 
 
 // Resolve a brief-level band name ('base'|'surface'|'contrast'|'accent') into
 // the APPLIED palette slugs the tree may spend: brief roles are matched to
-// applied entries by hex. Advisory for the model, deterministic for the ledger.
+// applied entries by hex, and the TEXT slug is chosen by measured contrast
+// against the band's actual color — a bright accent band gets dark ink, a dark
+// one gets light ink, regardless of which slug is named what.
+function relativeLuminance(hex) {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const [r, g, b] = [0, 2, 4].map((i) => {
+        const v = parseInt(full.slice(i, i + 2), 16) / 255;
+        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(hexA, hexB) {
+    const [hi, lo] = [relativeLuminance(hexA), relativeLuminance(hexB)].sort((a, b) => b - a);
+    return (hi + 0.05) / (lo + 0.05);
+}
+
 export function resolveBandColors(band, briefPalette, appliedPalette) {
     const slugs = new Set(appliedPalette.map((p) => p.slug));
+    const bySlug = new Map(appliedPalette.map((p) => [p.slug, p.color]));
     const byColor = new Map(appliedPalette.map((p) => [p.color.toLowerCase(), p.slug]));
     const roleSlug = (role) => {
         const entry = (briefPalette ?? []).find((p) => p.role === role);
@@ -65,11 +83,21 @@ export function resolveBandColors(band, briefPalette, appliedPalette) {
     };
     const base = slugs.has('base') ? 'base' : appliedPalette[0]?.slug;
     const contrast = slugs.has('contrast') ? 'contrast' : appliedPalette[1]?.slug;
-    const text = roleSlug('text') ?? contrast;
+
+    let background;
     switch (band) {
-        case 'contrast': return { background: contrast, text: base };
-        case 'accent': return { background: roleSlug('accent') ?? roleSlug('primary') ?? contrast, text: base };
-        case 'surface': return { background: roleSlug('surface') ?? roleSlug('background') ?? base, text };
-        default: return { background: base, text };
+        case 'contrast': background = contrast; break;
+        case 'accent': background = roleSlug('accent') ?? roleSlug('primary') ?? contrast; break;
+        case 'surface': background = roleSlug('surface') ?? roleSlug('background') ?? base; break;
+        default: background = base;
     }
+
+    const bgHex = bySlug.get(background);
+    const candidates = [...new Set([roleSlug('text'), contrast, base].filter((s) => s && s !== background && bySlug.has(s)))];
+    let text = candidates[0] ?? contrast;
+    if (bgHex && candidates.length > 1) {
+        text = candidates.reduce((best, s) =>
+            (contrastRatio(bgHex, bySlug.get(s)) > contrastRatio(bgHex, bySlug.get(best)) ? s : best), candidates[0]);
+    }
+    return { background, text };
 }

@@ -69,6 +69,9 @@ Rules:
     adjacent sections with the same layout unless the design argues for it.
   - Below the fold gets the SAME attention as the hero — the last section is judged
     like the first.
+  - The palette must cover the bands you plan: a surface band needs a palette entry
+    with role "surface" (a tint one step off the background); an accent band needs a
+    role "accent" (or "primary") entry.
 - image_intent only where a generated image does real work; each one is a metered call.
   A section that SHOWS imagery (role gallery, and any section whose copy promises
   photos) carries an ARRAY of 3-6 intents — one per image, each a full art-directed
