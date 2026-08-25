@@ -20,11 +20,21 @@ export async function run(ctx) {
     ctx.log(`S9: verifying ${url} (fresh session)`);
 
     // Single-PHP-worker sandboxes never reach network idle — domcontentloaded.
-    const res = await ctx.call('wp_verify', { url, wait: 'domcontentloaded', nav_timeout_ms: 120000 });
-    if (!res.ok) {
-        throw new PipelineError(res.data.code ?? 'companion_error', `wp_verify failed: ${res.data.message}`, res.data.hint ?? '');
+    // And right after S8's mutations the lone worker can abort one navigation,
+    // measuring an empty page (0 outline, 0 boxes): that is a transient, not a
+    // verdict — retry once after a beat (session-log lesson).
+    let verify;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const res = await ctx.call('wp_verify', { url, wait: 'domcontentloaded', nav_timeout_ms: 120000 });
+        if (!res.ok) {
+            throw new PipelineError(res.data.code ?? 'companion_error', `wp_verify failed: ${res.data.message}`, res.data.hint ?? '');
+        }
+        verify = res.data;
+        const empty = (verify.a11y_outline ?? []).length === 0 && (verify.box_tree ?? []).length === 0;
+        if (!empty || attempt === 2) break;
+        ctx.log('S9: measured an empty page (transient right after mutations) — retrying once');
+        await new Promise((r) => setTimeout(r, 3000));
     }
-    const verify = res.data;
     writeFileSync(join(ctx.runDir, 'verify.json'), JSON.stringify(verify, null, 2));
 
     const failures = [];

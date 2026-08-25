@@ -156,9 +156,12 @@ export async function run(ctx) {
         };
         const footerCompiled = await toolOrThrow(ctx, 'wp_compile', footerTree, 'wp_compile footer');
         const parts = await rest('GET', '/wp/v2/template-parts');
-        const footerPart = (Array.isArray(parts) ? parts : []).find((p) => p.area === 'footer');
+        const footerPart = (Array.isArray(parts) ? parts : []).find((p) => p.area === 'footer')
+            ?? (Array.isArray(parts) ? parts : []).find((p) => String(p.id).endsWith('//footer') || p.slug === 'footer');
         if (footerPart) {
-            await rest('POST', `/wp/v2/template-parts/${encodeURIComponent(footerPart.id)}`, { body: { content: footerCompiled.markup } });
+            // area rides along: a customized part posted without it loses its
+            // 'footer' area and the next run cannot find it.
+            await rest('POST', `/wp/v2/template-parts/${encodeURIComponent(footerPart.id)}`, { body: { content: footerCompiled.markup, area: 'footer' } });
             ctx.state.published.footer_part = footerPart.id;
         } else {
             ctx.log('S8: no footer template part on this theme — skipped');

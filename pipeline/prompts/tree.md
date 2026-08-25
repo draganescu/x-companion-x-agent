@@ -91,6 +91,8 @@ Starting pattern (adapt its idiom to YOUR band and layout; null means compose fr
 Design tokens available — spend ONLY these slugs (backgroundColor/textColor take
 palette slugs; fontSize takes font-size slugs; spacing presets are spelled
 "var:preset|spacing|<slug>" inside style.spacing values): {{token_slugs}}
+Font sizes are the PRESET attribute — {"fontSize": "display"} on the node — never
+a slug inside style.typography.fontSize (that emits invalid CSS the browser drops).
 
 {{image_note}}
 

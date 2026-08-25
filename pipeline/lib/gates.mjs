@@ -68,7 +68,12 @@ export function localTreeCheck(tree, { epoch }) {
 }
 
 // S5's file-map contract: {"files": {name: content}} with names from the
-// allowed set only — nothing escapes the scaffold directory.
+// allowed set only — nothing escapes the scaffold directory. PHP contents get
+// a mechanical screen for the one mistake that poisons a whole site: a
+// file-level `use` of a non-compound (global) class name raises a PHP warning
+// on EVERY request, and with display_errors on it prefixes every REST response.
+const NON_COMPOUND_USE = /^[ \t]*use[ \t]+\\?[A-Za-z_][A-Za-z0-9_]*[ \t]*;/m;
+
 export function screenFileMap(value, { allowed }) {
     const issues = [];
     if (!value || typeof value !== 'object' || !value.files || typeof value.files !== 'object' || Array.isArray(value.files)) {
@@ -84,6 +89,8 @@ export function screenFileMap(value, { allowed }) {
         }
         if (typeof value.files[name] !== 'string') {
             issues.push({ path: `/files/${name}`, message: 'file content must be a string' });
+        } else if (name.endsWith('.php') && NON_COMPOUND_USE.test(value.files[name])) {
+            issues.push({ path: `/files/${name}`, message: 'file-level `use` of a non-compound class name (e.g. `use WP_REST_Server;`) raises a PHP warning on every request — reference global classes directly (`\\WP_REST_Server` or just the bare name)' });
         }
     }
     return issues;

@@ -22,6 +22,16 @@ export function readConnection(cwd, env = process.env) {
     return { url, user, app_password };
 }
 
+// Real WordPress responses are routinely prefixed with PHP notices from some
+// plugin (display_errors + a sloppy `use` statement is enough) — the JSON is
+// still there, after the junk. Salvage it instead of treating the body as text:
+// mistaking a notice-prefixed page list for "no pages" once created a duplicate.
+export function salvageJson(text) {
+    const first = Math.min(...['{', '['].map((c) => (text.indexOf(c) === -1 ? Infinity : text.indexOf(c))));
+    if (first === Infinity) throw new SyntaxError('no JSON in response body');
+    return JSON.parse(text.slice(first));
+}
+
 export function createRest({ url, user, app_password }) {
     const client = createClient({ url, user, password: app_password });
     return async function rest(method, route, opts = {}) {
@@ -30,6 +40,17 @@ export function createRest({ url, user, app_password }) {
             throw new PipelineError('companion_error', `${method} ${route} -> ${res.status}`,
                 (res.text ?? '').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').slice(0, 300));
         }
-        return res.json ?? res.text;
+        if (res.json != null) return res.json;
+        const ctype = res.headers?.['content-type'] ?? '';
+        if (/json/i.test(ctype) && typeof res.text === 'string') {
+            try {
+                return salvageJson(res.text);
+            } catch {
+                throw new PipelineError('companion_error',
+                    `${method} ${route} returned unparseable JSON (a PHP notice may be corrupting responses)`,
+                    (res.text ?? '').slice(0, 200));
+            }
+        }
+        return res.text;
     };
 }

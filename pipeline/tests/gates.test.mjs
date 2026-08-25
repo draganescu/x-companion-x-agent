@@ -93,3 +93,20 @@ test('schemaGate: thrown envelope is the failure lane; success needs uninstall_c
     const pass = schemaGate({ ok: true, data: { built: true, zip_path: '/z.zip', smoke: { uninstall_clean: true } } });
     assert.equal(pass.status, 'pass');
 });
+
+test('screenFileMap rejects file-level non-compound use in PHP; compound namespaces pass', () => {
+    const allowed = new Set(['routes.php', 'view.js']);
+    const bad = screenFileMap({ files: { 'routes.php': '<?php\nuse WP_REST_Server;\n' } }, { allowed });
+    assert.ok(bad.some((i) => /PHP warning on every request/.test(i.message)));
+    const okCompound = screenFileMap({ files: { 'routes.php': '<?php\nuse Vendor\\Thing\\Helper;\n' } }, { allowed });
+    assert.deepEqual(okCompound, []);
+    const js = screenFileMap({ files: { 'view.js': 'use strict;' } }, { allowed });
+    assert.deepEqual(js, []); // .php only
+});
+
+test('salvageJson digs the payload out of a notice-prefixed body', async () => {
+    const { salvageJson } = await import('../lib/rest.mjs');
+    const body = '<br />\n<b>Warning</b>: something in routes.php on line 13<br />\n[{"id":7,"slug":"home"}]';
+    assert.deepEqual(salvageJson(body), [{ id: 7, slug: 'home' }]);
+    assert.throws(() => salvageJson('<br/>just junk'));
+});
