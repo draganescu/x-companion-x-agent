@@ -110,6 +110,7 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
         }
         writeFileSync(join(ctx.runDir, 'trees', `${key}.json`), JSON.stringify({ tree: value, gate: { ...gate, repaired: true } }, null, 2));
         art.deferred = gate.deferred;
+        art.failures = []; // the gate passed: the old diagnostics no longer describe this artifact
         return true;
     }
     writeFiles(art.dir, value.files);
@@ -121,6 +122,8 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
             return false;
         }
         art.zip_path = res.data.zip_path;
+        art.failures = []; // the gate passed: the old diagnostics no longer describe this artifact
+        art.style_advisories = gate.warnings ?? [];
         writeFileSync(join(ctx.runDir, 'blocks', `${key}.json`), JSON.stringify({ dir: art.dir, zip_path: art.zip_path, gate: { ...gate, repaired: true } }, null, 2));
         return true;
     }
@@ -131,6 +134,7 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
         return false;
     }
     art.zip_path = res.data.zip_path;
+    art.failures = []; // the gate passed: the old diagnostics no longer describe this artifact
     writeFileSync(join(ctx.runDir, 'packages', `${key}.json`), JSON.stringify({ dir: art.dir, zip_path: art.zip_path, gate: { ...gate, repaired: true } }, null, 2));
     return true;
 }
@@ -144,12 +148,25 @@ export async function run(ctx) {
     for (const kind of ['blocks', 'packages']) {
         for (const [key, art] of Object.entries(arts[kind] ?? {})) {
             if (art.status !== 'fail') continue;
+            // An artifact that never scaffolded has no writable file set, so a
+            // file-map repair has nothing to repair and nothing to validate
+            // against — it can only burn a metered call to produce a dead one.
+            const what = kind === 'blocks' ? 'block' : 'data model';
+            if (!art.dir || (art.files ?? []).length === 0) {
+                art.status = 'dead';
+                ctx.state.dead.push({ kind, key, diagnostics: art.failures });
+                ctx.log(`${what} ${key}: never scaffolded, so there is nothing to repair — staying dead (no call spent)`);
+                continue;
+            }
+            ctx.log(`${what} ${key}: repairing — one model call, judged by the same build test`);
             const repaired = await repairOnce(ctx, kind, key, art, { allowedUnknown: declared });
             if (repaired) {
                 art.status = 'repaired';
+                ctx.log(`${what} ${key}: repaired — the build test passed this time`);
             } else {
                 art.status = 'dead';
                 ctx.state.dead.push({ kind, key, diagnostics: art.failures });
+                ctx.log(`${what} ${key}: the repair failed too — dead artifact, dropped from the plan`);
             }
         }
     }
@@ -160,13 +177,16 @@ export async function run(ctx) {
 
     for (const [key, art] of Object.entries(arts.trees ?? {})) {
         if (art.status === 'fail') {
+            ctx.log(`section ${key}: repairing — one model call, judged by the same validation`);
             const repaired = await repairOnce(ctx, 'trees', key, art, { allowedUnknown: survivingUnknown });
             if (repaired) {
                 art.status = 'repaired';
+                ctx.log(`section ${key}: repaired — validation passed this time`);
             } else {
                 art.status = 'baseline';
                 await substituteBaseline(ctx, key);
                 ctx.state.dead.push({ kind: 'trees', key, diagnostics: art.failures });
+                ctx.log(`section ${key}: the repair failed too — publishing the theme's stock pattern in that slot instead`);
             }
         } else if ((art.deferred ?? []).some((n) => deadBlocks.has(n))) {
             // The block this tree waited for is dead: re-gate without it (spec: re-gated).
@@ -178,10 +198,16 @@ export async function run(ctx) {
                 art.status = 'baseline';
                 await substituteBaseline(ctx, key);
                 ctx.state.dead.push({ kind: 'trees', key, diagnostics: [{ code: 'E_UNKNOWN_BLOCK', message: `section referenced dead block(s): ${[...deadBlocks].join(', ')}` }] });
+                ctx.log(`section ${key}: depended on a block that died — publishing the theme's stock pattern in that slot instead`);
             }
         }
     }
 
     const deadCount = ctx.state.dead.length;
-    ctx.log(`S7: ${deadCount === 0 ? 'no dead artifacts' : `${deadCount} dead artifact(s), slots substituted or dropped`}`);
+    const repairedCount = ['trees', 'blocks', 'packages']
+        .flatMap((k) => Object.values(arts[k] ?? {}))
+        .filter((a) => a.status === 'repaired').length;
+    if (deadCount === 0 && repairedCount === 0) ctx.log('nothing needed repairing — every artifact passed its gate first time');
+    else if (deadCount === 0) ctx.log(`${repairedCount} artifact(s) repaired; nothing was lost`);
+    else ctx.log(`${repairedCount} artifact(s) repaired, ${deadCount} could not be saved — their slots were substituted or dropped (details in the report)`);
 }

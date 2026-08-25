@@ -5,31 +5,80 @@
     "description": "S1 output: the whole plan of the site, fixed before the second LLM call. S/B/P/I are read from it and never renegotiated.",
     "type": "object",
     "additionalProperties": false,
-    "required": ["version", "identity", "art_direction", "palette", "pages", "custom_blocks", "schema_packages", "navigation", "footer"],
+    "required": [
+        "version",
+        "identity",
+        "art_direction",
+        "palette",
+        "pages",
+        "custom_blocks",
+        "schema_packages",
+        "navigation",
+        "footer"
+    ],
     "properties": {
-        "version": { "const": 1 },
+        "version": {
+            "const": 1
+        },
         "identity": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["site_title", "tagline"],
+            "required": [
+                "site_title",
+                "tagline"
+            ],
             "properties": {
-                "site_title": { "type": "string", "minLength": 1 },
-                "tagline": { "type": "string", "minLength": 1 },
-                "voice": { "type": "string" }
+                "site_title": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "tagline": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "voice": {
+                    "type": "string"
+                }
             }
         },
-        "art_direction": { "type": "string", "minLength": 40, "description": "Two or three sentences (wp-blocks SKILL §2). Also the style line for the image pass." },
+        "art_direction": {
+            "type": "string",
+            "minLength": 40,
+            "description": "Two or three sentences (wp-blocks SKILL \u00a72). Also the style line for the image pass."
+        },
         "palette": {
             "type": "array",
             "minItems": 2,
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name", "color", "role"],
+                "required": [
+                    "name",
+                    "color",
+                    "role"
+                ],
                 "properties": {
-                    "name": { "type": "string", "minLength": 1 },
-                    "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$" },
-                    "role": { "enum": ["primary", "secondary", "accent", "background", "surface", "text", "muted", "border", "other"] }
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "color": {
+                        "type": "string",
+                        "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$"
+                    },
+                    "role": {
+                        "enum": [
+                            "primary",
+                            "secondary",
+                            "accent",
+                            "background",
+                            "surface",
+                            "text",
+                            "muted",
+                            "border",
+                            "other"
+                        ]
+                    }
                 }
             }
         },
@@ -39,40 +88,116 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["slug", "title", "sections"],
+                "required": [
+                    "slug",
+                    "title",
+                    "sections"
+                ],
                 "properties": {
-                    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-                    "title": { "type": "string", "minLength": 1 },
-                    "front_page": { "type": "boolean" },
+                    "slug": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9-]+$"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "front_page": {
+                        "type": "boolean"
+                    },
                     "sections": {
                         "type": "array",
                         "minItems": 1,
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["id", "role", "copy_notes", "design"],
+                            "required": [
+                                "id",
+                                "role",
+                                "copy_notes",
+                                "design"
+                            ],
                             "properties": {
-                                "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-                                "role": { "enum": ["header", "hero", "features", "gallery", "testimonial", "pricing", "faq", "cta", "contact", "content", "footer", "section"] },
-                                "copy_notes": { "type": "string", "minLength": 10, "description": "What the section says — headlines, claims, tone. The tree task writes the actual copy from this." },
+                                "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9-]+$"
+                                },
+                                "role": {
+                                    "enum": [
+                                        "header",
+                                        "hero",
+                                        "features",
+                                        "gallery",
+                                        "testimonial",
+                                        "pricing",
+                                        "faq",
+                                        "cta",
+                                        "contact",
+                                        "content",
+                                        "footer",
+                                        "section"
+                                    ]
+                                },
+                                "copy_notes": {
+                                    "type": "string",
+                                    "minLength": 10,
+                                    "description": "What the section says \u2014 headlines, claims, tone. The tree task writes the actual copy from this."
+                                },
                                 "design": {
                                     "type": "object",
                                     "additionalProperties": false,
-                                    "required": ["band", "layout"],
+                                    "required": [
+                                        "band",
+                                        "layout"
+                                    ],
                                     "properties": {
-                                        "band": { "enum": ["base", "surface", "contrast", "accent"], "description": "The ground this section sits on. Bands alternate down the page; AT MOST ONE accent band per page — the one bright moment." },
-                                        "layout": { "enum": ["centered", "left-aligned", "split", "asymmetric", "grid"], "description": "The section's composition. Vary layouts down the page; a stack of centered bands is a default, not a design." },
-                                        "notes": { "type": "string", "description": "One line of art direction specific to this section." }
+                                        "band": {
+                                            "enum": [
+                                                "base",
+                                                "surface",
+                                                "contrast",
+                                                "accent"
+                                            ],
+                                            "description": "The ground this section sits on. Bands alternate down the page; AT MOST ONE accent band per page \u2014 the one bright moment."
+                                        },
+                                        "layout": {
+                                            "enum": [
+                                                "centered",
+                                                "left-aligned",
+                                                "split",
+                                                "asymmetric",
+                                                "grid"
+                                            ],
+                                            "description": "The section's composition. Vary layouts down the page; a stack of centered bands is a default, not a design."
+                                        },
+                                        "notes": {
+                                            "type": "string",
+                                            "description": "One line of art direction specific to this section."
+                                        }
                                     }
                                 },
                                 "image_intent": {
                                     "oneOf": [
-                                        { "type": "string", "minLength": 10 },
-                                        { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 10 } }
+                                        {
+                                            "type": "string",
+                                            "minLength": 10
+                                        },
+                                        {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 10
+                                            }
+                                        }
                                     ],
                                     "description": "One intent per generated image this section shows. A gallery carries an ARRAY (3-6 intents); each intent is one metered image call (I)."
                                 },
-                                "uses_custom_block": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "slug of a custom_blocks[] entry this section is built around." }
+                                "uses_custom_block": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9-]+$",
+                                    "description": "slug of a custom_blocks[] entry this section is built around."
+                                }
                             }
                         }
                     }
@@ -84,30 +209,100 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["slug", "title", "gap_argument", "render_intent", "attributes"],
+                "required": [
+                    "slug",
+                    "title",
+                    "gap_argument",
+                    "render_intent",
+                    "attributes"
+                ],
                 "properties": {
-                    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-                    "title": { "type": "string", "minLength": 1 },
-                    "description": { "type": "string", "description": "User-facing inserter description, written for site editors." },
-                    "gap_argument": { "type": "string", "minLength": 40, "description": "Why core vocabulary cannot express the section — cite the rungs (supports, tokens, styles, variations) that fail. A block without a winning argument does not exist." },
-                    "render_intent": { "type": "string", "minLength": 20 },
+                    "slug": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9-]+$"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "User-facing inserter description, written for site editors."
+                    },
+                    "gap_argument": {
+                        "type": "string",
+                        "minLength": 40,
+                        "description": "Why core vocabulary cannot express the section \u2014 cite the rungs (supports, tokens, styles, variations) that fail. A block without a winning argument does not exist."
+                    },
+                    "render_intent": {
+                        "type": "string",
+                        "minLength": 20
+                    },
                     "attributes": {
                         "type": "array",
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["name", "type", "control"],
+                            "required": [
+                                "name",
+                                "type",
+                                "control"
+                            ],
                             "properties": {
-                                "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
-                                "type": { "enum": ["string", "number", "boolean", "array"] },
+                                "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
+                                },
+                                "type": {
+                                    "enum": [
+                                        "string",
+                                        "number",
+                                        "boolean",
+                                        "array"
+                                    ]
+                                },
                                 "default": {},
-                                "control": { "enum": ["text", "textarea", "number", "toggle", "select"] },
-                                "options": { "type": "array", "items": { "type": "string" } }
+                                "control": {
+                                    "enum": [
+                                        "text",
+                                        "textarea",
+                                        "number",
+                                        "toggle",
+                                        "select"
+                                    ]
+                                },
+                                "options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": [
+                                            "label",
+                                            "value"
+                                        ],
+                                        "properties": {
+                                            "label": {
+                                                "type": "string"
+                                            },
+                                            "value": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
-                    "interactivity": { "enum": ["none", "view-script", "interactivity-api"] },
-                    "stylesheet": { "type": "boolean" }
+                    "interactivity": {
+                        "enum": [
+                            "none",
+                            "view-script",
+                            "interactivity-api"
+                        ]
+                    },
+                    "stylesheet": {
+                        "type": "boolean"
+                    }
                 }
             }
         },
@@ -116,37 +311,88 @@
             "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["slug", "intent", "lifecycle_argument", "post_types"],
+                "required": [
+                    "slug",
+                    "intent",
+                    "lifecycle_argument",
+                    "post_types"
+                ],
                 "properties": {
-                    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-                    "intent": { "type": "string", "minLength": 20 },
-                    "lifecycle_argument": { "type": "string", "minLength": 40, "description": "Why this data has a lifecycle (created, moderated, listed, uninstalled) that a block alone cannot own. wp-schema S1: model before UI." },
+                    "slug": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9-]+$"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "minLength": 20
+                    },
+                    "lifecycle_argument": {
+                        "type": "string",
+                        "minLength": 40,
+                        "description": "Why this data has a lifecycle (created, moderated, listed, uninstalled) that a block alone cannot own. wp-schema S1: model before UI."
+                    },
                     "post_types": {
                         "type": "array",
                         "minItems": 1,
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["slug", "label"],
+                            "required": [
+                                "slug",
+                                "label"
+                            ],
                             "properties": {
-                                "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-                                "label": { "type": "string" },
-                                "supports": { "type": "array", "items": { "type": "string" } },
-                                "public": { "type": "boolean" },
+                                "slug": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9-]+$"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "supports": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "public": {
+                                    "type": "boolean"
+                                },
                                 "meta": {
                                     "type": "array",
                                     "items": {
                                         "type": "object",
                                         "additionalProperties": false,
-                                        "required": ["key", "type"],
+                                        "required": [
+                                            "key",
+                                            "type"
+                                        ],
                                         "properties": {
-                                            "key": { "type": "string" },
-                                            "type": { "enum": ["string", "integer", "number", "boolean"] },
-                                            "description": { "type": "string" }
+                                            "key": {
+                                                "type": "string",
+                                                "pattern": "^[a-z0-9_]+$",
+                                                "description": "Registered meta key \u2014 snake_case (wp_schema_scaffold requires ^[a-z0-9_]+$)."
+                                            },
+                                            "type": {
+                                                "enum": [
+                                                    "string",
+                                                    "integer",
+                                                    "number",
+                                                    "boolean"
+                                                ]
+                                            },
+                                            "description": {
+                                                "type": "string"
+                                            }
                                         }
                                     }
                                 },
-                                "taxonomies": { "type": "array", "items": { "type": "string" } }
+                                "taxonomies": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
                             }
                         }
                     },
@@ -155,13 +401,38 @@
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["path", "methods", "auth"],
+                            "required": [
+                                "path",
+                                "methods",
+                                "auth"
+                            ],
                             "properties": {
-                                "path": { "type": "string", "pattern": "^/[a-z0-9/-]*$" },
-                                "methods": { "type": "array", "minItems": 1, "items": { "enum": ["GET", "POST"] } },
-                                "auth": { "enum": ["public-nonce", "capability"] },
-                                "capability": { "type": "string" },
-                                "intent": { "type": "string" }
+                                "path": {
+                                    "type": "string",
+                                    "pattern": "^/[a-z0-9/-]*$"
+                                },
+                                "methods": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {
+                                        "enum": [
+                                            "GET",
+                                            "POST"
+                                        ]
+                                    }
+                                },
+                                "auth": {
+                                    "enum": [
+                                        "public-nonce",
+                                        "capability"
+                                    ]
+                                },
+                                "capability": {
+                                    "type": "string"
+                                },
+                                "intent": {
+                                    "type": "string"
+                                }
                             }
                         }
                     },
@@ -170,10 +441,19 @@
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["name", "meta_key"],
+                            "required": [
+                                "name",
+                                "meta_key"
+                            ],
                             "properties": {
-                                "name": { "type": "string" },
-                                "meta_key": { "type": "string" }
+                                "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9-]+$",
+                                    "description": "Block-binding source name \u2014 kebab-case (^[a-z0-9-]+$). Not the meta key: meta keys are snake_case, binding names are kebab-case."
+                                },
+                                "meta_key": {
+                                    "type": "string"
+                                }
                             }
                         }
                     }
@@ -183,17 +463,28 @@
         "navigation": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["items"],
+            "required": [
+                "items"
+            ],
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "additionalProperties": false,
-                        "required": ["label", "page_slug"],
+                        "required": [
+                            "label",
+                            "page_slug"
+                        ],
                         "properties": {
-                            "label": { "type": "string", "minLength": 1 },
-                            "page_slug": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+                            "label": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "page_slug": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9-]+$"
+                            }
                         }
                     }
                 }
@@ -202,18 +493,33 @@
         "footer": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["intent", "items"],
+            "required": [
+                "intent",
+                "items"
+            ],
             "properties": {
-                "intent": { "type": "string", "minLength": 10 },
+                "intent": {
+                    "type": "string",
+                    "minLength": 10
+                },
                 "items": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "additionalProperties": false,
-                        "required": ["label", "page_slug"],
+                        "required": [
+                            "label",
+                            "page_slug"
+                        ],
                         "properties": {
-                            "label": { "type": "string", "minLength": 1 },
-                            "page_slug": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+                            "label": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "page_slug": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9-]+$"
+                            }
                         }
                     }
                 }

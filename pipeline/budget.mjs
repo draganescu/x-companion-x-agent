@@ -2,7 +2,7 @@
 // ceiling = 2*base + I. The 2x covers one schema-retry OR one repair per artifact,
 // whichever fires. Consulted BEFORE every generative call; a breach is a thrown
 // structured error, never a warning (spec operating rule 5).
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from './lib/errors.mjs';
 
@@ -56,15 +56,36 @@ export class BudgetMeter {
         this.#calls.push({ task_type: taskType, label });
     }
 
+    // A resumed run is the SAME bill, continued. The meter lives in memory, so
+    // without this a resume restarts at zero: the ceiling stops binding and the
+    // report claims a spend of 0 against a ledger holding every real call.
+    rehydrate(calls) {
+        for (const c of calls) {
+            this.#spent += 1;
+            this.#calls.push({ task_type: c.task_type, label: c.label });
+        }
+    }
+
     get spent() { return this.#spent; }
     get ceiling() { return this.#ceiling; }
     get calls() { return [...this.#calls]; }
 }
 
 export class Ledger {
+    // ledger.jsonl is append-only across resumes, so the file — not this
+    // process — is the record of what the run has spent. Read it back in, or
+    // every derived number (report totals, per-task actuals) counts only the
+    // calls this process happened to make.
     constructor(runDir) {
         this.runDir = runDir;
         this.entries = [];
+        try {
+            this.entries = readFileSync(join(runDir, 'ledger.jsonl'), 'utf8')
+                .split('\n').filter((l) => l.trim().length > 0)
+                .map((l) => JSON.parse(l));
+        } catch {
+            // no prior ledger — a fresh run
+        }
     }
 
     record(entry) {

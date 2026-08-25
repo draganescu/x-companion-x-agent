@@ -57,3 +57,33 @@ test('array image_intent counts every entry: features with 2 intents => I=3, cei
     assert.deepEqual(sectionImageIntents({ image_intent: 'x' }), ['x']);
     assert.deepEqual(sectionImageIntents({}), []);
 });
+
+test('Ledger reads an existing ledger.jsonl back so a resume knows its own spend', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'x-ledger-'));
+    const first = new Ledger(dir);
+    first.record({ task_type: 'tree', label: 'a/one', attempt: 1, outcome: 'ok', usage: {} });
+    first.record({ task_type: 'tree', label: 'a/two', attempt: 1, outcome: 'ok', usage: {} });
+    assert.equal(first.entries.length, 2);
+
+    // A second process over the same run dir — this is what --resume does.
+    const resumed = new Ledger(dir);
+    assert.equal(resumed.entries.length, 2);
+    resumed.record({ task_type: 'block', label: 'b/one', attempt: 1, outcome: 'ok', usage: {} });
+    assert.equal(resumed.entries.length, 3);
+    assert.deepEqual(resumed.entries.map((e) => e.label), ['a/one', 'a/two', 'b/one']);
+});
+
+test('a resumed budget carries prior spend, so the ceiling still binds', () => {
+    const meter = new BudgetMeter({ hard_cap: 100 });
+    meter.setCeiling(4);
+    meter.rehydrate([
+        { task_type: 'tree', label: 'a' },
+        { task_type: 'tree', label: 'b' },
+        { task_type: 'tree', label: 'c' },
+    ]);
+    assert.equal(meter.spent, 3);
+    assert.equal(meter.calls.length, 3);
+    meter.spend('tree', 'd'); // the 4th is the last one the ceiling allows
+    assert.equal(meter.spent, 4);
+    assert.throws(() => meter.spend('tree', 'e'), (e) => e.code === 'budget_exceeded');
+});

@@ -128,3 +128,47 @@ test('a pattern baseline that fails validation degrades to the minimal slot', as
     assert.equal(rec.tree.blocks[0].name, 'core/group'); // degraded past the failing pattern
     assert.equal(rec.tree.blocks[0].innerBlocks[0].name, 'core/heading');
 });
+
+test('an artifact that never scaffolded stays dead without spending a repair call', async () => {
+    // This is what S5/S6 record when wp_*_scaffold itself rejects the input:
+    // no dir, no writable file set. A file-map repair has nothing to read and
+    // nothing to validate against, so it can only burn a metered call.
+    const unscaffolded = {
+        status: 'fail',
+        files: [],
+        failures: [{ code: 'invalid_input', path: '/scaffold', message: 'bindings.0.name: must match /^[a-z0-9-]+$/' }],
+    };
+    const ctx = makeCtx({
+        repairText: [], // any repair call at all would read undefined here and throw
+        validateResults: [],
+        artifacts: { trees: {}, blocks: {}, packages: { 'bs-catalog': unscaffolded } },
+    });
+    await s7.run(ctx);
+
+    const art = ctx.state.artifacts.packages['bs-catalog'];
+    assert.equal(art.status, 'dead');
+    assert.equal(ctx.ledger.entries.filter((e) => e.task_type === 'repair').length, 0, 'no repair call may be spent');
+    assert.equal(ctx.budget.spent, 0);
+    // The diagnostics that killed it must survive into the report.
+    assert.equal(ctx.state.dead.length, 1);
+    assert.equal(ctx.state.dead[0].kind, 'packages');
+    assert.match(ctx.state.dead[0].diagnostics[0].message, /bindings\.0\.name/);
+});
+
+test('a scaffolded artifact with a file set is still repaired normally', async () => {
+    // Guard the guard: the skip must key on "never scaffolded", not on "failed".
+    const ctx = makeCtx({
+        repairText: [JSON.stringify({ files: { 'render.php': '<?php // fixed' } })],
+        validateResults: [],
+        artifacts: {
+            trees: {},
+            blocks: {},
+            packages: {
+                'bs-real': { status: 'fail', dir: '/nonexistent', files: ['render.php'], failures: [{ code: 'x', path: '/', message: 'm' }] },
+            },
+        },
+    });
+    // readFileSync on the fake dir throws — that is fine, it proves the repair
+    // lane was entered rather than skipped.
+    await assert.rejects(s7.run(ctx), (e) => e.code === 'ENOENT' || /ENOENT/.test(String(e)));
+});

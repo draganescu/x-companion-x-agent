@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { PipelineError } from './errors.mjs';
 import { canonicalJson, sha256 } from './hash.mjs';
 import { loadTemplate, renderPrompt } from './prompts.mjs';
+import { fmtDur } from './clock.mjs';
 
 // wpforge-style defensive parse, minus the LLM-repair fallback — our repair
 // lane is the metered schema-retry, never a hidden extra call.
@@ -42,11 +43,20 @@ export function createLlm({ providers, promptsDir, budget, ledger, log }) {
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             budget.spend(task_type, label);
+            // The spend counter doubles as live progress: "call 12/60" says how
+            // far through the fixed bill the run is while a slow model thinks.
+            const callNo = `call ${budget.spent}${budget.ceiling ? `/${budget.ceiling}` : ''}`;
+            log?.(`${callNo} · ${task_type} ${label} → ${route.provider.id}/${route.model}${attempt > 1 ? ' (schema retry)' : ''}`);
             const startedAt = Date.now();
             const { text, usage } = await route.provider.complete(task_type, prompt, payload, {
                 model: route.model,
                 ...(route.temperature !== undefined ? { temperature: route.temperature } : {}),
+                ...(route.effort !== undefined ? { effort: route.effort } : {}),
+                ...(route.max_tokens !== undefined ? { max_tokens: route.max_tokens } : {}),
                 label,
+                // Providers with long silent calls heartbeat through this; the
+                // prefix keeps their lines attributable under concurrency.
+                ...(log ? { log: (m) => log(`${callNo} · ${task_type} ${label} ${m}`) } : {}),
             });
             const ms = Date.now() - startedAt;
             let value;
@@ -71,10 +81,11 @@ export function createLlm({ providers, promptsDir, budget, ledger, log }) {
                 usage, attempt, outcome, started_at: startedAt, ms,
             });
             if (outcome === 'ok') {
+                log?.(`${callNo} · ${task_type} ${label} ✓ in ${fmtDur(ms)}${attempt > 1 ? ' (retry succeeded)' : ''}`);
                 capture(task_type, label, text, usage);
                 return { value, attempts: attempt };
             }
-            log?.(`${task_type}:${label} attempt ${attempt} ${outcome}: ${lastIssues.slice(0, 3).map((i) => `${i.path} ${i.message}`).join(' | ')}`);
+            log?.(`${callNo} · ${task_type} ${label} came back ${outcome === 'invalid_json' ? 'as non-JSON' : 'off-contract'} after ${fmtDur(ms)}: ${lastIssues.slice(0, 3).map((i) => `${i.path} ${i.message}`).join(' | ')}`);
             prompt = `${basePrompt}\n\nCONTRACT FAILURE — your previous output did not satisfy the contract:\n${lastIssues.map((i) => `${i.path}: ${i.message}`).join('\n')}\nReturn ONLY corrected JSON.`;
         }
         throw new PipelineError('contract_failed',

@@ -77,8 +77,16 @@ export const PROVIDER_KEY_FIELDS = {
 // The temperature set every accepted milestone ran with.
 const PROVEN_TEMPS = { brief: 0.5, tokens: 0.4, tree: 0.3, block: 0.2, schema: 0.2, repair: 0.2 };
 
+// Anthropic's current models removed the sampling parameters outright — sending a
+// temperature is a 400, not a nudge. Steer those with the prompt and `effort`.
+const NO_TEMPERATURE = new Set(['anthropic']);
+
 export function defaultBuildConfig({ provider, model }) {
-    const tasks = Object.fromEntries(TASK_TYPES.map((t) => [t, { provider, model, temperature: PROVEN_TEMPS[t] }]));
+    const tasks = Object.fromEntries(TASK_TYPES.map((t) => [t, {
+        provider,
+        model,
+        ...(NO_TEMPERATURE.has(provider) ? {} : { temperature: PROVEN_TEMPS[t] }),
+    }]));
     return { tasks, concurrency: 3, budget_hard_cap: 80 };
 }
 

@@ -71,10 +71,11 @@ export async function run(ctx) {
                 validate: (v) => localTreeCheck(v, { epoch }),
             }));
         } catch (e) {
-            if (e.code !== 'contract_failed') throw e;
-            const gate = { status: 'fail', deferred: [], failures: e.extra.issues.map((i) => ({ code: 'contract_failed', path: i.path, message: i.message })) };
+            if (e.code !== 'contract_failed' && e.code !== 'output_truncated') throw e;
+            const gate = { status: 'fail', deferred: [], failures: e.extra.issues.map((i) => ({ code: e.code, path: i.path, message: i.message })) };
             writeFileSync(join(ctx.runDir, 'trees', `${s.key}.json`), JSON.stringify({ tree: null, gate }, null, 2));
             ctx.state.artifacts.trees[s.key] = gate;
+            ctx.log(`section ${s.key}: the model's output never satisfied the contract — the repair stage gets one attempt`);
             return;
         }
         const res = await ctx.call('wp_validate', tree);
@@ -85,10 +86,14 @@ export async function run(ctx) {
         const gate = { ...screen, diagnostics: res.data.diagnostics };
         writeFileSync(join(ctx.runDir, 'trees', `${s.key}.json`), JSON.stringify({ tree, gate }, null, 2));
         ctx.state.artifacts.trees[s.key] = { status: screen.status, deferred: screen.deferred, failures: screen.failures };
+        ctx.log(screen.status === 'pass'
+            ? `section ${s.key}: validated against the site${screen.deferred.length > 0 ? ` (waiting on ${screen.deferred.join(', ')} to be installed)` : ''}`
+            : `section ${s.key}: failed validation (${screen.failures.length} issue(s): ${screen.failures.slice(0, 2).map((f) => f.code).join(', ')}) — the repair stage gets one attempt`);
     };
 
     const limiter = pLimit(ctx.config.concurrency);
+    ctx.log(`writing ${ctx.state.sections.length} sections, up to ${Math.min(ctx.config.concurrency, ctx.state.sections.length)} at a time`);
     await Promise.all(ctx.state.sections.map((s) => limiter(() => runSection(s))));
     const outcomes = Object.values(ctx.state.artifacts.trees);
-    ctx.log(`S4: ${outcomes.filter((o) => o.status === 'pass').length}/${outcomes.length} sections passed their gate`);
+    ctx.log(`sections written: ${outcomes.filter((o) => o.status === 'pass').length} of ${outcomes.length} passed validation`);
 }

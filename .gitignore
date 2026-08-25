@@ -8,3 +8,4 @@ x-agent-profile.jsonl
 x-agent-profile.md
 runs/
 pipeline.config.json
+.gstack/

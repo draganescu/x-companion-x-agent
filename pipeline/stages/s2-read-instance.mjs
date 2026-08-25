@@ -56,5 +56,5 @@ export async function run(ctx) {
         }
     }
     ctx.state.sections = sections;
-    ctx.log(`S2: ${sections.length} section payloads at fingerprint ${instance.fingerprint.slice(0, 8)}…`);
+    ctx.log(`site read: ${connect.data.site_url} (WordPress ${connect.data.wp_version}) — ${sections.length} sections to write across ${ctx.state.brief.pages.length} page(s), fingerprint ${instance.fingerprint.slice(0, 8)}…`);
 }

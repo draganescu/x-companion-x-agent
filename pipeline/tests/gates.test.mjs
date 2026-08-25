@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screenTreeDiagnostics, localTreeCheck, screenFileMap, blockGate, schemaGate } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity } from '../lib/gates.mjs';
 
 const diag = (code, severity, message = '', path = '/blocks/0') => ({ code, severity, path, message });
 
@@ -109,4 +109,39 @@ test('salvageJson digs the payload out of a notice-prefixed body', async () => {
     const body = '<br />\n<b>Warning</b>: something in routes.php on line 13<br />\n[{"id":7,"slug":"home"}]';
     assert.deepEqual(salvageJson(body), [{ id: 7, slug: 'home' }]);
     assert.throws(() => salvageJson('<br/>just junk'));
+});
+
+test('styleLiteralSeverity: hard only where a preset exists to spend through', () => {
+    const sev = (literal, text) => styleLiteralSeverity({ literal, text });
+    // A preset exists — a literal here bypasses the design system.
+    assert.equal(sev('#c47a2b', 'color: #c47a2b;'), 'fail');
+    assert.equal(sev('16px', 'font-size: 16px;'), 'fail');
+    assert.equal(sev('1.5rem', 'padding-block: 1.5rem;'), 'fail');
+    assert.equal(sev('2rem', 'margin: 2rem;'), 'fail');
+    assert.equal(sev('24px', 'gap: 24px;'), 'fail');
+    // No preset can express these — failing them makes the gate unsatisfiable.
+    assert.equal(sev('0.08em', 'letter-spacing: 0.08em;'), 'warn');
+    assert.equal(sev('999px', 'border-radius: 999px;'), 'warn');
+    assert.equal(sev('1px', 'border-bottom: 1px solid var( --wp--preset--color--x );'), 'warn');
+    assert.equal(sev('1px', 'width: 1px;'), 'warn');
+    // CSS forbids var() inside a media query condition; a hard fail here would
+    // ban responsive block stylesheets outright.
+    assert.equal(sev('600px', '@media ( max-width: 600px ) {'), 'warn');
+    // rem is not em: 1.5rem on a spacing property is still a real bypass.
+    assert.notEqual(sev('1.5rem', 'padding: 1.5rem;'), 'warn');
+});
+
+test('blockGate: advisory literals do not fail the artifact, hard ones do', () => {
+    const built = (styleWarnings) => ({ ok: true, data: { built: true, zip_path: '/z.zip', style_warnings: styleWarnings } });
+    const soft = blockGate(built([
+        { line: 3, literal: '0.08em', text: 'letter-spacing: 0.08em;' },
+        { line: 9, literal: '600px', text: '@media ( max-width: 600px ) {' },
+    ]));
+    assert.equal(soft.status, 'pass');
+    assert.equal(soft.warnings.length, 2);
+    assert.equal(soft.failures.length, 0);
+
+    const hard = blockGate(built([{ line: 4, literal: '#c47a2b', text: 'color: #c47a2b;' }]));
+    assert.equal(hard.status, 'fail');
+    assert.equal(hard.failures[0].code, 'style_literal');
 });

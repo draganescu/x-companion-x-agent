@@ -168,3 +168,21 @@ test('S9: verify gate + exactly one screenshot; unloaded image fails', async () 
     const bad = mk({ pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [{ selector_path: 'img', box: { x: 0, y: 0, w: 1, h: 1 }, natural_w: 0, natural_h: 0, loaded: false, lazy: true }] });
     await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /not loaded/.test(e.message));
 });
+
+test('the footer part is chosen by canonical slug, not by whichever has area=footer', () => {
+    // Twenty Twenty-Five's real listing order: the variants come back first.
+    const parts = [
+        { id: 'twentytwentyfive//footer-columns', slug: 'footer-columns', area: 'footer' },
+        { id: 'twentytwentyfive//footer-newsletter', slug: 'footer-newsletter', area: 'footer' },
+        { id: 'twentytwentyfive//footer', slug: 'footer', area: 'footer' },
+    ];
+    const pick = (all) => all.find((p) => p.slug === 'footer' || String(p.id).endsWith('//footer'))
+        ?? all.find((p) => p.area === 'footer');
+
+    assert.equal(pick(parts).id, 'twentytwentyfive//footer',
+        'must pick the part the theme actually renders, not the first area match');
+    // A theme with only a differently-named footer part still resolves.
+    assert.equal(pick([{ id: 't//site-footer', slug: 'site-footer', area: 'footer' }]).slug, 'site-footer');
+    // No footer part at all is a clean miss, not a throw.
+    assert.equal(pick([{ id: 't//header', slug: 'header', area: 'header' }]), undefined);
+});

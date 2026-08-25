@@ -116,11 +116,42 @@ export function blockGate(callResult) {
             failures.push({ code: 'smoke_failed', message: 'front smoke: block not present on the rendered page' });
         }
     }
+    const warnings = [];
     for (const w of data.style_warnings ?? []) {
-        // Spec S5 gate: style literals fail the artifact (R11 made hard).
-        failures.push({ code: 'style_literal', message: `style.css line ${w.line}: literal ${w.literal} — spend tokens via var(--wp--preset--*) instead (${w.text})` });
+        // R11 is hard only where a preset actually exists to spend through. A
+        // literal the token system cannot express is a layout mechanic, and
+        // failing it makes the gate unsatisfiable — see styleLiteralSeverity.
+        const entry = { code: 'style_literal', message: `style.css line ${w.line}: literal ${w.literal} (${w.text})` };
+        if (styleLiteralSeverity(w) === 'fail') {
+            failures.push({ ...entry, message: `${entry.message} — spend it via var(--wp--preset--*)` });
+        } else {
+            warnings.push(entry);
+        }
     }
-    return { status: failures.length === 0 ? 'pass' : 'fail', failures };
+    return { status: failures.length === 0 ? 'pass' : 'fail', failures, warnings };
+}
+
+// Which style literals the token system can actually express.
+//
+// FAIL: hex colours, and px/rem on font-size or spacing — presets exist for all
+//   three (--wp--preset--color--*, --font-size--*, --spacing--*), so a literal
+//   there is a real bypass of the design system.
+// WARN: everything else. Not laxness — these have no preset to spend through:
+//   letter-spacing, border-radius, hairline borders, outline offsets, sr-only
+//   sizes. And a media query condition cannot contain var() at all; CSS forbids
+//   it, so failing one makes any responsive block impossible to ship.
+//   `em` is always advisory: it is relative to its own context, which is a
+//   mechanic, where every preset is an absolute step on a scale.
+export function styleLiteralSeverity(w) {
+    const text = String(w.text ?? '');
+    const literal = String(w.literal ?? '');
+    if (literal.startsWith('#')) return 'fail';
+    if (/^\s*@media/.test(text)) return 'warn';
+    if (/(?<!r)em$/.test(literal)) return 'warn'; // em, but never rem
+    const prop = (text.split(':')[0] ?? '').trim().toLowerCase();
+    if (prop === 'font-size') return 'fail';
+    if (/^(margin|padding)(-|$)/.test(prop) || /^(row-|column-)?gap$/.test(prop)) return 'fail';
+    return 'warn';
 }
 
 // wp_schema_build_test THROWS on gate failure (arrives as an isError envelope);

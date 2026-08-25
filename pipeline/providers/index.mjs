@@ -3,14 +3,16 @@ import { TASK_TYPES } from '../lib/config.mjs';
 
 const KEY_FOR = { anthropic: 'anthropic_api_key', openai: 'openai_api_key', cerebras: 'cerebras_api_key', gemini: 'gemini_api_key' };
 
-// Routing is config, never code: task_type -> {provider instance, model, temperature}.
+// Routing is config, never code: task_type -> {provider instance, model, and the
+// per-task sampling knobs}. Which knobs a provider honours is the provider's
+// business — an unset knob is never sent, so a model that rejects it is fine.
 export async function createProviders({ config, keys }) {
     const routed = new Map();
     const instances = new Map();
     for (const task of TASK_TYPES) {
         const entry = config.tasks[task];
         if (!entry) continue; // loadPipelineConfig already enforces completeness for full runs
-        const { provider: id, model, temperature, options } = entry;
+        const { provider: id, model, temperature, effort, max_tokens, options } = entry;
         if (!instances.has(id)) {
             const keyName = KEY_FOR[id];
             if (keyName && !keys[keyName]) {
@@ -26,7 +28,7 @@ export async function createProviders({ config, keys }) {
             }
             instances.set(id, mod.create({ keys, options }));
         }
-        routed.set(task, { provider: instances.get(id), model, temperature });
+        routed.set(task, { provider: instances.get(id), model, temperature, effort, max_tokens });
     }
     return routed;
 }

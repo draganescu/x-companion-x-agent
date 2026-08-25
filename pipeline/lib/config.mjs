@@ -7,6 +7,10 @@ import { PipelineError } from './errors.mjs';
 // client via .x-agent.json (gemini_api_key / image_model), not by this config.
 export const TASK_TYPES = ['brief', 'tokens', 'tree', 'block', 'schema', 'repair'];
 
+// Reasoning depth, for providers that expose it. Optional everywhere: a task that
+// omits it takes the provider's own default.
+export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
+
 const DEFAULT_PROMPTS_DIR = fileURLToPath(new URL('../prompts', import.meta.url));
 
 export function loadPipelineConfig(configPath) {
@@ -39,6 +43,13 @@ export function loadPipelineConfig(configPath) {
         }
         if (entry.temperature !== undefined && typeof entry.temperature !== 'number') {
             throw new PipelineError('preflight_failed', `task "${task}" temperature must be a number`);
+        }
+        if (entry.max_tokens !== undefined && (!Number.isInteger(entry.max_tokens) || entry.max_tokens <= 0)) {
+            throw new PipelineError('preflight_failed', `task "${task}" max_tokens must be a positive integer`);
+        }
+        if (entry.effort !== undefined && !EFFORT_LEVELS.includes(entry.effort)) {
+            throw new PipelineError('preflight_failed',
+                `task "${task}" effort must be one of ${EFFORT_LEVELS.join(', ')}`);
         }
     }
     return {

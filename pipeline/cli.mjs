@@ -409,7 +409,8 @@ async function build(flags, positionals) {
     }
 
     const { runPipeline } = await import('./run.mjs');
-    const { runDir, state } = await runPipeline({
+    const { fmtDur } = await import('./lib/clock.mjs');
+    const { runDir, state, ms } = await runPipeline({
         prompt,
         configPath: flags.config,
         resumeDir: flags.resume,
@@ -418,6 +419,7 @@ async function build(flags, positionals) {
     });
     const front = state.published?.pages?.find((p) => p.front_page);
     log('—');
+    log(`build finished in ${fmtDur(ms)}`);
     if (front) log(`site: ${front.link}`);
     log(`artifacts: ${runDir}`);
     if (existsSync(join(runDir, 'report.md'))) log(`report: ${join(runDir, 'report.md')}`);

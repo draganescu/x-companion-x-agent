@@ -37,12 +37,17 @@ export async function run(ctx) {
         const data = await toolOrThrow(ctx, 'wp_schema_install', { zip_path: art.zip_path }, `wp_schema_install ${slug}`);
         ctx.state.installs.push({ kind: 'schema', slug, fingerprint: data.fingerprint });
         ctx.state.fingerprint = data.fingerprint;
+        ctx.log(`installed data model ${slug} on the site`);
     }
     for (const [slug, art] of Object.entries(ctx.state.artifacts?.blocks ?? {})) {
         if (art.status === 'dead') continue;
         const data = await toolOrThrow(ctx, 'wp_block_install', { zip_path: art.zip_path }, `wp_block_install ${slug}`);
         ctx.state.installs.push({ kind: 'block', slug, fingerprint: data.fingerprint });
         ctx.state.fingerprint = data.fingerprint;
+        ctx.log(`installed block ${slug} on the site`);
+    }
+    if (ctx.state.installs.length > 0) {
+        ctx.log(`${ctx.state.installs.length} install(s) done, one at a time — pages compile against the final site state`);
     }
     const epoch = ctx.state.fingerprint; // 2. the final epoch, stamped into every assembled tree
 
@@ -93,12 +98,25 @@ export async function run(ctx) {
             ? await rest('POST', `/wp/v2/pages/${existing[0].id}`, { body })
             : await rest('POST', '/wp/v2/pages', { body });
         ctx.state.published.pages.push({ slug: page.slug, id: saved.id, link: saved.link, front_page: !!page.front_page, has_images: mints.length > 0 });
-        ctx.log(`S8: published /${page.slug}/ (id ${saved.id})`);
+        ctx.log(`published ${saved.link}${mints.length > 0 ? ` (${mints.length} image slot(s), real images follow)` : ''}`);
     }
 
-    // 5-6. Front page + Sample Page cleanup.
+    // 5-6. Site identity + front page + Sample Page cleanup.
+    //
+    // The brief names the site; without this the header keeps whatever the
+    // sandbox was called and every core/site-title block on the page renders it.
+    // Core's own settings route, so an admin undoes it in Settings > General.
     const front = ctx.state.published.pages.find((p) => p.front_page);
-    await rest('POST', '/wp/v2/settings', { body: { show_on_front: 'page', page_on_front: front.id } });
+    await rest('POST', '/wp/v2/settings', {
+        body: {
+            title: brief.identity.site_title,
+            description: brief.identity.tagline,
+            show_on_front: 'page',
+            page_on_front: front.id,
+        },
+    });
+    ctx.state.published.site_title = brief.identity.site_title;
+    ctx.log(`site named "${brief.identity.site_title}", front page set, sample page removed`);
     const samples = await rest('GET', '/wp/v2/pages', { query: { slug: 'sample-page' } });
     for (const s of Array.isArray(samples) ? samples : []) {
         await rest('DELETE', `/wp/v2/pages/${s.id}`, { query: { force: 'true' } });
@@ -156,15 +174,21 @@ export async function run(ctx) {
         };
         const footerCompiled = await toolOrThrow(ctx, 'wp_compile', footerTree, 'wp_compile footer');
         const parts = await rest('GET', '/wp/v2/template-parts');
-        const footerPart = (Array.isArray(parts) ? parts : []).find((p) => p.area === 'footer')
-            ?? (Array.isArray(parts) ? parts : []).find((p) => String(p.id).endsWith('//footer') || p.slug === 'footer');
+        // A theme can ship SEVERAL parts with area 'footer' — Twenty Twenty-Five
+        // has footer, footer-columns and footer-newsletter, and only `footer` is
+        // the one its templates render. Match the canonical slug FIRST; taking
+        // "any part whose area is footer" silently rewrites an unused variant and
+        // leaves the real footer showing the theme's demo links.
+        const all = Array.isArray(parts) ? parts : [];
+        const footerPart = all.find((p) => p.slug === 'footer' || String(p.id).endsWith('//footer'))
+            ?? all.find((p) => p.area === 'footer');
         if (footerPart) {
             // area rides along: a customized part posted without it loses its
             // 'footer' area and the next run cannot find it.
             await rest('POST', `/wp/v2/template-parts/${encodeURIComponent(footerPart.id)}`, { body: { content: footerCompiled.markup, area: 'footer' } });
             ctx.state.published.footer_part = footerPart.id;
         } else {
-            ctx.log('S8: no footer template part on this theme — skipped');
+            ctx.log('this theme has no footer template part — footer skipped');
         }
     }
 
@@ -175,6 +199,7 @@ export async function run(ctx) {
         for (const ref of dry.images) {
             ctx.budget.spend('image', `${page.slug}${ref.path ?? ''}`);
         }
+        ctx.log(`generating ${dry.found} real image(s) for /${page.slug}/ — one image-model call each, then swapped in where the placeholders sit`);
         const started = Date.now();
         const gen = await toolOrThrow(ctx, 'wp_images_generate', {
             post_id: page.id,
@@ -203,6 +228,6 @@ export async function run(ctx) {
         if (applied.all_valid !== true) {
             throw new PipelineError('gate_failed', `wp_images_apply left /${page.slug}/ not all_valid`);
         }
-        ctx.log(`S8: ${gen.generated} image(s) generated and applied on /${page.slug}/`);
+        ctx.log(`/${page.slug}/: ${gen.generated} image(s) generated and applied`);
     }
 }

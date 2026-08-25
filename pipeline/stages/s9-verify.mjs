@@ -20,7 +20,7 @@ export async function run(ctx) {
     // disposes it; the next tool call warms a new one. Same Runtime — still
     // the single holder of epoch state.
     await ctx.call('wp_disconnect', {});
-    ctx.log(`S9: verifying ${url} (fresh session)`);
+    ctx.log(`checking the finished site at ${url} — heading structure, every image loaded (fresh browser session)`);
 
     // Single-PHP-worker sandboxes never reach network idle — domcontentloaded.
     // And right after S8's mutations the lone worker can abort one navigation,
@@ -35,7 +35,7 @@ export async function run(ctx) {
         verify = res.data;
         const empty = (verify.a11y_outline ?? []).length === 0 && (verify.box_tree ?? []).length === 0;
         if (!empty || attempt === 2) break;
-        ctx.log('S9: measured an empty page (transient right after mutations) — retrying once');
+        ctx.log('measured an empty page (a transient right after publishing) — retrying once');
         await new Promise((r) => setTimeout(r, 3000));
     }
     writeFileSync(join(ctx.runDir, 'verify.json'), JSON.stringify(verify, null, 2));
@@ -62,5 +62,5 @@ export async function run(ctx) {
     }
     ctx.state.screenshot_taken = true;
     ctx.state.verified = { url, headings: (verify.a11y_outline ?? []).length, images: (verify.images ?? []).length };
-    ctx.log(`S9: verified ${url} — outline sane, ${(verify.images ?? []).length} image(s) loaded, screenshot taken`);
+    ctx.log(`verified ${url} — heading structure sane, ${(verify.images ?? []).length} image(s) all loaded, screenshot saved`);
 }

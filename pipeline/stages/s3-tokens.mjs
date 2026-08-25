@@ -66,5 +66,5 @@ export async function run(ctx) {
     ctx.state.fingerprint = applied.data.fingerprint;
     ctx.state.instance.fingerprint = applied.data.fingerprint;
     writeFileSync(join(ctx.runDir, 'instance.json'), JSON.stringify(ctx.state.instance, null, 2));
-    ctx.log(`S3: tokens applied, fingerprint ${String(applied.data.fingerprint).slice(0, 8)}…`);
+    ctx.log(`design tokens applied to the theme — ${tokens.palette.length} colours, ${tokens.typography.families.length} font families; the site fingerprint moved to ${String(applied.data.fingerprint).slice(0, 8)}…`);
 }
