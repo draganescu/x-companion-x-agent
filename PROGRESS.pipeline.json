@@ -87,6 +87,11 @@
             "when": "2026-08-24",
             "what": "Temptation log: three places invited extra retries and were held to the bound \u2014 (a) S3's dry-run gate failing after the schema-retry was burned ends the run rather than regenerating tokens; (b) S7 repairs run with maxAttempts 1, so a malformed repair output is immediately dead; (c) sandbox-boot crashes in build tests burn the artifact's single repair even though they are infrastructure failures \u2014 the port isolation removed the known cause rather than adding a retry.",
             "why": "The bounds held in every accepted run; the ceilings were never the binding constraint (13/23 on the full-scope run). Recording per the spec's progress protocol."
+        },
+        {
+            "when": "2026-08-25",
+            "what": "Added the x-pipeline CLI (pipeline/cli.mjs + root ./x-pipeline wrapper): site new/connect/status/stop, config init, build \u2014 one command from nothing to a published site (build --new-site auto-writes pipeline.config.json from stored provider keys and boots a companion Playground). The acceptance boot holder moved to pipeline/lib/site-holder.mjs.",
+            "why": "The manual path (boot holder, jq-merge .x-agent.json, hand-write pipeline.config.json) was operator hostile. The CLI writes only the files the pipeline already reads (.x-agent.json mode 0600, pipeline.config.json, tools/.runtime descriptors) \u2014 no new state, no toolchain surface; site connect verifies with wp_connect before writing and warns on production posture."
         }
     ]
 }

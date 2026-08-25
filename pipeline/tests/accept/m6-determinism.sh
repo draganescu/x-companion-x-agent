@@ -17,7 +17,7 @@ CAPTURE_DIR=$(mktemp -d /tmp/x-pipeline-m6-fixtures.XXXXXX)
 boot() {
     node tools/playground/stop.mjs --port "$PORT" 2>/dev/null || true
     rm -f "tools/.runtime/$SLOT.json"
-    nohup node pipeline/tests/accept/_playground.mjs hold "$SLOT" "$PORT" > "tools/.runtime/$SLOT.boot.log" 2>&1 &
+    nohup node pipeline/lib/site-holder.mjs hold "$SLOT" "$PORT" > "tools/.runtime/$SLOT.boot.log" 2>&1 &
     BOOT_PID=$!
     for i in $(seq 1 120); do [ -f "tools/.runtime/$SLOT.json" ] && break; sleep 2; done
     if [ ! -f "tools/.runtime/$SLOT.json" ]; then echo "boot failed:"; tail -30 "tools/.runtime/$SLOT.boot.log"; exit 1; fi

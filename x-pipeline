@@ -1,0 +1,3 @@
+#!/bin/sh
+# x-pipeline — front door for the deterministic site compiler (pipeline/cli.mjs).
+exec node "$(dirname "$0")/pipeline/cli.mjs" "$@"
