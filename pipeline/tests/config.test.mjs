@@ -47,3 +47,12 @@ test('provider keys come from .x-agent.json with env fallback', () => {
     assert.equal(keys.openai_api_key, 'sk-env');
     assert.equal(keys.cerebras_api_key, undefined);
 });
+
+test('an invalid speed fails preflight naming task and the valid levels', () => {
+    const tasks = { ...fullTasks, brief: { provider: 'fake', model: 'fixtures', speed: 'ludicrous' } };
+    assert.throws(() => loadPipelineConfig(writeConfig('speed.json', { tasks })),
+        (e) => e.code === 'preflight_failed' && /brief/.test(e.message) && /fast, standard/.test(e.message));
+    // valid values load
+    const ok = { ...fullTasks, brief: { provider: 'fake', model: 'fixtures', speed: 'fast' } };
+    loadPipelineConfig(writeConfig('speed-ok.json', { tasks: ok }));
+});

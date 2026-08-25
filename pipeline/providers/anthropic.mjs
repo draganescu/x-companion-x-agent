@@ -17,7 +17,7 @@ export function create({ keys, options = {} } = {}) {
 
     return {
         id: 'anthropic',
-        async complete(_taskType, prompt, _payload, { model, temperature, effort, max_tokens, log }) {
+        async complete(_taskType, prompt, _payload, { model, temperature, effort, max_tokens, speed, log }) {
             const body = {
                 model,
                 max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS,
@@ -28,6 +28,9 @@ export function create({ keys, options = {} } = {}) {
                 // route explicitly asks, so those models can simply omit it.
                 ...(temperature !== undefined ? { temperature } : {}),
                 ...(effort !== undefined ? { output_config: { effort } } : {}),
+                // Fast mode (research preview): same model, ~2.5x output tokens/s,
+                // premium price. Opus 5 / 4.8 only — the route opts in per task.
+                ...(speed !== undefined ? { speed } : {}),
             };
             const init = {
                 method: 'POST',
@@ -35,6 +38,7 @@ export function create({ keys, options = {} } = {}) {
                     'x-api-key': keys.anthropic_api_key,
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
+                    ...(speed !== undefined ? { 'anthropic-beta': 'fast-mode-2026-02-01' } : {}),
                 },
                 body: JSON.stringify(body),
             };

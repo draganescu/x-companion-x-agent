@@ -53,6 +53,7 @@ export function createLlm({ providers, promptsDir, budget, ledger, log }) {
                 ...(route.temperature !== undefined ? { temperature: route.temperature } : {}),
                 ...(route.effort !== undefined ? { effort: route.effort } : {}),
                 ...(route.max_tokens !== undefined ? { max_tokens: route.max_tokens } : {}),
+                ...(route.speed !== undefined ? { speed: route.speed } : {}),
                 label,
                 // Providers with long silent calls heartbeat through this; the
                 // prefix keeps their lines attributable under concurrency.

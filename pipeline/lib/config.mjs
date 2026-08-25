@@ -14,6 +14,10 @@ export const TASK_TYPES = ['brief', 'kit', 'molecule', 'tree', 'block', 'schema'
 // omits it takes the provider's own default.
 export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
+// Output throughput, for providers that expose it (Anthropic fast mode: same
+// model, ~2.5x tokens/s, premium price). Optional; omitted = the standard lane.
+export const SPEED_LEVELS = ['fast', 'standard'];
+
 const DEFAULT_PROMPTS_DIR = fileURLToPath(new URL('../prompts', import.meta.url));
 
 export function loadPipelineConfig(configPath) {
@@ -53,6 +57,10 @@ export function loadPipelineConfig(configPath) {
         if (entry.effort !== undefined && !EFFORT_LEVELS.includes(entry.effort)) {
             throw new PipelineError('preflight_failed',
                 `task "${task}" effort must be one of ${EFFORT_LEVELS.join(', ')}`);
+        }
+        if (entry.speed !== undefined && !SPEED_LEVELS.includes(entry.speed)) {
+            throw new PipelineError('preflight_failed',
+                `task "${task}" speed must be one of ${SPEED_LEVELS.join(', ')}`);
         }
     }
     return {

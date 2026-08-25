@@ -72,6 +72,20 @@ test('anthropic: temperature and max_tokens ride through only when routed', asyn
     assert.ok(!('output_config' in stub.calls[0].init), 'effort must not be sent when the route omits it');
 });
 
+test('anthropic: fast mode sends the speed param AND its beta header together, or neither', async () => {
+    const fast = sseStub(sseOk('OUT'));
+    const p1 = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: fast.fetch } });
+    await p1.complete('brief', 'P', {}, { model: 'claude-opus-5', speed: 'fast' });
+    assert.equal(fast.calls[0].init.speed, 'fast');
+    assert.equal(fast.calls[0].headers['anthropic-beta'], 'fast-mode-2026-02-01');
+
+    const std = sseStub(sseOk('OUT'));
+    const p2 = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: std.fetch } });
+    await p2.complete('brief', 'P', {}, { model: 'claude-opus-5' });
+    assert.ok(!('speed' in std.calls[0].init), 'speed must not be sent when the route omits it');
+    assert.ok(!('anthropic-beta' in std.calls[0].headers), 'the fast-mode beta header rides only with speed');
+});
+
 test('anthropic: heartbeat reports thinking-vs-answer progress during a slow stream', async () => {
     // A stream that thinks, stalls long enough for two beats, then answers.
     const enc = new TextEncoder();

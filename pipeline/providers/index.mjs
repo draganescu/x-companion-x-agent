@@ -12,7 +12,7 @@ export async function createProviders({ config, keys }) {
     for (const task of TASK_TYPES) {
         const entry = config.tasks[task];
         if (!entry) continue; // loadPipelineConfig already enforces completeness for full runs
-        const { provider: id, model, temperature, effort, max_tokens, options } = entry;
+        const { provider: id, model, temperature, effort, max_tokens, speed, options } = entry;
         if (!instances.has(id)) {
             const keyName = KEY_FOR[id];
             if (keyName && !keys[keyName]) {
@@ -28,7 +28,7 @@ export async function createProviders({ config, keys }) {
             }
             instances.set(id, mod.create({ keys, options }));
         }
-        routed.set(task, { provider: instances.get(id), model, temperature, effort, max_tokens });
+        routed.set(task, { provider: instances.get(id), model, temperature, effort, max_tokens, speed });
     }
     return routed;
 }
