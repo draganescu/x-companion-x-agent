@@ -7,8 +7,11 @@ export const id = 'S9_verify';
 export const kind = 'deterministic';
 
 export async function run(ctx) {
-    const front = ctx.state.published.pages.find((p) => p.front_page);
-    const url = front.link;
+    // Verify the SITE ROOT: page_on_front makes it the front page, and the
+    // page's own pretty URL canonical-redirects — a lane that breaks entirely
+    // when any plugin notice precedes wp_redirect's headers. The root is what
+    // a visitor sees; no redirect stands in front of it.
+    const url = `${(ctx.state.instance.site_url ?? '').replace(/\/$/, '')}/`;
 
     // Verification gets a FRESH browser session. After S8's install-triggered
     // epoch reloads the warm session can be left dead-but-cached (observed:

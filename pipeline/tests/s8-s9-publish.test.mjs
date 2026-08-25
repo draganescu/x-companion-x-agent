@@ -144,7 +144,7 @@ test('S9: verify gate + exactly one screenshot; unloaded image fails', async () 
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-'));
     const mk = (verifyData) => ({
         runDir,
-        state: { published: { pages: [{ slug: 'home', front_page: true, link: 'http://x/home/' }] } },
+        state: { instance: { site_url: 'http://x' }, published: { pages: [{ slug: 'home', front_page: true, link: 'http://x/home/' }] } },
         log: () => {},
         shots: 0,
         call: async function (name) {

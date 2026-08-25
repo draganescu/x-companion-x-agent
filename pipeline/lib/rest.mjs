@@ -41,13 +41,15 @@ export function createRest({ url, user, app_password }) {
                 (res.text ?? '').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').slice(0, 300));
         }
         if (res.json != null) return res.json;
-        const ctype = res.headers?.['content-type'] ?? '';
-        if (/json/i.test(ctype) && typeof res.text === 'string') {
+        // Content-type is untrustworthy here: a PHP notice emitted before
+        // wp_send_json means "headers already sent" and the JSON arrives as
+        // text/html. Every route this lane calls returns JSON — always salvage.
+        if (typeof res.text === 'string') {
             try {
                 return salvageJson(res.text);
             } catch {
                 throw new PipelineError('companion_error',
-                    `${method} ${route} returned unparseable JSON (a PHP notice may be corrupting responses)`,
+                    `${method} ${route} did not return JSON (a PHP notice/fatal may be corrupting responses)`,
                     (res.text ?? '').slice(0, 200));
             }
         }
