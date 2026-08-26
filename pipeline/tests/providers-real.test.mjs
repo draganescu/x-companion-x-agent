@@ -76,7 +76,7 @@ test('anthropic: a contract becomes output_config.format, merged beside effort',
     const stub = sseStub(sseOk('{"ok":true}'));
     const p = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: stub.fetch } });
     const contract = { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } } };
-    await p.complete('kit', 'P', {}, { model: 'claude-opus-5', effort: 'high', contract });
+    await p.complete('brief', 'P', {}, { model: 'claude-opus-5', effort: 'high', contract });
     const oc = stub.calls[0].init.output_config;
     assert.equal(oc.effort, 'high');
     assert.equal(oc.format.type, 'json_schema');
@@ -84,7 +84,7 @@ test('anthropic: a contract becomes output_config.format, merged beside effort',
     // without a contract, no format rides along
     const plain = sseStub(sseOk('OUT'));
     const p2 = anthropic({ keys: { anthropic_api_key: 'sk-a' }, options: { fetch: plain.fetch } });
-    await p2.complete('kit', 'P', {}, { model: 'claude-opus-5', effort: 'high' });
+    await p2.complete('brief', 'P', {}, { model: 'claude-opus-5', effort: 'high' });
     assert.ok(!('format' in plain.calls[0].init.output_config));
 });
 

@@ -34,14 +34,8 @@ export async function run(ctx) {
         initial_fingerprint: connect.data.fingerprint,
         wp_version: connect.data.wp_version,
         theme_tokens: manifest.data.theme_tokens,
-        // The kit call composes against the whole vocabulary, not one role's
-        // slice: it is deciding what the site's arrangements ARE.
-        block_names: Object.keys(manifest.data.blocks ?? {}).sort(),
     };
     writeFileSync(join(ctx.runDir, 'instance.json'), JSON.stringify(instance, null, 2));
-    // The full block map is too big for state.json and is needed again in S3b,
-    // where molecules are sliced by role rather than by section.
-    writeFileSync(join(ctx.runDir, 'manifest-blocks.json'), JSON.stringify(manifest.data.blocks ?? {}, null, 2));
     ctx.state.instance = instance;
     ctx.state.fingerprint = connect.data.fingerprint;
 

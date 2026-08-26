@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screenTreeDiagnostics, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity } from '../lib/gates.mjs';
 
 const diag = (code, severity, message = '', path = '/blocks/0') => ({ code, severity, path, message });
 
@@ -144,4 +144,39 @@ test('blockGate: advisory literals do not fail the artifact, hard ones do', () =
     const hard = blockGate(built([{ line: 4, literal: '#c47a2b', text: 'color: #c47a2b;' }]));
     assert.equal(hard.status, 'fail');
     assert.equal(hard.failures[0].code, 'style_literal');
+});
+
+test('the literal screen is property-aware: no preset category means no failure', () => {
+    // letter-spacing, line heights, hairline borders, radii — the token system
+    // has no preset to spend these through, and the tree prompt's own editorial
+    // details (letterspaced kickers) depend on them.
+    assert.deepEqual(screenTreeLiterals({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/paragraph', attributes: { style: {
+            typography: { letterSpacing: '0.22em', lineHeight: '1.4' },
+            border: { radius: '4px', top: { width: '1px' } },
+        } } }],
+    }), []);
+    // spacing and font sizes DO have presets — literals there stay dead.
+    const spacing = screenTreeLiterals({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/group', attributes: { style: { spacing: { padding: { top: '32px' } } } } }],
+    });
+    assert.equal(spacing.length, 1);
+    assert.match(spacing[0].message, /spacing preset/);
+    const font = screenTreeLiterals({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/heading', attributes: { style: { typography: { fontSize: '3rem' } } } }],
+    });
+    assert.equal(font.length, 1);
+    // em never fails — relative to its own context, a mechanic (parity with
+    // styleLiteralSeverity in the S5 CSS gate). Hex fails anywhere.
+    assert.deepEqual(screenTreeLiterals({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/heading', attributes: { style: { typography: { fontSize: '1.2em' } } } }],
+    }), []);
+    assert.equal(screenTreeLiterals({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/heading', attributes: { style: { color: { text: '#ff0000' } } } }],
+    }).length, 1);
 });

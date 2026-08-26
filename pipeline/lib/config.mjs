@@ -6,9 +6,7 @@ import { PipelineError } from './errors.mjs';
 // The 7 text task types. The 'image' task is routed by the existing Gemini
 // client via .x-agent.json (gemini_api_key / image_model), not by this config.
 //
-// 'tokens' is gone: it is subsumed by 'kit', because a token system decided apart
-// from the concept that motivates it is the failure the kit stage exists to fix.
-export const TASK_TYPES = ['brief', 'kit', 'molecule', 'tree', 'block', 'schema', 'repair'];
+export const TASK_TYPES = ['brief', 'tokens', 'tree', 'block', 'schema', 'repair'];
 
 // Reasoning depth, for providers that expose it. Optional everywhere: a task that
 // omits it takes the provider's own default.

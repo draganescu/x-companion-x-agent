@@ -6,16 +6,10 @@
             "effort": "high",
             "speed": "fast"
         },
-        "kit": {
+        "tokens": {
             "provider": "anthropic",
             "model": "claude-opus-5",
-            "effort": "xhigh",
-            "speed": "fast"
-        },
-        "molecule": {
-            "provider": "cerebras",
-            "model": "gpt-oss-120b",
-            "temperature": 0.3
+            "effort": "high"
         },
         "tree": {
             "provider": "anthropic",

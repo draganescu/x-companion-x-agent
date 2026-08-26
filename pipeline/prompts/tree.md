@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, art_direction, voice, page_plan, design, band_colors, manifest_slice, molecules, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, voice, page_plan, design, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation. The section must look like it belongs
@@ -33,7 +33,7 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 > deliberate whitespace between bands. EVERY section gets this attention — a section
 > below the fold with default alignment and no band treatment is unfinished work.
 
-Design values live in the kit, never in your tree: NO hex colours anywhere, and no
+Design values live in the applied tokens, never in your tree: NO hex colours anywhere, and no
 px/rem font sizes or spacing values under `style` — spend palette slugs, the
 `fontSize` slug attribute, and `var:preset|spacing|NN`. Mechanics the token system
 cannot express are fine as literals: letter-spacing (`em`), hairline border widths,
@@ -91,14 +91,6 @@ LAYOUT: realize design.layout, not a default stack —
 Your block vocabulary for this section (manifest slice, with attribute schemas — use
 NOTHING outside it, and no attributes absent from it; W_ATTR_UNKNOWN fails the
 artifact): {{manifest_slice}}
-
-**The site's own design vocabulary.** These arrangements were built for this site by
-its design director and are now saved patterns the site holds. **Assemble this section
-from them** — adapt one to this section's copy rather than inventing a new layout. Two
-sections that share an arrangement look designed; five sections that each invented their
-own look like five people worked alone. If more than one fits, pick the one whose
-`when_to_use` matches this section and follow its tree's structure closely:
-{{molecules}}
 
 Starting pattern (adapt its idiom to YOUR band and layout; null means compose fresh):
 {{pattern_tree}}

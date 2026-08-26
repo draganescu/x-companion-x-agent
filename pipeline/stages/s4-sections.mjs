@@ -20,17 +20,6 @@ export async function run(ctx) {
         font_families: tokens.typography.families.map((f) => f.slug),
     };
     const allowedUnknown = new Set(brief.custom_blocks.map((b) => `agent/${b.slug}`));
-    // The vocabulary S3b saved. A section ASSEMBLES from these rather than
-    // inventing its own idiom — recurrence of structure is what cohesion is.
-    const { molecules, saved = [] } = JSON.parse(readFileSync(join(ctx.runDir, 'molecules.json'), 'utf8'));
-    const savedIds = new Set(saved.map((s2) => s2.id));
-    const moleculeTree = (id) => {
-        try {
-            return JSON.parse(readFileSync(join(ctx.runDir, 'molecules', `${id}.json`), 'utf8')).tree;
-        } catch {
-            return null;
-        }
-    };
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -58,18 +47,6 @@ export async function run(ctx) {
             ? 'This section carries the page\'s SINGLE h1: the statement headline MUST be a core/heading with attributes.level set to 1 EXPLICITLY (core/heading defaults to level 2 when level is omitted). Any further headings inside this section are level 2.'
             : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
         const design = section.design ?? { band: 'base', layout: 'centered' };
-        // Every arrangement the kit assigned to this role, with the tree the
-        // junior actually built and the pattern name it now lives under.
-        const forRole = molecules
-            .filter((m) => m.role === section.role && savedIds.has(m.id))
-            .map((m) => ({
-                id: m.id,
-                when_to_use: m.when_to_use,
-                recipe: m.recipe,
-                pattern: (saved.find((s2) => s2.id === m.id) ?? {}).pattern,
-                tree: moleculeTree(m.id),
-            }))
-            .filter((m) => m.tree);
         const payload = {
             section,
             page: entry.page,
@@ -79,10 +56,7 @@ export async function run(ctx) {
             design,
             band_colors: resolveBandColors(design.band, brief.palette, tokens.palette),
             manifest_slice: entry.manifest_slice,
-            // The kit's vocabulary first; the theme's corpus only as a fallback
-            // for a role the kit somehow left uncovered.
-            molecules: forRole,
-            pattern_tree: forRole.length > 0 ? null : (entry.pattern?.parsed_tree ?? null),
+            pattern_tree: entry.pattern?.parsed_tree ?? null,
             token_slugs: tokenSlugs,
             epoch,
             image_note: imageNote,

@@ -34,34 +34,8 @@ function treeFor(label, extra = {}) {
 
 function makeCtx({ treesByLabel, validateByKey }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s4-'));
-    for (const d of ['trees', 'sections', 'molecules']) mkdirSync(join(runDir, d), { recursive: true });
+    for (const d of ['trees', 'sections']) mkdirSync(join(runDir, d), { recursive: true });
     writeFileSync(join(runDir, 'tokens.json'), JSON.stringify(TOKENS));
-    // S3 and S3b ran: the kit planned the page, and its arrangements are saved
-    // patterns the site now holds. S4 assembles from them.
-    writeFileSync(join(runDir, 'kit.json'), JSON.stringify({
-        version: 1,
-        source: { kind: 'synthesized', files: [], viewport: { width: 1440, height: 2000 } },
-        tokens_candidates: { ...TOKENS, quantization_log: [] },
-        content: [],
-        regions: [
-            { id: 'r-hero', role: 'hero', box: { x: 0, y: 0, w: 1440, h: 700 }, style_refs: { background_palette_slug: 'base' } },
-            { id: 'r-features', role: 'features', box: { x: 0, y: 700, w: 1440, h: 800 }, style_refs: { background_palette_slug: 'base' } },
-            { id: 'r-cta', role: 'cta', box: { x: 0, y: 1500, w: 1440, h: 400 }, style_refs: { background_palette_slug: 'ember' } },
-        ],
-    }));
-    const MOLECULES = [
-        { id: 'hero-split', role: 'hero', when_to_use: 'The opening statement.', recipe: { blocks: ['core/group'], layout: 'split' }, style_refs: {} },
-        { id: 'card-row', role: 'features', when_to_use: 'Short items that read as peers.', recipe: { blocks: ['core/columns'], layout: 'grid' }, style_refs: {} },
-        { id: 'cta-band', role: 'cta', when_to_use: 'A band asking for one action.', recipe: { blocks: ['core/group'], layout: 'centered' }, style_refs: {} },
-    ];
-    writeFileSync(join(runDir, 'molecules.json'), JSON.stringify({
-        molecules: MOLECULES,
-        saved: MOLECULES.map((m) => ({ id: m.id, role: m.role, pattern: `agent/bakery-${m.id}`, replaced: false })),
-    }));
-    for (const m of MOLECULES) {
-        writeFileSync(join(runDir, 'molecules', `${m.id}.json`),
-            JSON.stringify({ molecule: m, tree: treeFor(m.id), gate: { status: 'pass' } }));
-    }
     const sections = [];
     for (const page of brief.pages) {
         for (const section of page.sections) {

@@ -7,11 +7,9 @@ import { computeBudget, BudgetMeter, Ledger } from '../budget.mjs';
 
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', import.meta.url), 'utf8'));
 
-test('the brief fixes S,B,P,I; the kit fixes M — and M moves the ceiling', () => {
-    // The brief alone: M is not knowable yet, so it counts as zero.
-    assert.deepEqual(computeBudget(fixture), { M: 0, S: 3, B: 1, P: 1, I: 2, base: 7, ceiling: 16 });
-    // With the kit's three arrangements: base grows by M, ceiling by 2M.
-    assert.deepEqual(computeBudget(fixture, { M: 3 }), { M: 3, S: 3, B: 1, P: 1, I: 2, base: 10, ceiling: 22 });
+test('M1 acceptance: S=3,B=1,P=1,I=2 => ceiling 16', () => {
+    const b = computeBudget(fixture);
+    assert.deepEqual(b, { S: 3, B: 1, P: 1, I: 2, base: 7, ceiling: 16 });
 });
 
 test('M1 acceptance: the 17th generative call throws {code:"budget_exceeded"}', () => {
@@ -23,15 +21,11 @@ test('M1 acceptance: the 17th generative call throws {code:"budget_exceeded"}', 
     assert.throws(() => meter.spend('tree', 'one-too-many'), (e) => e.code === 'budget_exceeded');
 });
 
-test('pre-ceiling spending is capped at 4: brief + kit, each with one retry', () => {
-    // The ceiling is fixed by the KIT, so exactly the two calls before it may run
-    // on the pre-ceiling allowance — and no more.
+test('pre-ceiling spending is capped at 2 (S1 + its schema retry)', () => {
     const meter = new BudgetMeter({});
     meter.spend('brief', 'brief');
     meter.spend('brief', 'brief');
-    meter.spend('kit', 'kit');
-    meter.spend('kit', 'kit');
-    assert.throws(() => meter.spend('molecule', 'hero-split'), (e) => e.code === 'budget_exceeded');
+    assert.throws(() => meter.spend('brief', 'brief'), (e) => e.code === 'budget_exceeded');
 });
 
 test('hard cap refuses a too-expensive brief at setCeiling time', () => {

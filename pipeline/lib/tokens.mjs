@@ -50,6 +50,20 @@ export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette 
             issues.push({ path: '/palette', message: `palette must keep the theme slug "${required}" (mapped onto this world) so theme template parts keep resolving` });
         }
     }
+    // The theme wires body text straight to `contrast` on `base` (field bug: a
+    // dark brief once aliased contrast to a near-black "high-contrast dark" on
+    // a near-black ground and the header vanished at 1.06:1). base is the
+    // ground, contrast is the INK — the pair must read.
+    const bySlug = Object.fromEntries(tokens.palette.map((p) => [p.slug, String(p.color)]));
+    if (bySlug.base && bySlug.contrast) {
+        const ratio = contrastRatio(bySlug.base, bySlug.contrast);
+        if (ratio < 4.5) {
+            issues.push({
+                path: '/palette',
+                message: `contrast ${bySlug.contrast} on base ${bySlug.base} reads at ${ratio.toFixed(2)}:1 — body text needs at least 4.5:1. "contrast" means the ink colour against the ground, not a high-contrast-looking dark; on a dark base it must be LIGHT`,
+            });
+        }
+    }
     return issues;
 }
 

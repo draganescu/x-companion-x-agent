@@ -186,7 +186,7 @@ export function screenOutline(outline) {
     return failures;
 }
 
-// The literal screen (S3b, S4). Below the design kit, an artifact carries slugs
+// The literal screen (S4, S7). Below the token system, an artifact carries slugs
 // and copy — never a design value. A molecule that hardcodes #b8143c or 3rem
 // defeats the token system it exists to express, and it does it silently: the
 // page looks right on the day it is built and stops tracking the palette the

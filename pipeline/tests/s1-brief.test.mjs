@@ -29,18 +29,15 @@ function makeCtx({ provider }) {
     };
 }
 
-test('S1 with the fake provider: brief.json written, the fan-out planned, the ceiling NOT yet fixed', async () => {
+test('S1 with the fake provider: brief.json written, the budget printed and fixed HERE', async () => {
     const ctx = makeCtx({ provider: createFake({}) });
     await s1.run(ctx);
     assert.ok(existsSync(join(ctx.runDir, 'brief.json')));
     assert.deepEqual(JSON.parse(readFileSync(join(ctx.runDir, 'brief.json'), 'utf8')), fixtureBrief);
-    // S, B, P and I come from the brief; M comes from the kit, so the ceiling is
-    // fixed one stage later. Announcing a ceiling here would be announcing a guess.
-    assert.deepEqual(ctx.state.budget_plan, { S: 3, B: 1, P: 1, I: 2 });
-    assert.equal(ctx.state.budget, undefined);
-    assert.equal(ctx.budget.ceiling, null);
-    assert.ok(ctx.logs.some((l) => /3 section\(s\), 1 custom block\(s\), 1 data package\(s\), 2 image\(s\)/.test(l)));
-    assert.ok(ctx.logs.some((l) => /ceiling is fixed once the design kit/.test(l)));
+    // S=3, B=1, P=1, I=2 -> base 7, ceiling 2*7+2 = 16, fixed before call #2.
+    assert.equal(ctx.state.budget.ceiling, 16);
+    assert.equal(ctx.budget.ceiling, 16);
+    assert.ok(ctx.logs.some((l) => /costs at most 16 calls \(S=3, B=1, P=1, I=2\)/.test(l)));
 });
 
 test('a cross-check violation burns the one schema-retry, then a clean brief passes', async () => {
@@ -103,8 +100,11 @@ test('--brochure: blocks and packages are gated out of the brief, and the prompt
     assert.match(prompts[0], /BROCHURE MODE/);
     assert.match(prompts[1], /brochure mode: must be an empty array/);
     assert.deepEqual(ctx.ledger.entries.map((e) => e.outcome), ['schema_failed', 'ok']);
-    // The accepted plan carries no factory work; the bill shrinks with it.
-    assert.deepEqual(ctx.state.budget_plan, { S: 3, B: 0, P: 0, I: 2 });
+    // The accepted plan carries no factory work; the bill shrinks with it:
+    // base 2+3+0+0 = 5, ceiling 2*5+2 = 12.
+    assert.equal(ctx.state.budget.B, 0);
+    assert.equal(ctx.state.budget.P, 0);
+    assert.equal(ctx.state.budget.ceiling, 12);
     assert.ok(ctx.logs.some((l) => /brochure mode, composition only/.test(l)));
 });
 
@@ -114,5 +114,5 @@ test('without --brochure the mode note is empty and blocks/packages pass as befo
     const ctx = makeCtx({ provider });
     await s1.run(ctx);
     assert.ok(!/BROCHURE MODE/.test(prompts[0]));
-    assert.deepEqual(ctx.state.budget_plan, { S: 3, B: 1, P: 1, I: 2 });
+    assert.equal(ctx.state.budget.ceiling, 16);
 });
