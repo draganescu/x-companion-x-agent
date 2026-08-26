@@ -1,17 +1,14 @@
 {
   "spec_version": "1.0.0",
   "id": "x-pipeline",
-  "title": "X Pipeline — a deterministic, LLM-powered site compiler over the x-companion/x-agent toolchain: fixed steps, a call budget known after the first call, swappable models per task, every artifact born against a contract schema and shipped only through the existing gates",
-
-  "mission": "Remove the agent from orchestration without removing the LLM from authorship: a fixed pipeline whose deterministic steps group the existing wp_* tools, whose generative steps are single-purpose LLM calls validated against the repo's published contract schemas, and whose total number of LLM calls is a function of the brief — computed after step one, enforced during the run, reported at the end. The data model (TreeIR), the flow (validate -> compile -> verify), and real WordPress (the companion, the harness, markup only ever from save()) are unchanged; they stop being an agent's habits and become the pipeline's acceptance gates.",
-
+  "title": "X Pipeline \u2014 a deterministic, LLM-powered site compiler over the x-companion/x-agent toolchain: fixed steps, a call budget known after the first call, swappable models per task, every artifact born against a contract schema and shipped only through the existing gates",
+  "mission": "Remove the agent from orchestration without removing the LLM from authorship: a fixed pipeline whose deterministic steps group the existing wp_* tools, whose generative steps are single-purpose LLM calls validated against the repo's published contract schemas, and whose total number of LLM calls is a function of the brief \u2014 computed after step one, enforced during the run, reported at the end. The data model (TreeIR), the flow (validate -> compile -> verify), and real WordPress (the companion, the harness, markup only ever from save()) are unchanged; they stop being an agent's habits and become the pipeline's acceptance gates.",
   "problem_context": {
-    "why": "Field evidence, two builds and one investigation. (1) The agentic loop produces excellent results but a nondeterministic bill: call counts depend on how many times the agent iterates, and two late discoveries on a schema build each cost a full bump->gate->install->republish cycle. (2) The checkout-vs-plugin investigation showed the agent's quality tracks how much of the repo's structure is in context — which is another way of saying the structure, not the agent's judgment, carries most of the value on greenfield builds. (3) wpforge demonstrates the target shape working in production: a fixed pipeline, concurrency bounded by a plan, providers swapped per task — but wpforge trusts its generations and verifies only at the end. This repo has the piece wpforge lacks: deterministic gates that check every artifact the moment it is born.",
-    "canon_principle": "The LLM authors; code decides. Every generative task is (prompt template, context payload) -> JSON validated against a published contract schema; every artifact ships through the same gate the agent would have used, or dies with its diagnostics attached. The pipeline never improvises around a dead artifact, never retries beyond its budget, and never lets a model write anything the toolchain would not accept from an agent — including, above all, serialized markup.",
+    "why": "Field evidence, two builds and one investigation. (1) The agentic loop produces excellent results but a nondeterministic bill: call counts depend on how many times the agent iterates, and two late discoveries on a schema build each cost a full bump->gate->install->republish cycle. (2) The checkout-vs-plugin investigation showed the agent's quality tracks how much of the repo's structure is in context \u2014 which is another way of saying the structure, not the agent's judgment, carries most of the value on greenfield builds. (3) wpforge demonstrates the target shape working in production: a fixed pipeline, concurrency bounded by a plan, providers swapped per task \u2014 but wpforge trusts its generations and verifies only at the end. This repo has the piece wpforge lacks: deterministic gates that check every artifact the moment it is born.",
+    "canon_principle": "The LLM authors; code decides. Every generative task is (prompt template, context payload) -> JSON validated against a published contract schema; every artifact ships through the same gate the agent would have used, or dies with its diagnostics attached. The pipeline never improvises around a dead artifact, never retries beyond its budget, and never lets a model write anything the toolchain would not accept from an agent \u2014 including, above all, serialized markup.",
     "amends": "This spec amends x-agent (specs/agent-plugin.spec.json) and sits beside x-canon-factory (specs/canon-factory.spec.json). The base specs stay canonical for the contract (auth, postures, TreeIR, Diagnostics, epoch, the tools themselves). Everything here is additive and agent-side only: the companion gains NO new surface, and the wp_* tools are consumed exactly as they exist. On conflict the base specs win.",
-    "recorded_decision": "An in-repo pipeline/ runner that calls the MCP tool handlers in-process (they are plain functions behind defineTool), not a fork and not a second server: one holder of epoch state, one config chain, one redaction layer. Prompts are excerpts of the skills — the skills remain the single source of truth for the method; a prompt file that contradicts its skill is a bug. R13 compatibility is explicit: the pipeline fixes WHEN and HOW OFTEN the model is asked, it never writes toolchain inputs mechanically — every tree, token set and block file is still authored by a model against the manifest. The agentic skills are not replaced: the pipeline is for greenfield prompt->site; interactive editing, debugging and everything after first publish stays agentic."
+    "recorded_decision": "An in-repo pipeline/ runner that calls the MCP tool handlers in-process (they are plain functions behind defineTool), not a fork and not a second server: one holder of epoch state, one config chain, one redaction layer. Prompts are excerpts of the skills \u2014 the skills remain the single source of truth for the method; a prompt file that contradicts its skill is a bug. R13 compatibility is explicit: the pipeline fixes WHEN and HOW OFTEN the model is asked, it never writes toolchain inputs mechanically \u2014 every tree, token set and block file is still authored by a model against the manifest. The agentic skills are not replaced: the pipeline is for greenfield prompt->site; interactive editing, debugging and everything after first publish stays agentic."
   },
-
   "operating_rules_for_implementing_agent": [
     "Read specs/agent-plugin.spec.json and specs/canon-factory.spec.json first; this spec assumes their vocabulary (TreeIR, epoch, gates, rungs).",
     "Never bypass a gate to make a stage green. A stage that cannot pass wp_validate / wp_block_build_test / wp_schema_build_test fails with diagnostics in the run report.",
@@ -19,14 +16,12 @@
     "Temperature and model ids are config, never hardcoded in a stage.",
     "The budget module is consulted BEFORE every generative call; exceeding the ceiling is a thrown structured error, not a warning."
   ],
-
   "environment": {
     "runtime": "Node >= 20, repo checkout (the pipeline imports x-agent/mcp/dist and tools/playground directly).",
     "instance": "Any x-companion instance in toolchain posture: a Playground booted by tools/playground/boot.mjs or a real staging site. Connection via the standard .x-agent.json chain.",
-    "provider_keys": "In .x-agent.json alongside the existing keys (gemini_api_key precedent): cerebras_api_key, anthropic_api_key, openai_api_key — each optional, each registered as a secret on resolution, each used only if pipeline.config.json routes a task to that provider.",
+    "provider_keys": "In .x-agent.json alongside the existing keys (gemini_api_key precedent): cerebras_api_key, anthropic_api_key, openai_api_key \u2014 each optional, each registered as a secret on resolution, each used only if pipeline.config.json routes a task to that provider.",
     "config_file": "pipeline.config.json in the working directory: {tasks: {<task_type>: {provider, model, temperature?}}, concurrency?, budget_hard_cap?}. Missing task entries fail at preflight, not mid-run."
   },
-
   "file_layout": {
     "pipeline/run.mjs": "CLI entry: node pipeline/run.mjs \"<prompt>\" [--config pipeline.config.json] [--resume <run_dir>]. Prints the budget after stage S1 and refuses to continue past it.",
     "pipeline/stages/": "One module per stage below; a stage exports {id, kind, run(ctx)} and nothing else.",
@@ -36,7 +31,6 @@
     "pipeline/schemas/brief.schema.json": "The one NEW contract this spec introduces (see llm_contract.task_types.brief).",
     "runs/<timestamp>/": "Per-run artifact directory: brief.json, tokens.json, trees/, blocks/, packages/, images/, ledger.json, report.md. Every stage reads its inputs from here and writes its outputs here; --resume replays completed stages from disk."
   },
-
   "stages": [
     {
       "id": "S1_brief",
@@ -50,7 +44,11 @@
     {
       "id": "S2_read_instance",
       "kind": "deterministic",
-      "tools": ["wp_connect", "wp_manifest", "wp_patterns"],
+      "tools": [
+        "wp_connect",
+        "wp_manifest",
+        "wp_patterns"
+      ],
       "calls": "0",
       "outputs": "manifest slices per section (only the block families the section role needs), the pattern each section starts from, theme token inventory, the fingerprint"
     },
@@ -67,9 +65,9 @@
       "id": "S4_sections",
       "kind": "generative",
       "llm_task": "tree",
-      "calls": "S (one per section in the brief), concurrent",
+      "calls": "S (one per section in the brief) + 2 (the header and footer template parts), concurrent",
       "inputs": "per section: its brief entry, its manifest slice, its starting pattern's parsed_tree, the applied token slugs",
-      "outputs": "one TreeIR fragment per section, validated against tree-ir.schema.json locally, then wp_validate at the current fingerprint",
+      "outputs": "one TreeIR fragment per section, validated against tree-ir.schema.json locally, then wp_validate at the current fingerprint Plus one TreeIR per furniture part (header: brand + a bare core/navigation node, links injected at publish; footer: built from the brief's own footer.intent), through the same gates.",
       "gate": "wp_validate valid:true with warnings reviewed mechanically (W_ATTR_UNKNOWN fails the artifact; W_STATIC_NEEDS_HARNESS passes)"
     },
     {
@@ -102,42 +100,55 @@
     {
       "id": "S8_publish",
       "kind": "deterministic",
-      "tools": ["wp_schema_install", "wp_block_install", "wp_compile", "wp_images_generate", "wp_images_apply"],
+      "tools": [
+        "wp_schema_install",
+        "wp_block_install",
+        "wp_compile",
+        "wp_images_generate",
+        "wp_images_apply"
+      ],
       "calls": "0 text calls; I image calls (one per surviving image_intent) inside wp_images_generate",
-      "outputs": "installs run SEQUENTIALLY from the single runner (the epoch discipline of wp-blocks R12); final fingerprint stamped into the assembled page tree; page compiled on the harness, published with the theme's no-title template; front page, navigation and footer set from the brief via the same core-REST lane the tools already use; images generated and swapped by the existing image pass"
+      "outputs": "installs run SEQUENTIALLY from the single runner (the epoch discipline of wp-blocks R12); final fingerprint stamped into the assembled page tree; page compiled on the harness, published with the theme's no-title template; front page, navigation and footer set from the brief via the same core-REST lane the tools already use; images generated and swapped by the existing image pass Header and footer template parts ship from the S4 furniture trees when they passed (validated again at the final epoch, nav links injected like placeholder urls); the deterministic nav-post and two-paragraph-footer builders remain the floor."
     },
     {
       "id": "S9_verify",
       "kind": "deterministic",
-      "tools": ["wp_verify", "wp_screenshot"],
+      "tools": [
+        "wp_verify",
+        "wp_screenshot"
+      ],
       "calls": "0",
       "outputs": "wp_verify pass with a sane heading outline and every image loaded; exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
     }
   ],
-
   "llm_contract": {
-    "task_types": ["brief", "tokens", "tree", "block", "schema", "repair", "image"],
+    "task_types": [
+      "brief",
+      "tokens",
+      "tree",
+      "block",
+      "schema",
+      "repair",
+      "image"
+    ],
     "io": "Every generative task is (prompt template, JSON context payload) -> JSON (or file map, for block/schema) validated against its contract: brief.schema.json, design-tokens.schema.json, tree-ir.schema.json, the factory gates. One schema-retry per call, metered. There is no free-text output anywhere in the pipeline.",
-    "provider_interface": "LlmProvider = { id, complete(task_type, prompt, payload, {model, temperature}) -> {text, usage} }. Providers are dumb pipes: no provider-specific prompt forks, no silent model fallback, no internal retries beyond transport errors. The 'image' task is already implemented — wp_images_generate's Gemini client is the reference shape and stays as is.",
+    "provider_interface": "LlmProvider = { id, complete(task_type, prompt, payload, {model, temperature}) -> {text, usage} }. Providers are dumb pipes: no provider-specific prompt forks, no silent model fallback, no internal retries beyond transport errors. The 'image' task is already implemented \u2014 wp_images_generate's Gemini client is the reference shape and stays as is.",
     "routing": "pipeline.config.json maps task_type -> {provider, model}. Rationale for per-task routing: trees and repair want the strongest model available; copy inside trees tolerates a mid model; the brief benefits from reasoning; blocks/schema are code tasks. Swapping a provider is a config edit, never a code change."
   },
-
   "call_budget": {
-    "formula": "base = 1 (brief) + 1 (tokens) + S + B + P; ceiling = 2 * base + I  — the 2x covers one schema-retry OR one repair per artifact, whichever fires; I is one image call per surviving image_intent (transport retries inside the Gemini client are not new calls).",
+    "formula": "base = 1 (brief) + 1 (tokens) + F (site furniture: the header and footer template parts, one tree call each) + S + B + P; ceiling = 2 * base + I \u2014 the 2x covers one schema-retry OR one repair per artifact, whichever fires; I is one image call per surviving image_intent (transport retries inside the Gemini client are not new calls). AMENDED 2026-08-26: F added \u2014 field evidence showed the header and footer were the only visible surfaces built by deterministic code outside the design lane, and they read as afterthoughts on every page. They now ride the tree lane (same gates); failure degrades to the deterministic builders, never fatal.",
     "enforcement": "budget.mjs is consulted before every generative call; call base+n past the ceiling throws {code:'budget_exceeded'} and the run ends with a report, never with silent extra spending.",
-    "reporting": "After S1: 'this brief costs at most N calls (S=?, B=?, P=?, I=?)' — printed before the second call is made. After S9: predicted vs actual, per task_type, per provider, with token usage from the ledger."
+    "reporting": "After S1: 'this brief costs at most N calls (S=?, B=?, P=?, I=?)' \u2014 printed before the second call is made. After S9: predicted vs actual, per task_type, per provider, with token usage from the ledger."
   },
-
   "determinism": {
     "claim": "Same prompt + same instance fingerprint + pinned models at temperature 0 => the same call sequence against the same contracts; with the fake provider replaying fixtures, byte-identical artifacts.",
     "ledger": "runs/<ts>/ledger.json records every call: {task_type, provider, model, prompt_hash, payload_hash, usage, outcome}. The ledger IS the audit trail: no LLM call exists that is not in it.",
     "resume": "--resume <run_dir> replays completed stages from disk artifacts; only failed or pending stages call providers. A resumed run's ledger appends, never rewrites."
   },
-
   "milestones": [
     {
       "id": "M1_provider_shim_and_budget",
-      "goal": "LlmProvider interface, the fake fixture provider, config routing, and the budget meter — no real provider yet.",
+      "goal": "LlmProvider interface, the fake fixture provider, config routing, and the budget meter \u2014 no real provider yet.",
       "acceptance": [
         "pipeline.config.json routing task->fake provider resolves at preflight; a missing task entry fails preflight naming the task",
         "budget: with a brief fixture declaring S=3,B=1,P=1,I=2 the printed ceiling is 2*(2+3+1+1)+2=16; the 17th generative call throws {code:'budget_exceeded'}",
@@ -189,17 +200,15 @@
       ]
     }
   ],
-
   "progress_protocol": {
-    "same_as": "companion spec progress_protocol — identical PROGRESS.json schema and rules; record here every budget formula decision and every place a stage was tempted to retry beyond its bound (the temptation log is the review surface for whether the bounds are right)."
+    "same_as": "companion spec progress_protocol \u2014 identical PROGRESS.json schema and rules; record here every budget formula decision and every place a stage was tempted to retry beyond its bound (the temptation log is the review surface for whether the bounds are right)."
   },
-
   "non_goals": [
-    "No agentic fallback inside the pipeline: a dead artifact is reported with diagnostics and substituted with its pattern baseline or dropped — never improvised around. Judgment lives in the agentic skills, which this pipeline does not replace.",
+    "No agentic fallback inside the pipeline: a dead artifact is reported with diagnostics and substituted with its pattern baseline or dropped \u2014 never improvised around. Judgment lives in the agentic skills, which this pipeline does not replace.",
     "No new companion surface and no changes to the wp_* tools: the pipeline is a consumer of the toolchain exactly as shipped.",
     "No LLM-authored markup, ever: models emit TreeIR and files for the factories; markup exists only as wp_compile output (base spec R1, unchanged).",
     "No provider-specific prompts: one template per task_type; if a provider needs different words, that is a provider bug or a template bug, not a fork.",
     "No hidden retries and no soft budgets: every call is in the ledger, the ceiling is hard, and 'it almost passed' is a dead artifact.",
-    "No pipeline-owned state on the instance: runs/<ts>/ on disk is the only pipeline memory; the site remains fully explicable from wp-admin (deliverable-purity applies — the companion comes out when the run is done)."
+    "No pipeline-owned state on the instance: runs/<ts>/ on disk is the only pipeline memory; the site remains fully explicable from wp-admin (deliverable-purity applies \u2014 the companion comes out when the run is done)."
   ]
 }

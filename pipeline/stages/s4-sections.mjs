@@ -99,9 +99,87 @@ export async function run(ctx) {
             : `section ${s.key}: failed validation (${screen.failures.length} issue(s): ${screen.failures.slice(0, 2).map((f) => f.code).join(', ')}) — the repair stage gets one attempt`);
     };
 
+    // The site furniture — header and footer template parts — rides the SAME
+    // lane as the sections: a metered tree call against the brief's own
+    // furniture intent, literal-screened and wp_validated. S8 stitches the nav
+    // links in the way it stitches placeholder urls, and the deterministic
+    // builders remain the floor when a part dies its gate.
+    let furnitureSlice = {};
+    try {
+        furnitureSlice = JSON.parse(readFileSync(join(ctx.runDir, 'furniture-slice.json'), 'utf8'));
+    } catch { /* a run dir from before the furniture lane — S8 falls back */ }
+    ctx.state.artifacts.furniture = ctx.state.artifacts.furniture ?? {};
+    const PART_NOTES = {
+        header: 'You are designing the site HEADER template part: one core/group band containing the brand (core/site-title; optionally core/site-tagline or an uppercase letterspaced kicker paragraph) and EXACTLY ONE core/navigation node carrying attributes only — NO innerBlocks and NO ref: the links are injected at publish; your job is the navigation\'s placement and styling. NO heading blocks in the header (the site title is not a heading). One viewport-wide band that belongs to the same design as the hero under it.',
+        footer: 'You are designing the site FOOTER template part. The brief wrote its design intent below — follow it as a section call follows its section brief. Link to pages ONLY through the footer items listed. Headings inside the footer are level 2, or styled paragraphs; never an h1. This part ends EVERY page: give it the same design attention as a section.',
+    };
+    const headerShape = (tree) => {
+        const issues = [];
+        const navs = [];
+        const walkN = (ns) => (ns ?? []).forEach((n) => { if (n.name === 'core/navigation') navs.push(n); walkN(n.innerBlocks); });
+        walkN(tree.blocks);
+        if (navs.length !== 1) issues.push({ path: '/blocks', message: `the header carries EXACTLY ONE core/navigation node (found ${navs.length})` });
+        else if ((navs[0].innerBlocks ?? []).length > 0 || navs[0].attributes?.ref !== undefined) {
+            issues.push({ path: '/blocks', message: 'the core/navigation node carries attributes only — no innerBlocks and no ref; the links are injected at publish' });
+        }
+        return issues;
+    };
+    const runFurniture = async (part) => {
+        const payload = {
+            part,
+            part_note: PART_NOTES[part],
+            identity: brief.identity,
+            art_direction: brief.art_direction,
+            voice: brief.identity.voice ?? brief.identity.tagline,
+            palette: brief.palette,
+            nav_items: brief.navigation.items,
+            footer_intent: brief.footer.intent,
+            footer_items: brief.footer.items,
+            band_colors: resolveBandColors(part === 'footer' ? 'contrast' : 'base', brief.palette, tokens.palette),
+            manifest_slice: furnitureSlice,
+            token_slugs: tokenSlugs,
+            epoch,
+        };
+        let tree;
+        try {
+            ({ value: tree } = await ctx.llm.generate({
+                task_type: 'tree',
+                template: 'furniture',
+                label: `furniture/${part}`,
+                payload,
+                validate: (v) => {
+                    const issues = localTreeCheck(v, { epoch });
+                    if (issues.length > 0) return issues;
+                    const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
+                    if (literals.length > 0) return literals;
+                    return part === 'header' ? headerShape(v) : [];
+                },
+            }));
+        } catch (e) {
+            if (e.code !== 'contract_failed' && e.code !== 'output_truncated') throw e;
+            ctx.state.artifacts.furniture[part] = { status: 'fail', failures: e.extra.issues.map((i) => ({ code: e.code, path: i.path, message: i.message })) };
+            ctx.log(`${part} template part: the model's output never satisfied the contract — the deterministic ${part} is the floor`);
+            return;
+        }
+        const res = await ctx.call('wp_validate', tree);
+        if (!res.ok) {
+            throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for the ${part} part: ${res.data.message}`, res.data.hint ?? '');
+        }
+        const screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+        writeFileSync(join(ctx.runDir, 'trees', `furniture--${part}.json`), JSON.stringify({ tree, gate: { ...screen, diagnostics: res.data.diagnostics } }, null, 2));
+        ctx.state.artifacts.furniture[part] = { status: screen.status, failures: screen.failures };
+        ctx.log(screen.status === 'pass'
+            ? `${part} template part: validated against the site`
+            : `${part} template part: failed validation (${screen.failures.slice(0, 2).map((f) => f.code).join(', ')}) — the deterministic ${part} is the floor`);
+    };
+
     const limiter = pLimit(ctx.config.concurrency);
-    ctx.log(`writing ${ctx.state.sections.length} sections, up to ${Math.min(ctx.config.concurrency, ctx.state.sections.length)} at a time`);
-    await Promise.all(ctx.state.sections.map((s) => limiter(() => runSection(s))));
+    ctx.log(`writing ${ctx.state.sections.length} sections + the header and footer parts, up to ${ctx.config.concurrency} at a time`);
+    await Promise.all([
+        ...ctx.state.sections.map((s) => limiter(() => runSection(s))),
+        limiter(() => runFurniture('header')),
+        limiter(() => runFurniture('footer')),
+    ]);
     const outcomes = Object.values(ctx.state.artifacts.trees);
     ctx.log(`sections written: ${outcomes.filter((o) => o.status === 'pass').length} of ${outcomes.length} passed validation`);
 }

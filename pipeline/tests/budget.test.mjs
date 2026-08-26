@@ -7,17 +7,17 @@ import { computeBudget, BudgetMeter, Ledger } from '../budget.mjs';
 
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', import.meta.url), 'utf8'));
 
-test('M1 acceptance: S=3,B=1,P=1,I=2 => ceiling 16', () => {
+test('M1 acceptance: S=3,B=1,P=1,I=2 => base 9 with F=2 furniture, ceiling 20', () => {
     const b = computeBudget(fixture);
-    assert.deepEqual(b, { S: 3, B: 1, P: 1, I: 2, base: 7, ceiling: 16 });
+    assert.deepEqual(b, { S: 3, B: 1, P: 1, I: 2, F: 2, base: 9, ceiling: 20 });
 });
 
-test('M1 acceptance: the 17th generative call throws {code:"budget_exceeded"}', () => {
+test('M1 acceptance: the 21st generative call throws {code:"budget_exceeded"}', () => {
     const meter = new BudgetMeter({});
     meter.spend('brief', 'brief'); // pre-ceiling call #1 (S1 itself)
-    meter.setCeiling(16);
-    for (let i = 2; i <= 16; i += 1) meter.spend('tree', `s${i}`);
-    assert.equal(meter.spent, 16);
+    meter.setCeiling(20);
+    for (let i = 2; i <= 20; i += 1) meter.spend('tree', `s${i}`);
+    assert.equal(meter.spent, 20);
     assert.throws(() => meter.spend('tree', 'one-too-many'), (e) => e.code === 'budget_exceeded');
 });
 
@@ -47,13 +47,13 @@ test('ledger: jsonl appended live, ledger.json flushed in deterministic order', 
     assert.equal(JSON.parse(lines[0]).label, 'home/features');
 });
 
-test('array image_intent counts every entry: features with 2 intents => I=3, ceiling 17', async () => {
+test('array image_intent counts every entry: features with 2 intents => I=3, ceiling 21', async () => {
     const { sectionImageIntents } = await import('../budget.mjs');
     const brief = structuredClone(fixture);
     brief.pages[0].sections[1].image_intent = ['intent one is long enough', 'intent two is long enough'];
     const b = computeBudget(brief);
     assert.equal(b.I, 3);
-    assert.equal(b.ceiling, 2 * 7 + 3);
+    assert.equal(b.ceiling, 2 * 9 + 3);
     assert.deepEqual(sectionImageIntents({ image_intent: 'x' }), ['x']);
     assert.deepEqual(sectionImageIntents({}), []);
 });

@@ -31,12 +31,14 @@ export function createLlm({ providers, promptsDir, budget, ledger, log }) {
         return templates.get(taskType);
     };
 
-    async function generate({ task_type, label, payload, validate, contract, maxAttempts = 2 }) {
+    async function generate({ task_type, label, payload, validate, contract, template: templateName, maxAttempts = 2 }) {
         const route = providers.get(task_type);
         if (!route) {
             throw new PipelineError('preflight_failed', `no provider routed for task "${task_type}"`);
         }
-        const basePrompt = renderPrompt(template(task_type), payload);
+        // A task may render a different template than the one named after its
+        // route (site furniture rides the tree route with its own prompt).
+        const basePrompt = renderPrompt(template(templateName ?? task_type), payload);
         const payloadHash = sha256(canonicalJson(payload));
         let prompt = basePrompt;
         let lastIssues = [];

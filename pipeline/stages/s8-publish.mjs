@@ -126,23 +126,82 @@ export async function run(ctx) {
         await rest('DELETE', `/wp/v2/pages/${s.id}`, { query: { force: 'true' } });
     }
 
-    // 7. Navigation from the brief, via the compile lane (never hand-written markup).
-    if ((brief.navigation.items ?? []).length > 0) {
-        const navTree = {
-            version: 1,
-            epoch,
-            blocks: [{
-                name: 'core/navigation',
-                attributes: {},
-                // FLAT links: submenu nesting fails E_NEST_PARENT on instances
-                // whose navigation-link parent list is ['core/navigation'] only.
-                innerBlocks: brief.navigation.items.map((it) => ({
-                    name: 'core/navigation-link',
-                    attributes: { label: it.label, url: `/${it.page_slug}/`, kind: 'custom' },
-                    innerBlocks: [],
-                })),
-            }],
+    // 7-8. Site furniture: the header and footer template parts. When S4's
+    // design lane produced a part it ships — validated at the FINAL epoch,
+    // compiled by the site's own save(), nav links injected the way placeholder
+    // urls are. The deterministic builders below stay as the floor (and the
+    // header's floor is the theme's own part plus the nav post).
+    const furniture = ctx.state.artifacts?.furniture ?? {};
+    const furnitureTree = (part) => JSON.parse(readFileSync(join(ctx.runDir, 'trees', `furniture--${part}.json`), 'utf8')).tree;
+    const partsRes = await rest('GET', '/wp/v2/template-parts');
+    const allParts = Array.isArray(partsRes) ? partsRes : [];
+    // Canonical slug FIRST — Twenty Twenty-Five ships several footer-area parts
+    // and only `footer` is the one its templates render; area is the fallback.
+    const findPart = (slug) => allParts.find((p) => p.slug === slug || String(p.id).endsWith(`//${slug}`))
+        ?? allParts.find((p) => p.area === slug);
+    const writePart = async (slug, markup) => {
+        const part = findPart(slug);
+        if (!part) return false;
+        // area rides along: a customized part posted without it loses its area
+        // and the next run cannot find it.
+        await rest('POST', `/wp/v2/template-parts/${encodeURIComponent(part.id)}`, { body: { content: markup, area: slug } });
+        ctx.state.published[`${slug}_part`] = part.id;
+        return true;
+    };
+    // The furniture gate at the final epoch: validate + screen + compile.
+    // Failures here degrade to the deterministic floor, never kill the run.
+    const compilePart = async (part, tree) => {
+        const validation = await ctx.call('wp_validate', tree);
+        if (!validation.ok) {
+            ctx.log(`${part} part: wp_validate errored at the final epoch (${validation.data.message}) — using the deterministic ${part}`);
+            return null;
+        }
+        const screen = screenTreeDiagnostics(validation.data, { allowedUnknown: new Set() });
+        if (screen.status !== 'pass') {
+            ctx.log(`${part} part: failed validation at the final epoch (${screen.failures.slice(0, 2).map((f) => f.code).join(', ')}) — using the deterministic ${part}`);
+            return null;
+        }
+        const compiled = await ctx.call('wp_compile', tree);
+        if (!compiled.ok || compiled.data.all_valid !== true) {
+            ctx.log(`${part} part: the site's own save() would not accept it — using the deterministic ${part}`);
+            return null;
+        }
+        return compiled.data.markup;
+    };
+
+    const navLinks = (brief.navigation.items ?? []).map((it) => ({
+        name: 'core/navigation-link',
+        attributes: { label: it.label, url: `/${it.page_slug}/`, kind: 'custom' },
+        innerBlocks: [],
+    }));
+
+    // Header: the designed part when it survived S4, else the theme's own
+    // header with the nav post — exactly the pre-furniture behavior.
+    let headerShipped = false;
+    if (furniture.header?.status === 'pass' && navLinks.length > 0) {
+        const tree = { ...furnitureTree('header'), epoch };
+        const findNav = (ns) => {
+            for (const n of ns ?? []) {
+                if (n.name === 'core/navigation') return n;
+                const hit = findNav(n.innerBlocks);
+                if (hit) return hit;
+            }
+            return null;
         };
+        const navNode = findNav(tree.blocks);
+        if (navNode) {
+            // FLAT links, injected like placeholder urls: submenu nesting fails
+            // E_NEST_PARENT on instances whose navigation-link parent list is
+            // ['core/navigation'] only.
+            navNode.innerBlocks = navLinks;
+            const markup = await compilePart('header', tree);
+            if (markup) headerShipped = await writePart('header', markup);
+        }
+        if (headerShipped) ctx.log('header template part shipped from the design lane, nav links injected');
+        else ctx.log('designed header could not ship — keeping the theme header and the nav post');
+    }
+    if (!headerShipped && navLinks.length > 0) {
+        const navTree = { version: 1, epoch, blocks: [{ name: 'core/navigation', attributes: {}, innerBlocks: navLinks }] };
         await toolOrThrow(ctx, 'wp_validate', navTree, 'wp_validate navigation');
         const navCompiled = await toolOrThrow(ctx, 'wp_compile', navTree, 'wp_compile navigation');
         // Strip ONLY the outer wrapper delimiters — first and last LINE. A regex
@@ -158,8 +217,16 @@ export async function run(ctx) {
         }
     }
 
-    // 8. Footer template part replacement (the theme's demo links go away).
-    if ((brief.footer.items ?? []).length > 0 || brief.footer.intent) {
+    // Footer: the designed part (the brief's own footer intent, built) when it
+    // survived S4, else the deterministic two-paragraph floor that replaced the
+    // theme's demo links from day one.
+    let footerShipped = false;
+    if (furniture.footer?.status === 'pass') {
+        const markup = await compilePart('footer', { ...furnitureTree('footer'), epoch });
+        if (markup) footerShipped = await writePart('footer', markup);
+        if (footerShipped) ctx.log("footer template part shipped from the design lane — the brief's footer intent, built");
+    }
+    if (!footerShipped && ((brief.footer.items ?? []).length > 0 || brief.footer.intent)) {
         const footerTree = {
             version: 1,
             epoch,
@@ -177,21 +244,7 @@ export async function run(ctx) {
             }],
         };
         const footerCompiled = await toolOrThrow(ctx, 'wp_compile', footerTree, 'wp_compile footer');
-        const parts = await rest('GET', '/wp/v2/template-parts');
-        // A theme can ship SEVERAL parts with area 'footer' — Twenty Twenty-Five
-        // has footer, footer-columns and footer-newsletter, and only `footer` is
-        // the one its templates render. Match the canonical slug FIRST; taking
-        // "any part whose area is footer" silently rewrites an unused variant and
-        // leaves the real footer showing the theme's demo links.
-        const all = Array.isArray(parts) ? parts : [];
-        const footerPart = all.find((p) => p.slug === 'footer' || String(p.id).endsWith('//footer'))
-            ?? all.find((p) => p.area === 'footer');
-        if (footerPart) {
-            // area rides along: a customized part posted without it loses its
-            // 'footer' area and the next run cannot find it.
-            await rest('POST', `/wp/v2/template-parts/${encodeURIComponent(footerPart.id)}`, { body: { content: footerCompiled.markup, area: 'footer' } });
-            ctx.state.published.footer_part = footerPart.id;
-        } else {
+        if (!(await writePart('footer', footerCompiled.markup))) {
             ctx.log('this theme has no footer template part — footer skipped');
         }
     }

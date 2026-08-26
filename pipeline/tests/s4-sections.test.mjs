@@ -23,6 +23,24 @@ const TOKENS = {
     layout: { contentSize: '640px', wideSize: '1200px' },
 };
 
+// The furniture calls ride the same fan-out; the harness answers them with
+// minimal legal parts unless a test scripts otherwise.
+const FURNITURE_TREES = {
+    'furniture/header': {
+        version: 1, epoch: EPOCH,
+        blocks: [{ name: 'core/group', attributes: {}, innerBlocks: [
+            { name: 'core/site-title', attributes: {}, innerBlocks: [] },
+            { name: 'core/navigation', attributes: {}, innerBlocks: [] },
+        ] }],
+    },
+    'furniture/footer': {
+        version: 1, epoch: EPOCH,
+        blocks: [{ name: 'core/group', attributes: {}, innerBlocks: [
+            { name: 'core/paragraph', attributes: { content: 'footer' }, innerBlocks: [] },
+        ] }],
+    },
+};
+
 function treeFor(label, extra = {}) {
     return {
         version: 1,
@@ -36,6 +54,7 @@ function makeCtx({ treesByLabel, validateByKey }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s4-'));
     for (const d of ['trees', 'sections']) mkdirSync(join(runDir, d), { recursive: true });
     writeFileSync(join(runDir, 'tokens.json'), JSON.stringify(TOKENS));
+    writeFileSync(join(runDir, 'furniture-slice.json'), JSON.stringify({ 'core/group': {}, 'core/site-title': {}, 'core/navigation': {} }));
     const sections = [];
     for (const page of brief.pages) {
         for (const section of page.sections) {
@@ -51,14 +70,14 @@ function makeCtx({ treesByLabel, validateByKey }) {
         }
     }
     const budget = new BudgetMeter({});
-    budget.setCeiling(16);
+    budget.setCeiling(20);
     const ledger = new Ledger(runDir);
     const payloads = {};
     const provider = {
         id: 'scripted',
         complete: async (_t, _p, payload, { label }) => {
             payloads[label] = payload;
-            return { text: JSON.stringify(treesByLabel[label]), usage: { input_tokens: 1, output_tokens: 1 } };
+            return { text: JSON.stringify(treesByLabel[label] ?? FURNITURE_TREES[label]), usage: { input_tokens: 1, output_tokens: 1 } };
         },
     };
     let active = 0;
@@ -100,7 +119,11 @@ test('S4 fans out per section, screens diagnostics, defers the declared block', 
     assert.deepEqual(arts['home--signup'].deferred, ['agent/signup-banner']);
     assert.ok(existsSync(join(ctx.runDir, 'trees', 'home--hero.json')));
     assert.ok(ctx.peak() <= 2);
-    assert.equal(ctx.budget.spent, 3);
+    // 3 sections + the 2 furniture parts ride the same fan-out.
+    assert.equal(ctx.budget.spent, 5);
+    assert.equal(ctx.state.artifacts.furniture.header.status, 'pass');
+    assert.equal(ctx.state.artifacts.furniture.footer.status, 'pass');
+    assert.ok(existsSync(join(ctx.runDir, 'trees', 'furniture--header.json')));
 });
 
 test('a W_ATTR_UNKNOWN artifact records fail and the stage still completes', async () => {
@@ -130,7 +153,7 @@ test('a tree that never satisfies the local contract records contract_failed wit
     const hero = ctx.state.artifacts.trees['home--hero'];
     assert.equal(hero.status, 'fail');
     assert.equal(hero.failures[0].code, 'contract_failed');
-    assert.equal(ctx.budget.spent, 2 + 2); // hero burned 2 (attempt+retry), others 1 each
+    assert.equal(ctx.budget.spent, 2 + 2 + 2); // hero burned 2 (attempt+retry), other sections and the 2 furniture parts 1 each
 });
 
 test('every section payload carries the shared design language', async () => {

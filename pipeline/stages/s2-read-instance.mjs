@@ -55,6 +55,26 @@ export async function run(ctx) {
             sections.push({ key, page: page.slug, id: section.id, file });
         }
     }
+    // The site furniture (header + footer template parts) gets its own slice:
+    // identity and navigation blocks no section role carries.
+    const FURNITURE_BLOCKS = ['core/group', 'core/columns', 'core/column', 'core/paragraph', 'core/heading',
+        'core/site-title', 'core/site-tagline', 'core/navigation', 'core/navigation-link', 'core/buttons',
+        'core/button', 'core/separator', 'core/social-links', 'core/social-link', 'core/spacer'];
+    const furnitureSlice = {};
+    for (const name of FURNITURE_BLOCKS) {
+        const b = (manifest.data.blocks ?? {})[name];
+        if (!b) continue;
+        const { attributes, supports, parent, styles, variations } = b;
+        furnitureSlice[name] = {
+            ...(attributes !== undefined ? { attributes } : {}),
+            ...(supports !== undefined ? { supports } : {}),
+            ...(parent !== undefined ? { parent } : {}),
+            ...(styles !== undefined ? { styles } : {}),
+            ...(variations !== undefined ? { variations } : {}),
+        };
+    }
+    writeFileSync(join(ctx.runDir, 'furniture-slice.json'), JSON.stringify(furnitureSlice, null, 2));
+
     ctx.state.sections = sections;
     ctx.log(`site read: ${connect.data.site_url} (WordPress ${connect.data.wp_version}) — ${sections.length} sections to write across ${ctx.state.brief.pages.length} page(s), fingerprint ${instance.fingerprint.slice(0, 8)}…`);
 }

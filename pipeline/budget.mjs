@@ -1,4 +1,4 @@
-// The bill is a function of the brief: base = 1 (brief) + 1 (tokens) + S + B + P;
+// The bill is a function of the brief: base = 1 (brief) + 1 (tokens) + F (furniture) + S + B + P;
 // ceiling = 2*base + I. The 2x covers one schema-retry OR one repair per artifact,
 // whichever fires. Consulted BEFORE every generative call; a breach is a thrown
 // structured error, never a warning (spec operating rule 5).
@@ -18,8 +18,11 @@ export function computeBudget(brief) {
     const B = brief.custom_blocks.length;
     const P = brief.schema_packages.length;
     const I = brief.pages.reduce((n, p) => n + p.sections.reduce((m, s) => m + sectionImageIntents(s).length, 0), 0);
-    const base = 1 + 1 + S + B + P;
-    return { S, B, P, I, base, ceiling: 2 * base + I };
+    // F: the site furniture — header and footer template parts, one tree call
+    // each through the same lane as the sections. They bookend every page.
+    const F = 2;
+    const base = 1 + 1 + F + S + B + P;
+    return { S, B, P, I, F, base, ceiling: 2 * base + I };
 }
 
 const PRE_CEILING_ALLOWANCE = 2; // S1 + its one schema-retry; nothing else may run before the ceiling exists

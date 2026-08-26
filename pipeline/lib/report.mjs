@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PREDICTED = { brief: () => 1, tokens: () => 1, tree: (b) => b.S, block: (b) => b.B, schema: (b) => b.P, image: (b) => b.I, repair: () => 0 };
+const PREDICTED = { brief: () => 1, tokens: () => 1, tree: (b) => b.S + (b.F ?? 0), block: (b) => b.B, schema: (b) => b.P, image: (b) => b.I, repair: () => 0 };
 
 export function writeReport(runDir, { state, budget, ledger }) {
     const lines = ['# x-pipeline run report', ''];
@@ -21,7 +21,7 @@ export function writeReport(runDir, { state, budget, ledger }) {
     lines.push('## Budget — predicted vs spent', '');
     if (state.budget) {
         const b = state.budget;
-        lines.push(`Ceiling **${b.ceiling}** (base ${b.base}: 1 brief + 1 tokens + S=${b.S} + B=${b.B} + P=${b.P}; 2x + I=${b.I}). Spent **${budget.spent}**.`, '');
+        lines.push(`Ceiling **${b.ceiling}** (base ${b.base}: 1 brief + 1 tokens + F=${b.F ?? 0} furniture + S=${b.S} + B=${b.B} + P=${b.P}; 2x + I=${b.I}). Spent **${budget.spent}**.`, '');
         lines.push('| task | predicted | actual |', '|---|---|---|');
         const byTask = {};
         for (const e of ledger.entries) byTask[e.task_type] = (byTask[e.task_type] ?? 0) + 1;

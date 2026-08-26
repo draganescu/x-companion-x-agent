@@ -78,7 +78,7 @@ function makeCtx({ restLog, toolLog, validateResult }) {
             if (method === 'DELETE' && route.startsWith('/wp/v2/pages/')) return {};
             if (method === 'GET' && route === '/wp/v2/navigation') return [{ id: 9 }];
             if (method === 'POST' && route === '/wp/v2/navigation/9') return { id: 9 };
-            if (method === 'GET' && route === '/wp/v2/template-parts') return [{ id: 'theme//footer', area: 'footer' }];
+            if (method === 'GET' && route === '/wp/v2/template-parts') return [{ id: 'theme//header', area: 'header' }, { id: 'theme//footer', area: 'footer' }];
             if (method === 'POST' && route.startsWith('/wp/v2/template-parts/')) return {};
             throw new Error(`unexpected rest ${method} ${route}`);
         },
@@ -229,4 +229,52 @@ test('placeholder tone: accent when the pixel will be swapped, surface when it s
     ctx2.state.no_images = true;
     await s8.run(ctx2);
     assert.ok(toolLog2.filter(([n]) => n === 'wp_placeholder').every(([, a]) => a.color === '#D96C2C'));
+});
+
+test('S8 furniture path: designed header ships with injected nav links, nav post skipped; designed footer ships', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({ restLog, toolLog });
+    ctx.state.artifacts.furniture = { header: { status: 'pass' }, footer: { status: 'pass' } };
+    writeFileSync(join(ctx.runDir, 'trees', 'furniture--header.json'), JSON.stringify({
+        tree: { version: 1, epoch: 'stale', blocks: [{ name: 'core/group', attributes: { backgroundColor: 'base' }, innerBlocks: [
+            { name: 'core/site-title', attributes: {}, innerBlocks: [] },
+            { name: 'core/navigation', attributes: { overlayMenu: 'mobile' }, innerBlocks: [] },
+        ] }] },
+        gate: { status: 'pass' },
+    }));
+    writeFileSync(join(ctx.runDir, 'trees', 'furniture--footer.json'), JSON.stringify({
+        tree: { version: 1, epoch: 'stale', blocks: [{ name: 'core/group', attributes: { backgroundColor: 'contrast' }, innerBlocks: [
+            { name: 'core/paragraph', attributes: { content: 'designed footer' }, innerBlocks: [] },
+        ] }] },
+        gate: { status: 'pass' },
+    }));
+    await s8.run(ctx);
+
+    // The header tree was validated at the FINAL epoch with the nav links injected.
+    const headerValidate = toolLog.find(([n, a]) => n === 'wp_validate'
+        && a.blocks[0]?.innerBlocks?.some((b) => b.name === 'core/navigation'));
+    assert.ok(headerValidate, 'designed header validated');
+    assert.equal(headerValidate[1].epoch, 'f-install-2');
+    const navNode = headerValidate[1].blocks[0].innerBlocks.find((b) => b.name === 'core/navigation');
+    assert.equal(navNode.innerBlocks.length, ctx.state.brief.navigation.items.length, 'flat links injected');
+    assert.equal(navNode.attributes.overlayMenu, 'mobile', 'designed attributes kept');
+
+    // Both parts written; the nav post lane never ran.
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//header')}`));
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//footer')}`));
+    assert.ok(!restLog.some(([m, r]) => r.startsWith('/wp/v2/navigation')), 'nav post skipped when the header part ships');
+    assert.equal(ctx.state.published.header_part, 'theme//header');
+});
+
+test('S8 furniture fallback: failed parts degrade to the nav post and the deterministic footer', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({ restLog, toolLog });
+    ctx.state.artifacts.furniture = { header: { status: 'fail' }, footer: { status: 'fail' } };
+    await s8.run(ctx);
+    // exactly the pre-furniture behavior: nav post written, hardcoded footer compiled
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//footer')}`));
+    assert.ok(!restLog.some(([m, r]) => r.includes('theme%2F%2Fheader')), 'theme header untouched');
 });
