@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { pLimit } from '../lib/limit.mjs';
+import { pLimit, settleAll } from '../lib/limit.mjs';
 import { screenFileMap, schemaGate } from '../lib/gates.mjs';
 
 export const id = 'S6_schema_packages';
@@ -132,7 +132,8 @@ export async function run(ctx) {
 
     const limiter = pLimit(ctx.config.concurrency);
     ctx.log(`building ${packages.length} data model package(s): ${packages.map((p) => p.slug).join(', ')}`);
-    await Promise.all(packages.map((p, i) => limiter(() => buildPackage(p, i))));
+    // settleAll: a fatal lane (e.g. budget_exceeded) never orphans the others.
+    await settleAll(packages.map((p, i) => limiter(() => buildPackage(p, i))));
     const outcomes = Object.values(ctx.state.artifacts.packages);
     ctx.log(`data model: ${outcomes.filter((o) => o.status === 'pass').length} of ${outcomes.length} package(s) proven`);
 }

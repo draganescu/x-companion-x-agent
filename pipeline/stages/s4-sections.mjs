@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { pLimit } from '../lib/limit.mjs';
+import { pLimit, settleAll } from '../lib/limit.mjs';
 import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity } from '../lib/gates.mjs';
 import { resolveBandColors, annotatePalette, resolveInkMenus } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
@@ -258,7 +258,10 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
 
     const limiter = pLimit(ctx.config.concurrency);
     ctx.log(`writing ${ctx.state.sections.length} sections + the header and footer parts, up to ${ctx.config.concurrency} at a time`);
-    await Promise.all([
+    // settleAll, not Promise.all: a tool error in one lane is fatal to the
+    // RUN, but the other lanes finish first — their artifacts and ledger
+    // entries land, and no orphan outlives the run's dispose (the zombie bug).
+    await settleAll([
         ...ctx.state.sections.map((s) => limiter(() => runSection(s))),
         limiter(() => runFurniture('header')),
         limiter(() => runFurniture('footer')),

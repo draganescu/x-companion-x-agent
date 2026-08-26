@@ -159,6 +159,8 @@ export class HarnessSession {
   private browser?: Browser;
   private context?: BrowserContext;
   private harness?: Page;
+  /** The one in-flight harness (re)load — every loader and waiter goes through it. */
+  private harnessLoading?: Promise<Page>;
   private measure?: Page;
   private loadedFingerprint?: string;
   private loadedUrl?: string;
@@ -277,16 +279,40 @@ export class HarnessSession {
 
   /* ---------------------------------------------------------- harness page */
 
-  /** Load (or re-use) GET /harness and wait for `window.__ready`. */
+  /**
+   * Load (or re-use) GET /harness and wait for `window.__ready`.
+   *
+   * Single-flight: harness (re)loads are serialized through `harnessLoading`.
+   * The whole session shares ONE harness page, and Playwright aborts an
+   * in-flight `goto` when a second navigation lands on the same page
+   * (net::ERR_ABORTED). That was theoretical while wp_compile only ran from
+   * S8's sequential runner; the S4 compile-parity gate runs it up to
+   * `concurrency` wide, and the first burst of concurrent compiles raced this
+   * method's check-then-load and killed a 24-section run mid-fan-out. Waiters
+   * re-check after every completed load — the world it leaves behind is
+   * normally exactly the one they wanted — and a waiter that saw the load
+   * fail retries once for itself rather than inheriting a stranger's error.
+   */
   async ensureHarness(): Promise<Page> {
+    while (this.harnessLoading) {
+      await this.harnessLoading.catch(() => { /* re-check below; load for ourselves if still needed */ });
+    }
     const expected = this.ctx.companion.expectedFingerprint;
     if (this.harnessLoaded && (!expected || !this.loadedFingerprint || expected === this.loadedFingerprint)) {
       return this.harness!;
     }
     if (this.harnessLoaded && expected && expected !== this.loadedFingerprint) {
-      return this.reload(expected);
+      return this.reload(expected); // reload takes the lock itself
     }
-    return this.loadHarness();
+    return this.lockedLoad(() => this.loadHarness());
+  }
+
+  /** Publish `job` as THE in-flight load. No await may separate the call from
+   *  the assignment — the synchronous window is what makes the lock race-free. */
+  private lockedLoad(job: () => Promise<Page>): Promise<Page> {
+    const p = job().finally(() => { this.harnessLoading = undefined; });
+    this.harnessLoading = p;
+    return p;
   }
 
   private async loadHarness(): Promise<Page> {
@@ -307,12 +333,20 @@ export class HarnessSession {
     let target: string | undefined;
 
     for (const url of candidates) {
-      const res = await this.harness.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch((e: Error) => {
-        throw new XError(
-          'companion_unreachable',
-          `Could not navigate to the harness page (${url}): ${e.message}`,
-          'Check the site URL and that the machine can reach the instance.',
-        );
+      // One retry after a beat: a single-PHP-worker sandbox under concurrent
+      // REST load can abort one navigation (the S9 lesson — the same
+      // transient class wp_verify retries once). One aborted goto is a
+      // transient, not a verdict; the second failure is the verdict.
+      const attempt = () => this.harness!.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      const res = await attempt().catch(async () => {
+        await new Promise((r) => setTimeout(r, 1_500));
+        return attempt().catch((e: Error) => {
+          throw new XError(
+            'companion_unreachable',
+            `Could not navigate to the harness page (${url}): ${e.message}`,
+            'Check the site URL and that the machine can reach the instance.',
+          );
+        });
       });
       lastStatus = res ? res.status() : 0;
       if (res && res.ok()) {
@@ -377,17 +411,25 @@ export class HarnessSession {
     }
   }
 
-  /** Re-navigate the harness onto a new epoch. Wired to `onEpochChange`. */
+  /** Re-navigate the harness onto a new epoch. Wired to `onEpochChange`.
+   *  Takes the same single-flight lock as ensureHarness: the epoch hook fires
+   *  from install/tokens responses and must never navigate over a load that a
+   *  concurrent compile already has in flight. */
   async reload(fingerprint?: string): Promise<Page> {
-    this.stats.reloads += 1;
-    this.registryCache = undefined;
-    this.clientCapture = undefined;
-    this.ctx.logger.info(
-      `epoch moved (${(this.loadedFingerprint ?? '(none)').slice(0, 12)} -> ${(fingerprint ?? '(unknown)').slice(0, 12)}); reloading the harness page`,
-    );
-    const page = await this.loadHarness();
-    if (fingerprint) this.loadedFingerprint = fingerprint;
-    return page;
+    while (this.harnessLoading) {
+      await this.harnessLoading.catch(() => { /* then reload over whatever it left */ });
+    }
+    return this.lockedLoad(async () => {
+      this.stats.reloads += 1;
+      this.registryCache = undefined;
+      this.clientCapture = undefined;
+      this.ctx.logger.info(
+        `epoch moved (${(this.loadedFingerprint ?? '(none)').slice(0, 12)} -> ${(fingerprint ?? '(unknown)').slice(0, 12)}); reloading the harness page`,
+      );
+      const page = await this.loadHarness();
+      if (fingerprint) this.loadedFingerprint = fingerprint;
+      return page;
+    });
   }
 
   /* -------------------------------------------------------------- registry */

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, screenImageGeometry, screenBandRoot, screenTreeInk, substituteInk, screenContentParity } from '../lib/gates.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
-import { pLimit } from '../lib/limit.mjs';
+import { pLimit, settleAll } from '../lib/limit.mjs';
 
 export const id = 'S7_repair';
 export const kind = 'generative';
@@ -251,7 +251,7 @@ export async function run(ctx) {
             }));
         }
     }
-    await Promise.all(factoryRepairs);
+    await settleAll(factoryRepairs); // every lane settles before a failure is fatal — no orphans
     const deadBlocks = new Set(Object.entries(arts.blocks ?? {})
         .filter(([, a]) => a.status === 'dead')
         .map(([k]) => `agent/${k}`));
@@ -292,7 +292,7 @@ export async function run(ctx) {
             }));
         }
     }
-    await Promise.all(treeRepairs);
+    await settleAll(treeRepairs);
 
     const deadCount = ctx.state.dead.length;
     const repairedCount = ['trees', 'blocks', 'packages']

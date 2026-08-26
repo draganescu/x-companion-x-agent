@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pLimit } from '../lib/limit.mjs';
+import { pLimit, settleAll } from '../lib/limit.mjs';
 import { screenFileMap, screenBlockCss, blockGate } from '../lib/gates.mjs';
 import { annotatePalette } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
@@ -146,7 +146,8 @@ The block is a component of this combo: its shapes, density and detail follow th
 
     const limiter = pLimit(ctx.config.concurrency);
     ctx.log(`building ${blocks.length} custom block(s): ${blocks.map((b) => b.slug).join(', ')}`);
-    await Promise.all(blocks.map((b, i) => limiter(() => buildBlock(b, i))));
+    // settleAll: a fatal lane (e.g. budget_exceeded) never orphans the others.
+    await settleAll(blocks.map((b, i) => limiter(() => buildBlock(b, i))));
     const outcomes = Object.values(ctx.state.artifacts.blocks);
     ctx.log(`custom blocks: ${outcomes.filter((o) => o.status === 'pass').length} of ${outcomes.length} built and proven`);
 }

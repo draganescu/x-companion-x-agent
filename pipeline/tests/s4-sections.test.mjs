@@ -254,3 +254,30 @@ test('every section payload carries the shared design language', async () => {
     assert.equal(features.design.layout, 'grid');
     assert.match(features.image_note, /EXACTLY one core\/image node per intent/);
 });
+
+test('a tool error in one lane is fatal to the run, but no sibling lane is abandoned', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+    const inner = ctx.call;
+    ctx.call = async (name, tree) => {
+        const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
+        if (name === 'wp_validate' && key === 'home/hero') {
+            return { ok: false, data: { code: 'companion_unreachable', message: 'net::ERR_ABORTED (scripted)' } };
+        }
+        return inner(name, tree);
+    };
+    await assert.rejects(() => s4.run(ctx), (e) => e.code === 'companion_unreachable');
+    // settleAll semantics: the failure ended the stage, but only AFTER every
+    // sibling finished — their artifacts and files landed (the orphan lanes
+    // that once outlived dispose and zombied the process no longer exist).
+    assert.equal(ctx.state.artifacts.trees['home--what-we-bake'].status, 'pass');
+    assert.equal(ctx.state.artifacts.trees['home--signup'].status, 'pass');
+    assert.ok(existsSync(join(ctx.runDir, 'trees', 'home--what-we-bake.json')));
+    assert.equal(ctx.state.artifacts.furniture.header.status, 'pass');
+    assert.equal(ctx.state.artifacts.furniture.footer.status, 'pass');
+    assert.equal(ctx.state.artifacts.trees['home--hero'], undefined); // the failed lane never recorded a verdict
+});

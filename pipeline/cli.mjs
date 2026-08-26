@@ -475,7 +475,12 @@ export async function main(argv) {
         if (e instanceof PipelineError) {
             console.error(`[x-pipeline] ${e.code}: ${e.message}`);
             if (e.hint) console.error(`[x-pipeline] ${e.hint}`);
-            process.exitCode = 1;
+            // Force the exit rather than set exitCode and wait for the loop
+            // to drain: a failed run once left a relaunched chromium's
+            // connection open and the process idled at 0% CPU forever (the
+            // zombie-run bug). The report and ledger are already flushed by
+            // runPipeline's finally, and the console writes above are done.
+            process.exit(1);
         } else {
             throw e;
         }
