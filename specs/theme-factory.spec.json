@@ -1,0 +1,135 @@
+{
+  "spec_version": "1.0.0",
+  "id": "x-theme-factory",
+  "title": "X Theme Factory — the ground becomes an artifact: a bespoke, param-generated block theme for greenfield builds, summoned only by --bespoke --new-site, plus the Font Library lane that retires system-stack typography",
+  "mission": "Give the pipeline authorship over the one layer it has always rented: the theme. On a fresh Playground, one metered call authors a ThemeSpec — a parameter object, never theme files — and a deterministic scaffolder compiles it into a brand-new, named, admin-legible block theme: the measure, the spacing physics, the preset vocabulary, the template skeleton. The theme installs and activates BEFORE S2 reads the instance, so R9 and every downstream gate operate unchanged against the bespoke world — the landlord changes, the law does not. Alongside it, real typography: Google Fonts fetched agent-side at build time, installed through core's Font Library REST per the WordPress spec, served locally forever. Connected sites are untouched: whatever x-companion returns remains the law there, byte for byte.",
+  "problem_context": {
+    "why": "Field evidence, accumulated. (1) The 645px header field bug was not a bug in the header — it was TT5's contentSize, passed through verbatim by R9; every build's body copy lives in one reading column no brief ever chose. (2) The seam war (S3's block-gap reset + S9's seam audit) exists only because TT5 declares no blockGap — a compensation apparatus for physics the pipeline does not own. (3) Typography is system stacks three layers deep (prompt, zod contract, companion compiler) because a fontFamily string is the only typography that needs no files — the zero-dependency floor, not a design ceiling anyone wanted. (4) The UI style roster names structures — Split Screen Layout, Sidebar Dashboard — that the fixed header/column-of-bands/footer skeleton cannot express; today they compile down to flavors of a stack, adjectives instead of architecture.",
+    "canon_principle": "The theme carries only what a section call CANNOT decide: the structure it lands inside. The artistic style drives mood (palette, texture, fonts — chosen in S3); the UI design style drives skeleton (templates, part areas, measure, physics — fixed here); S4 designs the sections that live inside both. Each layer is decided once, at its own altitude, and dictated downward the way the axis is. The LLM authors the ThemeSpec; code compiles the theme; the gates decide whether it ships.",
+    "amends": "This spec amends specs/pipeline.spec.json (a new stage, a budget term, skeleton-aware S4/S9) and specs/agent-plugin.spec.json (three new wp_theme_* tools, a widened tokens contract). It retires ONE pledge knowingly: the companion gains exactly one new surface — the theme install route — because core REST cannot upload themes. On every other point the base specs stay canonical; on conflict they win.",
+    "recorded_decision": "Theme generation runs ONLY when --bespoke is passed AND --new-site is present — never inferred, never on a connected site (there, x-companion's returned theme remains the law and this spec's machinery is dead code). The theme ships structure only: no bundled pattern corpus, no parametric block styles — patterns and block styles are per-build design decisions and S4/S5 already own them; a theme that competed with S4 would be the pipeline arguing with itself. Fonts are fetched by the AGENT at build time and uploaded through core Font Library REST — the instance never calls out, at install time or page view; page-view hotlinking of font CDNs is forbidden. The theme is deliverable: it persists, named after the site, deletable from wp-admin like any theme (deliverable-purity applies to the companion, never to the theme)."
+  },
+  "operating_rules_for_implementing_agent": [
+    "Read specs/pipeline.spec.json and specs/agent-plugin.spec.json first; this spec assumes their vocabulary (TreeIR, epoch, gates, R9, the budget formula, the furniture lane).",
+    "The model authors ONE artifact here: ThemeSpec, validated against theme-spec.schema.json. No model call ever writes a theme file, a template, or a line of theme.json — the scaffolder compiles those from the spec deterministically, or the run has a bug.",
+    "Stage order is the load-bearing wall: scaffold -> build test -> install -> activate all complete BEFORE S2 runs, so the manifest, R9's pass-through, the ink menus, the band gates and the furniture lane operate on the bespoke world with zero special cases downstream.",
+    "Never bypass a gate to make the theme land. A ThemeSpec that fails its contract gets the one schema-retry; a theme that fails wp_theme_build_test gets the one S7-style repair of its SPEC (not its files), recompiled whole; a second failure aborts the run at preflight depth — there is no site to build without its ground.",
+    "The skeleton is dictated once and obeyed everywhere: it rides into every S4 payload (the axis precedent) and into S9's audits — 'full' means the pane the skeleton assigns, not the viewport, and the furniture roster is the skeleton's to declare.",
+    "Fonts: agent-side download (cached, license-recorded), core wp/v2/font-families + wp/v2/font-faces multipart upload, local serving. A tokens family with a source is a PROMISE — S9 verifies the rendered font-family and fails the run when the promise silently fell back to the stack."
+  ],
+  "environment": {
+    "runtime": "Node >= 20, repo checkout. WordPress >= 6.5 on the target (the Font Library floor).",
+    "instance": "A fresh Playground booted by --new-site, toolchain posture. Connected instances never see this machinery.",
+    "cli": "--bespoke (boolean) is valid ONLY alongside --new-site; --bespoke without --new-site fails preflight naming the rule. Resume keeps the mode with the run (state.bespoke, the state.brochure precedent).",
+    "config_file": "pipeline.config.json gains a `theme` task entry ({provider, model, effort}) — required at preflight only when --bespoke is passed.",
+    "font_cache": "tools/.runtime/fonts/<family>@<version>/ — agent-side, hash-pinned, so repeat builds never re-download; every cached family stores its license file beside its woff2s."
+  },
+  "file_layout": {
+    "contract/schemas/theme-spec.schema.json": "The ThemeSpec contract (see llm_contract below) — the one NEW schema this spec introduces, beside design-tokens.schema.json.",
+    "pipeline/stages/s1t-theme.mjs": "The stage: metered `theme` call -> ThemeSpec validated -> wp_theme_scaffold -> wp_theme_build_test -> wp_theme_install (activate) -> fingerprint recorded. Skipped entirely (0 calls, 0 log lines beyond one 'inherited theme' notice) unless state.bespoke.",
+    "pipeline/prompts/theme.md": "One template for the `theme` task: payload carries the brief (identity, pages, sections summary), the style combo's enriched entries, and the skeleton vocabulary; the UI style's cues argue the skeleton, the artistic style's cues argue physics and presets.",
+    "x-agent/mcp/src/tools/themeScaffold.ts | themeBuildTest.ts | themeInstall.ts": "The factory tools, mirroring the block factory's shape (scaffold deterministic-first, build test in a throwaway sandbox on its own port, install sequential from the single runner).",
+    "x-companion (one route)": "POST /x-companion/v1/themes/install — extend tier, posture-gated exactly like block install: unzip to themes/, validate theme.json parses and declared templates exist, activate, return the NEW fingerprint. The one pledge-breaking surface, recorded as such.",
+    "pipeline/lib/fonts.mjs": "The font lane: resolve a tokens family's source against the Google Fonts catalog, download agent-side into the cache, upload via the S8 rest() lane (wp/v2/font-families + font-faces multipart), return installed slugs. Deterministic; not metered; every download in the report with its license."
+  },
+  "theme_spec_contract": {
+    "identity": "{name (from the brief's site identity — 'Salon Regale Theme'), slug, description}. The admin sees a real, named, deletable theme.",
+    "skeleton": "ONE of 'stacked' | 'split' | 'rail' (the enum grows by field evidence, never speculatively). stacked: the classic header / column-of-bands / footer. split: the body is two persistent panes; each section declares its pane. rail: a third template-part area beside the content column (the Sidebar Dashboard class), populated by the furniture lane like header and footer. The skeleton is the UI design style made architecture — Split Screen Layout stops meaning 'a section with two columns in it'.",
+    "measure": "{contentSize, wideSize} — chosen to serve the combo (an editorial serif argues ~70ch; a luxury canvas argues wide), then passed through by R9 as law. The 645px era ends here.",
+    "physics": "{blockGap (declared, owned — the seam-reset apparatus becomes belt, not load-bearing), root padding, useRootPaddingAwareAlignments, appearanceTools: true, fluid typography on}.",
+    "presets": "{shadows[], gradients[], duotones[], custom{}} — slug-addressable vocabulary the tree lane may legally spend under the existing gates; today these dimensions simply do not exist because the tokens contract cannot author them and TT5 barely ships them.",
+    "templates_and_parts": "templates: index, page, page-no-title (GUARANTEED — S8 stops trusting the theme to ship it), canvas (bare, no furniture). parts: header, footer, plus rail when the skeleton declares it.",
+    "explicitly_absent": "No pattern corpus. No block styles. No fonts (the Font Library owns font files; the theme declares nothing about them). Structure only."
+  },
+  "pipeline_amendments": {
+    "stage_insertion": "S1T_theme runs between S1_brief and S2_read_instance, kind gated-generative, calls: T (1 when bespoke, else 0). Because it completes before S2, the manifest S2 reads IS the bespoke world and every downstream stage runs unmodified except the two named below.",
+    "s4_skeleton": "Every section and furniture payload gains the skeleton (declared once, the axis precedent): which pane a section lands in, what the furniture roster is. A rail skeleton adds one furniture tree call.",
+    "s9_skeleton": "The band-width audit becomes pane-aware: a band spans the pane the skeleton assigns it — the full viewport under 'stacked', its pane under 'split', the content column beside the rail under 'rail'. Header still agrees with footer; the rail is audited against its own declared width. The seam audit is unchanged (seams are seams in any skeleton).",
+    "s3_fonts": "The tokens contract widens: a family MAY carry source: {provider: 'google', family, weights[]}; fontFamily remains the fallback stack and the rendered promise. S3 installs sourced fonts through pipeline/lib/fonts.mjs immediately after wp_tokens_apply, so the harness, the verifier and the screenshot all see them. Works on ANY toolchain-posture run — the font lane is not gated by --bespoke (Font Library entries are canonical, admin-visible artifacts).",
+    "s9_fonts": "The measured verify checks rendered font-family (document.fonts + computed styles) for every family that carried a source: a silent fallback to the stack fails the run — an uninstalled font is an unloaded image.",
+    "budget": "base = 1 (brief) + T + 1 (tokens) + F + S + B + P; ceiling = 2 * base + I. T = 1 iff bespoke. F = 2 + (1 if the skeleton declares a rail). Font downloads are not model calls and never metered; they appear in the report, not the ledger."
+  },
+  "gates": {
+    "spec_gate": "theme-spec.schema.json validation + mechanical cross-checks (skeleton legal, measure sane: contentSize < wideSize, both in px/ch/rem; every declared template in the fixed roster; presets slug-unique) — one schema-retry, metered.",
+    "build_gate": "wp_theme_build_test in a throwaway sandbox on its own port: theme installs, activates, theme.json parses, EVERY declared template resolves (page-no-title asserted by name), a smoke page renders with no PHP notices, and the physics are MEASURED — root block-gap seams zero, root padding as declared, content clamped to the declared measure (the Layout Cascade verified at the source for once). built:true + zip, or diagnostics.",
+    "repair": "One repair call repairs the ThemeSpec (never files), through the same two gates. A second failure aborts the run as preflight_failed: no ground, no site. The pipeline never improvises a theme.",
+    "install": "wp_theme_install runs sequentially from the single runner before S2; activation moves the epoch; the fingerprint S2 records is the bespoke world's."
+  },
+  "llm_contract": {
+    "task_types_added": ["theme"],
+    "io": "(prompts/theme.md, payload: brief summary + combo entries + skeleton vocabulary) -> ThemeSpec JSON validated against theme-spec.schema.json. One schema-retry, metered, ledgered. No free-text, no files.",
+    "routing": "pipeline.config.json tasks.theme -> {provider, model, effort}; high effort recommended — one call fixes the ground everything stands on."
+  },
+  "determinism": {
+    "claim": "Same prompt + pinned models at temperature 0 => the same ThemeSpec => byte-identical scaffolded theme (the scaffolder is pure templating). With the fake provider replaying a ThemeSpec fixture, byte-identical theme zips.",
+    "fonts": "Downloads are hash-pinned in the cache; a cache hit is a no-op; the report lists family, version, license, byte count.",
+    "resume": "S1T completed => the theme zip and fingerprint replay from the run dir; --resume never rebuilds or reinstalls a theme that already landed."
+  },
+  "milestones": [
+    {
+      "id": "M1_spec_and_scaffolder",
+      "goal": "theme-spec.schema.json + wp_theme_scaffold, offline.",
+      "acceptance": [
+        "a fixture ThemeSpec scaffolds a complete theme dir (theme.json, templates incl. page-no-title, parts per skeleton) byte-identically twice",
+        "skeleton 'rail' emits the third part and 'stacked' does not; a ThemeSpec with an unknown skeleton fails contract validation naming the enum",
+        "no scaffolded file contains a model-authored string beyond what the ThemeSpec carries (asserted by templating from a poisoned spec)"
+      ]
+    },
+    {
+      "id": "M2_build_test_and_install",
+      "goal": "wp_theme_build_test + wp_theme_install + the companion route, on a live Playground.",
+      "acceptance": [
+        "built:true with measured physics: zero root seams, declared measure clamps content (asserted from the sandbox's box tree)",
+        "a ThemeSpec declaring page-no-title=absent (poisoned) fails the build gate naming the template",
+        "install+activate moves the fingerprint; wp_manifest afterwards returns the bespoke measure and the theme's name"
+      ]
+    },
+    {
+      "id": "M3_stage_and_budget",
+      "goal": "s1t-theme.mjs wired: --bespoke --new-site only, budget T, resume.",
+      "acceptance": [
+        "--bespoke without --new-site fails preflight naming the rule; a connected-site run with neither flag is byte-identical to pre-spec behavior (asserted by ledger diff)",
+        "a bespoke run's printed ceiling includes T=1 and, on a rail skeleton, F=3",
+        "--resume after S1T replays the theme from the run dir with zero new calls and zero reinstalls"
+      ]
+    },
+    {
+      "id": "M4_skeleton_aware_verification",
+      "goal": "S4 payloads and S9 audits obey the skeleton.",
+      "acceptance": [
+        "a split-skeleton run publishes sections into both panes and S9 passes with bands measured against pane widths (a viewport-width assertion would fail — asserted by fixture)",
+        "a rail-skeleton run designs three furniture parts and the rail is audited against its declared width",
+        "a stacked-skeleton run's S9 behavior is byte-identical to today's"
+      ]
+    },
+    {
+      "id": "M5_font_library_lane",
+      "goal": "Sourced families end to end, independent of --bespoke.",
+      "acceptance": [
+        "a tokens family with source google downloads agent-side (cache miss then hit), installs via wp/v2/font-families + font-faces, and the front page serves the woff2 from uploads/fonts — zero requests to any font CDN in the page's network log",
+        "S9 fails a run where the sourced font silently fell back to the stack (poisoned by deleting the font post before verify)",
+        "the report lists every installed family with version and license; the ledger contains no font entries"
+      ]
+    },
+    {
+      "id": "M6_end_to_end",
+      "goal": "The whole promise at once.",
+      "acceptance": [
+        "one prompt + --new-site --bespoke yields: an original named theme (admin-visible, deletable), a measure the brief argued, real typography, a skeleton matching the UI style, and a verified site — in one run, zero human input",
+        "the same prompt WITHOUT --bespoke yields today's TT5-grounded build, unchanged",
+        "wp_snapshot carries the bespoke theme; the promoted artifact activates on a second instance and renders identically (fonts included)"
+      ]
+    }
+  ],
+  "progress_protocol": {
+    "same_as": "companion spec progress_protocol — record every skeleton-enum temptation (a skeleton added without field evidence is scope creep), every place the theme was tempted to carry design (patterns, block styles — S4's job), and every font-lane fallback fired."
+  },
+  "non_goals": [
+    "No theme generation without BOTH --bespoke and --new-site: never inferred from the brief, never on a connected site — there, x-companion's returned theme is the law and R9 passes it through untouched.",
+    "No theme-bundled pattern corpus and no parametric block styles: patterns and block styles are per-build design decisions and S4/S5 own them; the theme ships structure only.",
+    "No model-authored theme files: the model writes ONE ThemeSpec; everything on disk is deterministic templating from it.",
+    "No page-view hotlinking of font CDNs, ever: fonts are fetched agent-side at build time and served locally per the Font Library spec — the instance never calls out remains true at every layer.",
+    "No new companion surface beyond the single theme-install route, and no theme mutation lane: a theme installs whole and activates, or it does not ship; there is no patch-the-live-theme tool.",
+    "No theme removal at run end: the theme IS deliverable — named, licensed, explicable from wp-admin (deliverable-purity governs the companion, never the artifact)."
+  ]
+}
