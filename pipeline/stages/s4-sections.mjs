@@ -28,6 +28,10 @@ export async function run(ctx) {
     // section onto the opposite anchor. A run dir from before the axis field
     // falls back to the editorial default instead of crashing a --resume.
     const axis = brief.axis ?? { anchor: 'left', argument: '' };
+    // One language for all content (§2): the brief detects the request's
+    // dominant language; every writing call obeys it. The fallback sentence
+    // keeps pre-language run dirs resumable and still instructs correctly.
+    const language = brief.language ?? 'the language the brief\'s own copy is written in';
     const OPPOSITE = { left: 'center', center: 'left' };
     const sectionAnchor = (sec) => (sec.design?.axis_break === true ? OPPOSITE[axis.anchor] : axis.anchor);
     // Pre-axis briefs named the axis inside the layout enum; both legacy values
@@ -67,6 +71,7 @@ export async function run(ctx) {
             page: entry.page,
             art_direction: brief.art_direction,
             voice: brief.identity.voice ?? brief.identity.tagline,
+            language,
             page_plan: pagePlans[s.page] ?? [],
             design,
             axis: {
@@ -157,6 +162,7 @@ export async function run(ctx) {
             identity: brief.identity,
             art_direction: brief.art_direction,
             voice: brief.identity.voice ?? brief.identity.tagline,
+            language,
             palette: brief.palette,
             axis: { anchor: axis.anchor, argument: axis.argument },
             nav_items: brief.navigation.items,

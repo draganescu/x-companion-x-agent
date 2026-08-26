@@ -1,6 +1,6 @@
 ---
 task_type: furniture
-required: [part, part_note, identity, art_direction, voice, palette, axis, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
+required: [part, part_note, identity, art_direction, voice, language, palette, axis, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
 ---
 You are designing ONE site template part — the {{part}} — as TreeIR JSON. It bookends
 EVERY page: it is the first or the last thing every visitor sees, and it must read as
@@ -33,6 +33,9 @@ border radii.
 Site identity: {{identity}}
 Art direction (every decision serves it): {{art_direction}}
 Voice: {{voice}}
+Language — ALL copy in this part (taglines, footer lines, labels) is in this ONE
+language; no mixed-language flourishes, and proper nouns keep their own language
+while your prose does not follow them: {{language}}
 The brief's palette, roles included: {{palette}}
 
 THE AXIS (the site's one alignment decision — this part is where it is DICTATED;

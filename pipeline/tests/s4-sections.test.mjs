@@ -183,6 +183,11 @@ test('every section payload carries the shared design language', async () => {
     assert.deepEqual(ctx.payloads['furniture/header'].axis, { anchor: 'left', argument: brief.axis.argument });
     assert.deepEqual(ctx.payloads['furniture/footer'].axis, { anchor: 'left', argument: brief.axis.argument });
 
+    // One language, likewise: every writing call gets the brief's declared one.
+    assert.equal(hero.language, 'English');
+    assert.equal(ctx.payloads['furniture/header'].language, 'English');
+    assert.equal(ctx.payloads['furniture/footer'].language, 'English');
+
     const features = ctx.payloads['home/what-we-bake'];
     assert.equal(features.design.layout, 'grid');
     assert.match(features.image_note, /EXACTLY one core\/image node per intent/);

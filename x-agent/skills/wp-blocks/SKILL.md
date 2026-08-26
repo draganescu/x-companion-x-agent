@@ -117,6 +117,11 @@ same visual formula reused across unrelated sites. Interpret each brief specific
 direction names what makes THIS site memorable — and vary grounds (light vs dark), type
 systems, and layout structures across builds.
 
+**One language.** All content is written in the language of the request — the dominant one if
+the request mixes several. Topic, mood, or addresses never switch it: a France address does not
+make French copy, a sushi menu does not make Japanese copy. Proper nouns (brand names, place
+names, dish names) keep their own language; the prose around them does not follow them.
+
 **Match complexity to the vision.** Maximalism needs enough layered detail, motion, and visual
 system to feel intentional; minimalism needs restraint, exact spacing, strong typography, and
 careful hierarchy. Do not confuse minimal with unfinished.

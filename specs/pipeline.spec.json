@@ -39,7 +39,7 @@
       "llm_task": "brief",
       "calls": "1",
       "inputs": "the user prompt, verbatim",
-      "outputs": "brief.json validated against brief.schema.json: site identity, art direction sentence, ONE site alignment axis {anchor: left|center, argument} chosen to serve the art direction (the header dictates it, every section anchors on it; design.axis_break flips at most one argued section per page — enforced by crossChecks like the accent band), pages[] each with sections[] (role, copy notes, image_intent?, design {band, layout: composition only}), custom_blocks[] (only where the brief itself argues core cannot express the section), schema_packages[] (only where data has a lifecycle), nav and footer intent",
+      "outputs": "brief.json validated against brief.schema.json: site identity, art direction sentence, ONE site alignment axis {anchor: left|center, argument} chosen to serve the art direction (the header dictates it, every section anchors on it; design.axis_break flips at most one argued section per page — enforced by crossChecks like the accent band), ONE content language (the dominant language of the request; topic, mood, or addresses never switch it — proper nouns keep their own language, the prose around them does not; carried into every writing call's payload), pages[] each with sections[] (role, copy notes, image_intent?, design {band, layout: composition only}), custom_blocks[] (only where the brief itself argues core cannot express the section), schema_packages[] (only where data has a lifecycle), nav and footer intent",
       "gate": "brief.schema.json validation; one schema-retry. The brief FIXES the fan-out: S, B, P, I are read from it and the full budget is printed before any further call."
     },
     {

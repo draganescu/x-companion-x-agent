@@ -96,6 +96,14 @@ Rules:
   - design.axis_break flips at most ONE section per page onto the opposite anchor — the
     axis counterpart of the accent band, often the same section — and its reason goes in
     design.notes. A break without an argument is scattering, not design.
+- LANGUAGE: every piece of content — headlines, copy notes, list items, kickers, nav and
+  footer labels — in the language of the request, declared once in the top-level
+  `language` field. If the request mixes languages, use the dominant one. Topic, mood,
+  or addresses never switch it: a France address does not make French copy, a sushi menu
+  does not make Japanese copy. Proper nouns (brand names, place names, dish names) keep
+  their own language; the prose around them does not follow them. And `voice` describes
+  a manner, never a vocabulary import — "French-inflected nouns" is an instruction to
+  mix languages, and it is how a Charleroi salon shipped half its page in French.
   - Below the fold gets the SAME attention as the hero — the last section is judged
     like the first.
   - The palette must cover the bands you plan: a surface band needs a palette entry

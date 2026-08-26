@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, art_direction, voice, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, voice, language, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation. The section must look like it belongs
@@ -49,6 +49,10 @@ artifact, not a warning.
 
 Site art direction (every decision serves it): {{art_direction}}
 Voice: {{voice}}
+Language — ALL copy you write or invent (headlines, list items, kickers, captions,
+button labels) is in this ONE language; no mixed-language flourishes even where the
+topic, mood, or an address suggests them. Proper nouns keep their own language; your
+prose does not follow them: {{language}}
 
 Page: {{page}}
 The page's design plan — every section in order, with its band and layout; YOURS is

@@ -10,6 +10,7 @@
         "identity",
         "art_direction",
         "axis",
+        "language",
         "palette",
         "pages",
         "custom_blocks",
@@ -69,6 +70,11 @@
                     "description": "One sentence: why this axis serves THIS art direction (not a preference \u2014 an argument)."
                 }
             }
+        },
+        "language": {
+            "type": "string",
+            "minLength": 2,
+            "description": "The ONE language of every piece of content, named plainly (\"English\", \"Romanian\"): the dominant language of the request itself. Topic, mood, or addresses never switch it \u2014 a France address does not make French copy. Proper nouns keep their own language; the prose around them does not follow them."
         },
         "palette": {
             "type": "array",
