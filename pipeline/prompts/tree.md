@@ -166,4 +166,8 @@ Output ONLY a TreeIR JSON document: {"version": 1, "epoch": "{{epoch}}", "blocks
 - blocks[] is THIS SECTION ONLY: exactly one root core/group band as specified above.
 - Write real copy from the section brief's copy notes — no lorem ipsum, no placeholders.
 - If manifest_slice.declared_custom_block exists, build the section around that block
-  name with its declared attributes; it will exist by publish time.
+  name with its declared attributes; it will exist by publish time. Its text INHERITS
+  your band's ink — the block's stylesheet owns structure, not colours. When the design
+  wants the block as a distinct panel or card, set backgroundColor/textColor ON the
+  block instance (it declares colour supports), checked against the hexes like any
+  other override.

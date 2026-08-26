@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths, screenBandSeams } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths, screenBandSeams, screenTextContrast } from '../lib/gates.mjs';
 
 const diag = (code, severity, message = '', path = '/blocks/0') => ({ code, severity, path, message });
 
@@ -225,6 +225,31 @@ test('screenBandWidths: clamped bands and disagreeing parts fail; full-bleed pas
     assert.deepEqual(screenBandWidths(clamped, {}), []);
     assert.equal(screenBandWidths(bug, {}).length, 1);
     assert.deepEqual(screenBandWidths([], { viewportWidth: 1440 }), []);
+});
+
+test('screenBlockCss: a bare-root repaint fails; element-level colour moments and structure pass', () => {
+    const css = (s) => ({ files: { 'style.css': s, 'render.php': '<?php' } });
+    // the field bug verbatim: root sets color by slug name
+    assert.ok(screenBlockCss(css('.wp-block-agent-review-wall{display:flex;color:var(--wp--preset--color--ink)}'))
+        .some((i) => /does not own a colour scheme/.test(i.message)));
+    // root background is the same hazard through the other side
+    assert.ok(screenBlockCss(css('.agent-review-wall{background-color:var(--wp--preset--color--paper)}')).length > 0);
+    // structure on the root, colour on elements: the allowed shape
+    assert.deepEqual(screenBlockCss(css('.agent-review-wall{display:grid;gap:var(--wp--preset--spacing--40)}\n.agent-review-wall__meter{background-color:var(--wp--preset--color--safety-yellow)}\n.agent-review-wall__rule{border-top:1px solid currentColor}')), []);
+    // descendant selectors and comments do not confuse the parser
+    assert.deepEqual(screenBlockCss(css('/* .x{color:red} */ .agent-review-wall .card{color:var(--wp--preset--color--contrast)}')), []);
+    // non-css files are not this screen's business
+    assert.deepEqual(screenBlockCss({ files: { 'render.php': '.x{color:#fff}' } }), []);
+});
+
+test('screenTextContrast: unreadable fails, muddy passes to advisory, empty is clean', () => {
+    const invisible = { selector_path: 'p:nth-child(1)', ratio: 1, color: 'rgb(21, 25, 29)', background: 'rgb(21, 25, 29)', sample: 'NIGHT DISPATCH' };
+    const muddy = { selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours' };
+    const failures = screenTextContrast([invisible, muddy]);
+    assert.equal(failures.length, 1);
+    assert.match(failures[0].message, /1:1.*NIGHT DISPATCH/);
+    assert.deepEqual(screenTextContrast([muddy]), []);
+    assert.deepEqual(screenTextContrast(undefined), []);
 });
 
 test('screenBandSeams: the 19px block-gap seam fails; flush bands pass; parts alone are skipped', () => {

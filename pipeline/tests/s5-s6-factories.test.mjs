@@ -51,7 +51,9 @@ function scaffoldBlockDir(runDir) {
 }
 
 test('S5: scaffold first, LLM files written into the scaffold, gate pass records zip', async () => {
-    const filesOut = { files: { 'render.php': '<?php echo "hi";', 'view.js': 'console.log(1)', 'style.css': '.x{color:var(--wp--preset--color--base)}' } };
+    // Structural root + an element-level colour moment: the shape the
+    // inheritance screen allows (a bare-root color/background is rejected).
+    const filesOut = { files: { 'render.php': '<?php echo "hi";', 'view.js': 'console.log(1)', 'style.css': '.x{display:grid;gap:var(--wp--preset--spacing--40)}.x__meter{background-color:var(--wp--preset--color--base)}' } };
     const ctx = makeCtx({
         taskType: 'block',
         outputs: [JSON.stringify(filesOut)],
@@ -77,7 +79,9 @@ test('S5: scaffold first, LLM files written into the scaffold, gate pass records
 });
 
 test('S5: a style literal fails the artifact; no zip recorded; stage completes', async () => {
-    const filesOut = { files: { 'render.php': '<?php', 'view.js': '', 'style.css': '.x{color:#c8102e}' } };
+    // Element-level literal: passes the inheritance screen so the BUILD TEST's
+    // style_warnings lane is the one exercised here.
+    const filesOut = { files: { 'render.php': '<?php', 'view.js': '', 'style.css': '.x__label{color:#c8102e}' } };
     const ctx = makeCtx({
         taskType: 'block',
         outputs: [JSON.stringify(filesOut)],

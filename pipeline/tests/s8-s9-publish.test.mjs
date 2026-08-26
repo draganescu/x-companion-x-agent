@@ -226,6 +226,29 @@ test('S9: daylight between bands fails the seam audit', async () => {
     await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed' && /page background between bands/.test(e.message));
 });
 
+test('S9: measured unreadable text fails the run; muddy text is advisory only', async () => {
+    const mk = (text_contrast) => ({
+        runDir: mkdtempSync(join(tmpdir(), 'x-pipeline-s9-ink-')),
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        logs: [],
+        log(m) { this.logs.push(m); },
+        call: async function (name) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], text_contrast } };
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    });
+    // the field bug: ink identical to the ground it sits on
+    const bad = mk([{ selector_path: 'span:nth-child(1)', ratio: 1, color: 'rgb(21, 25, 29)', background: 'rgb(21, 25, 29)', sample: 'NIGHT DISPATCH' }]);
+    await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /unreadable text/.test(e.message));
+
+    // 3–4.5:1 is muddy, not fatal: the run completes and says so
+    const muddy = mk([{ selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours' }]);
+    await s9.run(muddy);
+    assert.ok(muddy.logs.some((l) => /advisory: 1 text element/.test(l)));
+});
+
 test('the footer part is chosen by canonical slug, not by whichever has area=footer', () => {
     // Twenty Twenty-Five's real listing order: the variants come back first.
     const parts = [

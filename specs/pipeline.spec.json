@@ -76,9 +76,9 @@
       "kind": "gated-generative",
       "llm_task": "block",
       "calls": "B (one per custom_blocks entry), concurrent",
-      "inputs": "the brief's gap argument, wp_block_scaffold output (the scaffold runs first, deterministically), the render_intent",
+      "inputs": "the brief's gap argument, wp_block_scaffold output (the scaffold runs first, deterministically), the render_intent, and the applied tokens with the palette ANNOTATED (slug + hex + measured tone, the tree lane's own anti-guessing fix) — the few colours a block legitimately owns are chosen by value, never by a slug's name",
       "outputs": "render.php, view.js?, style.css written into the scaffold dir",
-      "gate": "wp_block_build_test built:true, front smoke clean, style_warnings mechanically screened (hex literals fail the artifact)"
+      "gate": "wp_block_build_test built:true, front smoke clean, style_warnings mechanically screened (hex literals fail the artifact); plus the inheritance screen on the file map (S5 and the S7 repair alike): a block does not own a colour scheme — a bare root-class selector setting color or background in style.css is rejected before any build test, because text inherits the band's ink and surfaces belong on the instance's colour supports (the invisible-text field bug: a root color:var(--wp--preset--color--ink) on a site whose ink slug shared its hex with the band the block landed on)"
     },
     {
       "id": "S6_schema_packages",
@@ -119,7 +119,7 @@
         "wp_screenshot"
       ],
       "calls": "0",
-      "outputs": "wp_verify pass with a sane heading outline, every image loaded, the band-width audit clean on the measured box tree (every top-level band — section roots and both template parts — spans the viewport and header agrees with footer; the 645px-header field bug), and the seam audit clean: no daylight between consecutive bands or between a band and a template part — S3's block-gap reset holds or the run fails (the 19px-seams field bug); exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
+      "outputs": "wp_verify pass with a sane heading outline, every image loaded, the band-width audit clean on the measured box tree (every top-level band — section roots and both template parts — spans the viewport and header agrees with footer; the 645px-header field bug), and the seam audit clean: no daylight between consecutive bands or between a band and a template part — S3's block-gap reset holds or the run fails (the 19px-seams field bug); and the measured ink audit clean: wp_verify rates every element carrying its own text against its actual rendered ground, and any pair under 3:1 fails the run whatever layer painted it — block stylesheet, tree attribute, or theme wiring — because the block factory's own gate smokes on a default theme where the site palette does not exist (the invisible-text field bug); the 3-4.5:1 band is logged as advisory, never fatal; exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
     }
   ],
   "llm_contract": {

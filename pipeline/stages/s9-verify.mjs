@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenOutline, screenBandWidths, screenBandSeams } from '../lib/gates.mjs';
+import { screenOutline, screenBandWidths, screenBandSeams, screenTextContrast } from '../lib/gates.mjs';
 
 export const id = 'S9_verify';
 export const kind = 'deterministic';
@@ -50,6 +50,14 @@ export async function run(ctx) {
     failures.push(...screenBandWidths(verify.box_tree, { viewportWidth: verify.measured?.viewport?.width }));
     // …and no daylight between them: the S3 seam reset holds, or the run fails.
     failures.push(...screenBandSeams(verify.box_tree));
+    // The measured ink audit: unreadable text (under 3:1 against its actual
+    // ground) fails the run whatever layer painted it; the 3–4.5:1 band is
+    // logged as advisory, not fatal.
+    failures.push(...screenTextContrast(verify.text_contrast));
+    const muddy = (verify.text_contrast ?? []).filter((f) => f.ratio >= 3);
+    if (muddy.length > 0) {
+        ctx.log(`advisory: ${muddy.length} text element(s) read between 3:1 and 4.5:1 — legible but muddy (details in verify.json)`);
+    }
     for (const img of verify.images ?? []) {
         if (img.loaded !== true || img.natural_w === 0) {
             failures.push({ code: 'image', message: `image not loaded: ${img.selector_path} (loaded=${img.loaded}, natural ${img.natural_w}x${img.natural_h})` });

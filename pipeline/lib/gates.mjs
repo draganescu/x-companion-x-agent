@@ -125,6 +125,36 @@ export function screenFileMap(value, { allowed }) {
     return issues;
 }
 
+// S5/S7: the inheritance screen for block stylesheets. A block does not own a
+// colour scheme: its text INHERITS the band's ink, which the placing markup
+// already guaranteed readable, and a surface treatment belongs on the block
+// instance's colour supports, set by the markup that places it. The one
+// mechanically certain violation is the wholesale repaint — a bare root-class
+// selector setting `color` or `background` in style.css. That single
+// declaration is what shipped three blocks invisible on a dark-base site: the
+// stylesheet chose slugs by NAME (ink, paper) on a palette whose "ink" shared
+// its hex with the very band the blocks landed on. Element-level colour
+// moments (a meter fill, a status dot) stay legal here — S9's measured ink
+// audit is their judge.
+export function screenBlockCss(value) {
+    const issues = [];
+    for (const [name, content] of Object.entries(value?.files ?? {})) {
+        if (!name.endsWith('.css') || typeof content !== 'string') continue;
+        const css = content.replace(/\/\*[\s\S]*?\*\//g, '');
+        for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+            const body = m[2];
+            const paintsText = /(?<![-\w])color\s*:/.test(body);
+            const paintsGround = /(?<![-\w])background(?:-color)?\s*:/.test(body);
+            if (!paintsText && !paintsGround) continue;
+            const root = m[1].split(',').map((s) => s.trim()).find((s) => /^\.[a-z0-9-]+$/.test(s));
+            if (root) {
+                issues.push({ path: `/files/${name}`, message: `"${root}" paints the block root (${paintsText ? 'color' : 'background'}) — a block does not own a colour scheme: text inherits the band's ink, and a surface belongs on the block instance's colour supports, set by the markup that places it. Delete the declaration; style.css owns structure.` });
+            }
+        }
+    }
+    return issues;
+}
+
 // wp_block_build_test reports gate failure as a SUCCESS result ({built:false,
 // failure}) — and a thrown build_failed envelope is also a gate failure.
 //
@@ -299,6 +329,22 @@ export function screenBandSeams(boxTree) {
         }
     }
     return failures;
+}
+
+// S9: the measured ink audit. The oracle rates every element carrying its own
+// text against the nearest painted ancestor ground and reports pairs under
+// 4.5:1; this screen fails the unreadable class — under 3:1, below even the
+// large-text floor — and S9 logs the 3–4.5 band as advisory. This is the one
+// place invisible text is ALWAYS caught regardless of which layer produced it
+// (block stylesheet, tree attribute, theme wiring), because the block
+// factory's own gate smokes on a throwaway default theme where the site
+// palette does not even exist.
+const INK_FLOOR = 3;
+
+export function screenTextContrast(findings) {
+    return (findings ?? [])
+        .filter((f) => f.ratio < INK_FLOOR)
+        .map((f) => ({ code: 'ink_contrast', message: `unreadable text (${f.ratio}:1, ${f.color} on ${f.background}): "${f.sample}" at ${f.selector_path}` }));
 }
 
 // S4/S7: image-intent geometry. The placeholder minted for an intent is a 1×1

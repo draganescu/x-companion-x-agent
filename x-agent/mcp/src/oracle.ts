@@ -303,10 +303,19 @@ export class ShellServer {
 
 /* --------------------------------------------------------------- extraction */
 
+export interface TextContrastNode {
+  selector_path: string;
+  ratio: number;
+  color: string;
+  background: string;
+  sample: string;
+}
+
 export interface ExtractResult {
   nodes: MeasuredNode[];
   a11y_outline: A11yNode[];
   stats: { candidates: number; named: number; named_ratio: number };
+  text_contrast: TextContrastNode[];
 }
 
 /**
@@ -526,10 +535,76 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
     };
     if (document.body) for (const child of Array.from(document.body.children)) walk(child);
 
+    /* ---------------------------------------- ink vs ground, every text leaf */
+    // Every element carrying its OWN text, rated against the nearest painted
+    // ancestor background. This is measured here — not inferred from markup —
+    // because the two authoring lanes can each produce readable-looking inputs
+    // that render unreadable together (a block stylesheet spending a palette
+    // slug that equals the band it lands on). Pairs under 4.5:1 are reported;
+    // policy (what fails a run) belongs to the caller. Text over images is
+    // skipped: there is no single ground to rate against.
+    const lumOf = (c: [number, number, number, number]): number => {
+      const f = (v: number): number => {
+        const s = v / 255;
+        return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+    };
+    const contrastOf = (a: [number, number, number, number], b: [number, number, number, number]): number => {
+      const la = lumOf(a);
+      const lb = lumOf(b);
+      const hi = Math.max(la, lb);
+      const lo = Math.min(la, lb);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const textContrast: { selector_path: string; ratio: number; color: string; background: string; sample: string }[] = [];
+    for (const el of Array.from(document.querySelectorAll('body *'))) {
+      if (textContrast.length >= 100) break;
+      const own = Array.from(el.childNodes)
+        .filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent ?? '')
+        .join('')
+        .trim();
+      if (!own) continue;
+      const cs = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2 || cs.visibility === 'hidden' || cs.display === 'none' || Number.parseFloat(cs.opacity) < 0.05) continue;
+      const ink = parseRgb(cs.color);
+      if (!ink || ink[3] === 0) continue;
+      let cur: Element | null = el;
+      let ground: [number, number, number, number] | null = null;
+      let overImage = false;
+      while (cur && cur !== document.documentElement) {
+        const cc = getComputedStyle(cur);
+        if (cc.backgroundImage && cc.backgroundImage !== 'none') {
+          overImage = true;
+          break;
+        }
+        const b = parseRgb(cc.backgroundColor);
+        if (b && b[3] > 0.1) {
+          ground = b;
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      if (overImage || !ground) continue;
+      const ratio = contrastOf(ink, ground);
+      if (ratio < 4.5) {
+        textContrast.push({
+          selector_path: selectorPath(el),
+          ratio: Math.round(ratio * 100) / 100,
+          color: cs.color,
+          background: `rgb(${ground[0]}, ${ground[1]}, ${ground[2]})`,
+          sample: own.slice(0, 80),
+        });
+      }
+    }
+
     return {
       nodes,
       a11y_outline: outline,
       stats: { candidates, named, named_ratio: candidates === 0 ? 1 : named / candidates },
+      text_contrast: textContrast,
     };
   }, nameByClass);
 }

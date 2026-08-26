@@ -470,6 +470,17 @@ remains in `style.css` is *structure*. The build test lints this (warnings, line
 review every entry, and either use a token or state why the structure needs that literal (a
 `1px` border, a `50%` transform — fine; a `#a45a2a` — never).
 
+And a block does not own a color scheme. Its text INHERITS the surrounding ink — the markup
+that places the block already chose a readable band pair — so `style.css` never sets `color`
+or `background` on the block root. That wholesale repaint is how a block ships invisible on
+a site whose palette is inverted from the one you imagine: a slug NAMED like ink can share
+its hex with the very band the block lands on. Surfaces — a card, a panel — come from the
+block's color supports, set on the instance by the markup that places it; hairlines and
+dividers use `currentColor`. The few color moments a block legitimately owns — a meter
+fill, a status dot, a rating star: data elements that must be one specific color — are
+spent as palette tokens chosen by VALUE (hex and tone), never by the sound of a slug's
+name.
+
 ### R12 — ALWAYS fan independent tracks out to subagents. The epoch is the only serialization point; everything that does not move it runs concurrently.
 
 A full build has four tracks: the **data model** (the wp-schema package), the **design

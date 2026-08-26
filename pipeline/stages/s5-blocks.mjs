@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pLimit } from '../lib/limit.mjs';
-import { screenFileMap, blockGate } from '../lib/gates.mjs';
+import { screenFileMap, screenBlockCss, blockGate } from '../lib/gates.mjs';
+import { annotatePalette } from '../lib/tokens.mjs';
 
 export const id = 'S5_blocks';
 export const kind = 'gated-generative';
@@ -33,7 +34,12 @@ export async function run(ctx) {
     }
     const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
     const tokenSlugs = {
-        palette: tokens.palette.map((p) => p.slug),
+        // Palette entries carry hex + tone, exactly as the tree lane's do: the
+        // few colours a block legitimately owns (a meter fill, a status dot)
+        // are checked against values, never guessed from a slug's name — a
+        // block once painted its text var(--wp--preset--color--ink) on a site
+        // whose "ink" shared its hex with the band the block landed on.
+        palette: annotatePalette(tokens.palette),
         spacing: tokens.spacing.steps.map((s) => s.slug),
         font_sizes: tokens.typography.sizes.map((s) => s.slug),
     };
@@ -98,7 +104,11 @@ export async function run(ctx) {
                     token_slugs: tokenSlugs,
                     writable_files: writable,
                 },
-                validate: (v) => screenFileMap(v, { allowed }),
+                validate: (v) => {
+                    const issues = screenFileMap(v, { allowed });
+                    if (issues.length > 0) return issues;
+                    return screenBlockCss(v);
+                },
             }));
         } catch (e) {
             if (e.code !== 'contract_failed' && e.code !== 'output_truncated') throw e;

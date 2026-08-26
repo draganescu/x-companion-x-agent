@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, screenImageGeometry, screenBandRoot } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, screenImageGeometry, screenBandRoot } from '../lib/gates.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { pLimit } from '../lib/limit.mjs';
 
@@ -91,7 +91,13 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
         };
     } else {
         artifact = { files: Object.fromEntries((art.files ?? []).map((f) => [f, readFileSync(join(art.dir, f), 'utf8')])) };
-        validate = (v) => screenFileMap(v, { allowed: new Set(art.files ?? []) });
+        validate = (v) => {
+            const issues = screenFileMap(v, { allowed: new Set(art.files ?? []) });
+            if (issues.length > 0) return issues;
+            // Blocks only: a repair must not sneak a root repaint past the
+            // inheritance screen the authoring lane used.
+            return kind === 'blocks' ? screenBlockCss(v) : [];
+        };
     }
     let value;
     try {

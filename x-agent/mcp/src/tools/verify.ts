@@ -72,6 +72,19 @@ const OutputSchema = z.object({
     }),
   ),
   a11y_outline: z.array(z.object({ role: z.string(), name: z.string(), level: z.number().optional() })),
+  text_contrast: z
+    .array(
+      z.object({
+        selector_path: z.string(),
+        ratio: z.number(),
+        color: z.string(),
+        background: z.string(),
+        sample: z.string(),
+      }),
+    )
+    .describe(
+      'Every element with its OWN text whose computed ink reads under 4.5:1 against the nearest painted ancestor background (capped at 100; text over images skipped). Measured, not inferred — this is where invisible text surfaces regardless of which authoring layer produced it.',
+    ),
   images: z
     .array(
       z.object({
@@ -178,6 +191,7 @@ export const wpVerify = defineTool({
       return {
         box_tree: toBoxTree(extracted.nodes),
         a11y_outline: extracted.a11y_outline,
+        text_contrast: extracted.text_contrast,
         images,
         diffs,
         pass,
