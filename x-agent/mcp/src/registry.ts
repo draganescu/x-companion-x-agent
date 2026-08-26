@@ -238,7 +238,7 @@ const EXTERNAL_TOOLS: Omit<ToolDef, 'handler'>[] = [
     name: 'wp_block_build_test',
     title: 'Build and smoke-test a scaffolded block',
     description:
-      'THE SAFETY GATE. Runs the wp-scripts build, boots @wp-playground/cli, registers the built block, asserts it appears in /wp/v2/block-types and renders sample markup, then produces an install zip that satisfies the companion install policy. The companion deliberately does not lint PHP — nothing reaches an instance that has not passed here.',
+      'THE SAFETY GATE. Syntax-gates every shipped script (no build step — the block is vanilla no-build JS), boots @wp-playground/cli, registers the block, asserts it appears in /wp/v2/block-types and renders sample markup, then produces an install zip that satisfies the companion install policy. The companion deliberately does not lint PHP — nothing reaches an instance that has not passed here.',
     inputSchema: z.looseObject({
       dir: z.string().describe('Scaffold directory returned by wp_block_scaffold.'),
       sample_attributes: z.record(z.string(), z.unknown()).optional().describe('Attribute values used for the smoke render.'),

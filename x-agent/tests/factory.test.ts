@@ -36,6 +36,7 @@ import {
   readBlockMetadata,
   scaffold,
   stagePackage,
+  syntaxGate,
   templateDir,
   type ScaffoldAttribute,
 } from '../mcp/src/factory.js';
@@ -78,18 +79,21 @@ function expectThrowsInvalidInput(fn: () => unknown): void {
 /* ========================================================================== */
 
 describe('templates/dynamic-block', () => {
-  it('ships exactly the file set the spec file_layout pins', () => {
+  it('ships exactly the file set the spec file_layout pins — no-build, no package.json, no src/', () => {
     const tpl = templateDir();
-    for (const f of ['block.json', 'render.php', 'package.json', 'src/edit.js', 'src/index.js']) {
+    for (const f of ['block.json', 'render.php', 'edit.js', 'edit.asset.php']) {
       expect(fs.existsSync(path.join(tpl, f)), `${f} missing from the template`).toBe(true);
     }
+    expect(fs.existsSync(path.join(tpl, 'package.json'))).toBe(false);
+    expect(fs.existsSync(path.join(tpl, 'src'))).toBe(false);
   });
 
-  it('the template block.json declares apiVersion 3, an agent/ name and a render entry', () => {
+  it('the template block.json declares apiVersion 3, an agent/ name, a render entry and the unbuilt editor script', () => {
     const raw = fs.readFileSync(path.join(templateDir(), 'block.json'), 'utf8');
     expect(raw).toContain('"apiVersion": 3');
     expect(raw).toContain('"name": "agent/{{slug}}"');
     expect(raw).toContain('"render": "file:./render.php"');
+    expect(raw).toContain('"editorScript": "file:./edit.js"');
   });
 });
 
@@ -179,7 +183,7 @@ describe('wp_block_scaffold — generated files', () => {
 
   it('produces exactly the expected file set', () => {
     const out = scaffold({ slug: 'file-set', title: 'File Set', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true });
-    expect(out.files).toEqual(['block.json', 'package.json', 'render.php', 'src/edit.js', 'src/index.js']);
+    expect(out.files).toEqual(['block.json', 'edit.asset.php', 'edit.js', 'render.php']);
     for (const f of out.files) expect(fs.existsSync(path.join(out.dir, f))).toBe(true);
   });
 
@@ -226,13 +230,13 @@ describe('wp_block_scaffold — generated files', () => {
     }
   });
 
-  it('src/edit.js picks images in the inspector via MediaUpload (the canvas shows the server render)', () => {
-    const js = fs.readFileSync(path.join(dir, 'src/edit.js'), 'utf8');
-    expect(js).toContain('<MediaUploadCheck>');
-    expect(js).toContain('<MediaUpload');
+  it('edit.js picks images in the inspector via MediaUpload (the canvas shows the server render)', () => {
+    const js = fs.readFileSync(path.join(dir, 'edit.js'), 'utf8');
+    expect(js).toContain('el( MediaUploadCheck');
+    expect(js).toContain('el( MediaUpload, {');
     expect(js).toContain('setAttributes( { photoUrl: media.url } )');
     // No inline media slot: the image is visible in the ServerSideRender preview.
-    expect(js).not.toContain('<MediaPlaceholder');
+    expect(js).not.toContain('MediaPlaceholder');
   });
 
   it('render.php outputs image attributes through esc_url inside an <img>', () => {
@@ -240,23 +244,44 @@ describe('wp_block_scaffold — generated files', () => {
     expect(php).toContain('esc_url( (string) $photo_url )');
   });
 
-  it('src/edit.js previews through ServerSideRender and keeps every control in the inspector', () => {
-    const js = fs.readFileSync(path.join(dir, 'src/edit.js'), 'utf8');
+  it('edit.js previews through ServerSideRender and keeps every control in the inspector', () => {
+    const js = fs.readFileSync(path.join(dir, 'edit.js'), 'utf8');
     expect(js).not.toContain('{{');
     expect(js).toContain('useBlockProps');
-    expect(js).toContain('<InspectorControls>');
+    expect(js).toContain('el( InspectorControls');
     // The canvas IS render.php: no hand-maintained preview markup that can drift.
-    expect(js).toContain('<ServerSideRender');
-    expect(js).toContain('block="agent/pricing-card"');
-    expect(js).not.toContain('<RichText');
+    expect(js).toContain('el( ServerSideRender, {');
+    expect(js).toContain("block: 'agent/pricing-card'");
+    expect(js).not.toContain('RichText');
     // Every attribute gets a sidebar control with a user-facing label.
-    expect(js).toContain('label={ __( "Plan name", "agent-pricing-card" ) }');
+    expect(js).toContain('label: __( "Plan name", "agent-pricing-card" )');
     expect(js).toContain('setAttributes( { planName: value } )');
-    expect(js).toContain('<TextareaControl');
-    expect(js).toContain('type="number"');
-    expect(js).toContain('<ToggleControl');
-    expect(js).toContain('<SelectControl');
-    expect(js).toContain("{ label: __( \"Pro\", \"agent-pricing-card\" ), value: \"pro\" }");
+    expect(js).toContain('el( TextareaControl');
+    expect(js).toContain("type: 'number'");
+    expect(js).toContain('el( ToggleControl');
+    expect(js).toContain('el( SelectControl');
+    expect(js).toContain('{ label: __( "Pro", "agent-pricing-card" ), value: "pro" }');
+  });
+
+  it('edit.js is vanilla no-build JS: wp.* globals only, no module syntax, no JSX', () => {
+    const js = fs.readFileSync(path.join(dir, 'edit.js'), 'utf8');
+    expect(js).not.toContain('import ');
+    expect(js).not.toContain('require(');
+    expect(js).not.toMatch(/<[A-Z]/); // no JSX element anywhere
+    expect(js).toContain('wp.blocks');
+    expect(js).toContain('wp.serverSideRender');
+    // The whole block registers from this one file: no src/index.js entry point.
+    expect(js).toContain("registerBlockType( 'agent/pricing-card'");
+  });
+
+  it('edit.asset.php declares the wp.* dependencies WordPress must load before edit.js', () => {
+    const php = fs.readFileSync(path.join(dir, 'edit.asset.php'), 'utf8');
+    expect(php).not.toContain('{{');
+    for (const handle of ['wp-blocks', 'wp-element', 'wp-i18n', 'wp-block-editor', 'wp-components', 'wp-server-side-render']) {
+      expect(php, `${handle} missing from edit.asset.php`).toContain(`'${handle}'`);
+    }
+    expect(php).toContain("'version'");
+    expect(php).toContain('0.1.0');
   });
 
   it('block.json and edit.js carry user-facing copy only — no toolchain vocabulary', () => {
@@ -280,9 +305,9 @@ describe('wp_block_scaffold — generated files', () => {
     });
     const meta = JSON.parse(fs.readFileSync(path.join(out.dir, 'block.json'), 'utf8')) as Record<string, unknown>;
     expect(meta.description).toBe('A card with a friendly description.');
-    const js = fs.readFileSync(path.join(out.dir, 'src/edit.js'), 'utf8');
-    expect(js).toContain('label={ __( "Button text", "agent-labeled-card" ) }');
-    expect(js).toContain('help={ __( "Shown on the card’s button.", "agent-labeled-card" ) }');
+    const js = fs.readFileSync(path.join(out.dir, 'edit.js'), 'utf8');
+    expect(js).toContain('label: __( "Button text", "agent-labeled-card" )');
+    expect(js).toContain('help: __( "Shown on the card’s button.", "agent-labeled-card" )');
   });
 
   it('an array attribute with control textarea is edited one item per line and stays an array', () => {
@@ -294,11 +319,11 @@ describe('wp_block_scaffold — generated files', () => {
       force: true,
       attributes: [{ name: 'items', type: 'array', default: [], control: 'textarea', help: 'One fact per line.' }],
     });
-    const js = fs.readFileSync(path.join(out.dir, 'src/edit.js'), 'utf8');
+    const js = fs.readFileSync(path.join(out.dir, 'edit.js'), 'utf8');
     expect(js).toContain("( attributes.items ?? [] ).join( '\\n' )");
     expect(js).toContain("setAttributes( { items: value.split( '\\n' ) } )");
     // Never a raw value dump: the array is not bound to a control as-is.
-    expect(js).not.toContain('value={ attributes.items }');
+    expect(js).not.toContain('value: attributes.items,');
   });
 
   it('a structured attribute scaffolds the JSON fallback flagged for replacement before install', () => {
@@ -310,10 +335,11 @@ describe('wp_block_scaffold — generated files', () => {
       force: true,
       attributes: [{ name: 'rows', type: 'array', default: [] }],
     });
-    const js = fs.readFileSync(path.join(out.dir, 'src/edit.js'), 'utf8');
-    expect(js).toContain('<StructuredFallbackControl');
+    const js = fs.readFileSync(path.join(out.dir, 'edit.js'), 'utf8');
+    expect(js).toContain('el( StructuredFallbackControl');
     expect(js).toContain('Replace its usage below');
-    expect(js).toContain("import { useState } from '@wordpress/element';");
+    expect(js).toContain('useState');
+    expect(js).not.toContain('import ');
   });
 
   it('render.php exposes $is_editor_preview for front-hidden output', () => {
@@ -323,7 +349,7 @@ describe('wp_block_scaffold — generated files', () => {
   });
 
   it('is DYNAMIC by construction — save returns null and there is no static path', () => {
-    const js = fs.readFileSync(path.join(dir, 'src/index.js'), 'utf8');
+    const js = fs.readFileSync(path.join(dir, 'edit.js'), 'utf8');
     expect(js).toContain('save: () => null');
     expect(js).not.toMatch(/save\s*:\s*function/);
     // The whole template tree: no block.json anywhere without a render entry.
@@ -331,13 +357,12 @@ describe('wp_block_scaffold — generated files', () => {
     expect(tplBlockJson).toContain('"render"');
   });
 
-  it('package.json builds with @wordpress/scripts', () => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')) as {
-      scripts: Record<string, string>;
-      devDependencies: Record<string, string>;
-    };
-    expect(pkg.scripts.build).toBe('wp-scripts build');
-    expect(pkg.devDependencies['@wordpress/scripts']).toBeTruthy();
+  it('the scaffold is no-build: no package.json, no src/, no node_modules ever', () => {
+    expect(fs.existsSync(path.join(dir, 'package.json'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, 'src'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, 'node_modules'))).toBe(false);
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'block.json'), 'utf8')) as { editorScript: string };
+    expect(meta.editorScript).toBe('file:./edit.js');
   });
 
   it('readBlockMetadata refuses a block.json with no render entry (a static block)', () => {
@@ -409,21 +434,13 @@ function writeHostileZip(name: string, files: Record<string, string>): string {
   return p;
 }
 
-/** A scaffold plus the artefacts a wp-scripts build would have produced. */
-function scaffoldWithFakeBuild(slug: string): string {
-  const out = scaffold({ slug, title: 'Packaged', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true });
-  fs.mkdirSync(path.join(out.dir, 'build'), { recursive: true });
-  fs.writeFileSync(path.join(out.dir, 'build/index.js'), '/* built by wp-scripts */\n');
-  fs.writeFileSync(path.join(out.dir, 'build/index.asset.php'), "<?php return array('dependencies' => array(), 'version' => 'x');\n");
-  return out.dir;
-}
-
 describe('packaging — CONTRACT.md §5 install policy, asserted by reading the zip back', () => {
   let zipPath: string;
   let blockDir: string;
 
   beforeAll(() => {
-    const dir = scaffoldWithFakeBuild('packaged-card');
+    // No build step exists: the scaffold's own files ARE the package.
+    const dir = scaffold({ slug: 'packaged-card', title: 'Packaged', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true }).dir;
     const stage = stagePackage(dir);
     expect(stage.missing).toEqual([]);
     expect(stage.pluginDirName).toBe('agent-block-packaged-card');
@@ -475,9 +492,10 @@ describe('packaging — CONTRACT.md §5 install policy, asserted by reading the 
     const Zip = loadAdmZip();
     const entries = new Zip(zipPath).getEntries().filter((e) => !e.isDirectory);
     const names = new Set(entries.map((e) => e.entryName));
-    expect(names).toContain('agent-block-packaged-card/packaged-card/build/index.js');
-    expect(names).toContain('agent-block-packaged-card/packaged-card/build/index.asset.php');
+    expect(names).toContain('agent-block-packaged-card/packaged-card/edit.js');
+    expect(names).toContain('agent-block-packaged-card/packaged-card/edit.asset.php');
     expect(names).toContain('agent-block-packaged-card/packaged-card/render.php');
+    expect([...names].some((n) => n.includes('/build/'))).toBe(false);
   });
 
   it('carries no ../ and no absolute zip entries', () => {
@@ -618,7 +636,7 @@ describe('inspectPackage — catches every policy violation before the companion
 
 describe('smoke helpers', () => {
   it('merges sample attributes over the block.json defaults', () => {
-    const dir = scaffoldWithFakeBuild('merge-card');
+    const dir = scaffold({ slug: 'merge-card', title: 'Merge Card', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true }).dir;
     const meta = readBlockMetadata(dir);
     const merged = mergedSampleAttributes(meta, { planName: 'Enterprise', price: 49 });
     expect(merged).toMatchObject({ planName: 'Enterprise', price: 49, featured: false, tier: 'basic' });
@@ -640,5 +658,47 @@ describe('smoke helpers', () => {
 
   it('returns empty string when there is no PHP error to find', () => {
     expect(extractPhpError('<div>all good</div>')).toBe('');
+  });
+});
+
+/* ========================================================================== */
+
+/**
+ * The syntax gate replaced the npm/wp-scripts build (decision 2026-08-26):
+ * there is no compile step, so the gate parses the exact bytes that ship —
+ * classic scripts as scripts, a viewScriptModule as an ES module. All offline.
+ */
+describe('syntaxGate — the no-build first step of wp_block_build_test', () => {
+  it('passes a fresh scaffold and never creates node_modules', async () => {
+    const dir = scaffold({ slug: 'gate-clean', title: 'Gate Clean', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true }).dir;
+    const gate = await syntaxGate(dir);
+    expect(gate.log).toBe('');
+    expect(gate.ok).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'node_modules'))).toBe(false);
+  });
+
+  it('fails a broken edit.js, naming the file in the log', async () => {
+    const dir = scaffold({ slug: 'gate-broken-edit', title: 'Gate Broken', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true }).dir;
+    fs.appendFileSync(path.join(dir, 'edit.js'), '\nconst = nope;\n');
+    const gate = await syntaxGate(dir);
+    expect(gate.ok).toBe(false);
+    expect(gate.log).toContain('edit.js');
+  });
+
+  it('checks a vanilla viewScript too', async () => {
+    const dir = scaffold({ slug: 'gate-view', title: 'Gate View', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true, interactivity: 'view-script' }).dir;
+    fs.appendFileSync(path.join(dir, 'view.js'), '\nfunction ( { broken\n');
+    const gate = await syntaxGate(dir);
+    expect(gate.ok).toBe(false);
+    expect(gate.log).toContain('view.js');
+  });
+
+  it('parses a viewScriptModule as an ES module — import syntax is not a false failure', async () => {
+    const dir = scaffold({ slug: 'gate-esm', title: 'Gate ESM', render_intent: INTENT, dir: WS, attributes: ATTRS, force: true, interactivity: 'interactivity-api' }).dir;
+    const view = fs.readFileSync(path.join(dir, 'view.js'), 'utf8');
+    expect(view).toContain('import'); // the premise: the module really uses ESM syntax
+    const gate = await syntaxGate(dir);
+    expect(gate.log).toBe('');
+    expect(gate.ok).toBe(true);
   });
 });

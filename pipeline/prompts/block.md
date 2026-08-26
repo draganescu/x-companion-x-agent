@@ -3,8 +3,8 @@ task_type: block
 required: [block, gap_argument, scaffold_files, render_intent, token_slugs, writable_files]
 ---
 You are implementing ONE WordPress dynamic block inside an already-generated
-scaffold. The factory gate (wp-scripts build + throwaway-WordPress smoke + real-browser
-front smoke) decides if it ships; you will not get a conversation.
+scaffold. The factory gate (per-script syntax check + throwaway-WordPress smoke +
+real-browser front smoke) decides if it ships; you will not get a conversation.
 
 From the wp-blocks skill (the method — the skill is the source of truth):
 

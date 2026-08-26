@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * THE BLOCK FACTORY — scaffold, build, smoke-test, package, install.
+ * THE BLOCK FACTORY — scaffold, syntax-gate, smoke-test, package, install.
  * ============================================================================
  *
  * Step 3 of the vocabulary-gap ladder. Everything here exists to answer one
@@ -13,9 +13,13 @@
  * `render.php` is a parse error waiting to fatal the front page. The contract
  * puts the real gate here, on the agent side:
  *
- *     build -> stage the exact bytes that will ship -> boot a throwaway
- *     WordPress -> register the block -> assert it in /wp/v2/block-types ->
- *     render it -> only then zip.
+ *     syntax-gate every shipped script -> stage the exact bytes that will
+ *     ship -> boot a throwaway WordPress -> register the block -> assert it
+ *     in /wp/v2/block-types -> render it -> only then zip.
+ *
+ * There is NO build step (decision 2026-08-26): the scaffold is vanilla JS
+ * against the wp.* globals, so the bytes the gate checks are the bytes that
+ * ship — no npm, no wp-scripts, no dependency cache to rot.
  *
  * A failure at any step returns structured detail and **no zip**, so there is
  * nothing for `wp_block_install` to send. `wp_block_build_test` is the only
@@ -25,7 +29,7 @@
  * --------------
  * The spec's non-goals say "No static block generation under any
  * circumstances." There is no code path in this file that emits a `save()`
- * returning markup: the scaffolded `src/index.js` hard-codes `save: () => null`
+ * returning markup: the scaffolded `edit.js` hard-codes `save: () => null`
  * and `block.json` always carries a `render` entry. A static block freezes its
  * output into every post that uses it, which makes the markup un-fixable after
  * the fact and makes `wp_verify` lie.
@@ -66,8 +70,7 @@ export const SLUG_RE = /^[a-z0-9-]+$/;
 export const BLOCK_NAME_RE = /^agent\/[a-z0-9-]+$/;
 /** CONTRACT.md §5: "total size ≤ 5 MB". */
 export const MAX_PACKAGE_BYTES = 5 * 1024 * 1024;
-const DEFAULT_WP_SCRIPTS_VERSION = '^34.0.0';
-const DEFAULT_BUILD_TIMEOUT_MS = 15 * 60_000;
+const DEFAULT_SYNTAX_TIMEOUT_MS = 30_000;
 const DEFAULT_SMOKE_TIMEOUT_MS = 5 * 60_000;
 /** Ports the smoke sandbox may bind. Overridable so parallel agents do not collide. */
 const DEFAULT_PORT_RANGE = [9440, 9449];
@@ -352,7 +355,7 @@ export function renderAttributeOutput(attrs, cssClass, textdomain = 'agent') {
     })
         .join('\n');
 }
-const CTRL_INDENT = '\t\t\t\t\t';
+const CTRL_INDENT = '\t\t\t\t';
 /** Image attributes (control `image`, string URL) get a media picker in the inspector. */
 export function isImageAttribute(a) {
     return a.type === 'string' && a.control === 'image';
@@ -384,117 +387,118 @@ export function controlKind(a) {
 export function renderInspectorControls(attrs, textdomain) {
     const td = jsString(textdomain);
     if (attrs.length === 0) {
-        return `${CTRL_INDENT}<p>{ __( 'This block has no settings.', ${td} ) }</p>`;
+        return `${CTRL_INDENT}el( 'p', null, __( 'This block has no settings.', ${td} ) )`;
     }
+    const P = `${CTRL_INDENT}\t`; // one level inside the control's props object
     return attrs
         .map((a) => {
         const label = jsString(a.label ?? labelFor(a.name));
         const set = (expr) => `setAttributes( { ${a.name}: ${expr} } )`;
         const helpLine = (fallback) => {
             const text = a.help ?? fallback;
-            return text ? [`${CTRL_INDENT}\thelp={ __( ${jsString(text)}, ${td} ) }`] : [];
+            return text ? [`${P}help: __( ${jsString(text)}, ${td} ),`] : [];
         };
         switch (controlKind(a)) {
             case 'toggle':
                 return [
-                    `${CTRL_INDENT}<ToggleControl`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+                    `${CTRL_INDENT}el( ToggleControl, {`,
+                    `${P}label: __( ${label}, ${td} ),`,
                     ...helpLine(),
-                    `${CTRL_INDENT}\tchecked={ !! attributes.${a.name} }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${P}checked: !! attributes.${a.name},`,
+                    `${P}onChange: ( value ) => ${set('value')},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
             case 'select': {
                 const options = (a.options ?? []).map((o) => `{ label: __( ${jsString(o.label)}, ${td} ), value: ${jsString(o.value)} }`).join(', ');
                 return [
-                    `${CTRL_INDENT}<SelectControl`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+                    `${CTRL_INDENT}el( SelectControl, {`,
+                    `${P}label: __( ${label}, ${td} ),`,
                     ...helpLine(),
-                    `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-                    `${CTRL_INDENT}\toptions={ [ ${options} ] }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${P}value: attributes.${a.name},`,
+                    `${P}options: [ ${options} ],`,
+                    `${P}onChange: ( value ) => ${set('value')},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
             }
             case 'lines':
                 return [
-                    `${CTRL_INDENT}<TextareaControl`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+                    `${CTRL_INDENT}el( TextareaControl, {`,
+                    `${P}label: __( ${label}, ${td} ),`,
                     ...helpLine('One item per line.'),
-                    `${CTRL_INDENT}\tvalue={ ( attributes.${a.name} ?? [] ).join( '\\n' ) }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set("value.split( '\\n' )")} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${P}value: ( attributes.${a.name} ?? [] ).join( '\\n' ),`,
+                    `${P}onChange: ( value ) => ${set("value.split( '\\n' )")},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
             case 'structured':
                 // The fallback a site editor should never meet: replace with a
                 // purpose-built control (a row per item, add/remove) before install.
                 return [
-                    `${CTRL_INDENT}<StructuredFallbackControl`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
-                    ...(a.help ? [`${CTRL_INDENT}\thelp={ __( ${jsString(a.help)}, ${td} ) }`] : []),
-                    `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${CTRL_INDENT}el( StructuredFallbackControl, {`,
+                    `${P}label: __( ${label}, ${td} ),`,
+                    ...(a.help ? [`${P}help: __( ${jsString(a.help)}, ${td} ),`] : []),
+                    `${P}value: attributes.${a.name},`,
+                    `${P}onChange: ( value ) => ${set('value')},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
             case 'image':
                 // The canvas already shows the image (it is in the server render);
                 // the inspector only needs pick / replace / remove.
                 return [
-                    `${CTRL_INDENT}<MediaUploadCheck>`,
-                    `${CTRL_INDENT}\t<MediaUpload`,
-                    `${CTRL_INDENT}\t\tallowedTypes={ [ 'image' ] }`,
-                    `${CTRL_INDENT}\t\tonSelect={ ( media ) => ${set('media.url')} }`,
-                    `${CTRL_INDENT}\t\trender={ ( { open } ) => (`,
-                    `${CTRL_INDENT}\t\t\t<div>`,
-                    `${CTRL_INDENT}\t\t\t\t<Button variant="secondary" onClick={ open }>`,
-                    `${CTRL_INDENT}\t\t\t\t\t{ attributes.${a.name} ? __( ${jsString(`Replace: ${a.label ?? labelFor(a.name)}`)}, ${td} ) : __( ${jsString(`Select: ${a.label ?? labelFor(a.name)}`)}, ${td} ) }`,
-                    `${CTRL_INDENT}\t\t\t\t</Button>`,
-                    `${CTRL_INDENT}\t\t\t\t{ !! attributes.${a.name} && (`,
-                    `${CTRL_INDENT}\t\t\t\t\t<Button variant="link" isDestructive onClick={ () => ${set("''")} }>`,
-                    `${CTRL_INDENT}\t\t\t\t\t\t{ __( 'Remove', ${td} ) }`,
-                    `${CTRL_INDENT}\t\t\t\t\t</Button>`,
-                    `${CTRL_INDENT}\t\t\t\t) }`,
-                    `${CTRL_INDENT}\t\t\t</div>`,
-                    `${CTRL_INDENT}\t\t) }`,
-                    `${CTRL_INDENT}\t/>`,
-                    `${CTRL_INDENT}</MediaUploadCheck>`,
+                    `${CTRL_INDENT}el( MediaUploadCheck, null, el( MediaUpload, {`,
+                    `${P}allowedTypes: [ 'image' ],`,
+                    `${P}onSelect: ( media ) => ${set('media.url')},`,
+                    `${P}render: ( { open } ) => el(`,
+                    `${P}\t'div',`,
+                    `${P}\tnull,`,
+                    `${P}\tel(`,
+                    `${P}\t\tButton,`,
+                    `${P}\t\t{ variant: 'secondary', onClick: open },`,
+                    `${P}\t\tattributes.${a.name} ? __( ${jsString(`Replace: ${a.label ?? labelFor(a.name)}`)}, ${td} ) : __( ${jsString(`Select: ${a.label ?? labelFor(a.name)}`)}, ${td} )`,
+                    `${P}\t),`,
+                    `${P}\t!! attributes.${a.name} && el(`,
+                    `${P}\t\tButton,`,
+                    `${P}\t\t{ variant: 'link', isDestructive: true, onClick: () => ${set("''")} },`,
+                    `${P}\t\t__( 'Remove', ${td} )`,
+                    `${P}\t)`,
+                    `${P}),`,
+                    `${CTRL_INDENT}} ) )`,
                 ].join('\n');
             case 'number': {
                 const cast = a.type === 'integer' ? 'parseInt( value, 10 )' : 'Number( value )';
                 return [
-                    `${CTRL_INDENT}<TextControl`,
-                    `${CTRL_INDENT}\ttype="number"`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+                    `${CTRL_INDENT}el( TextControl, {`,
+                    `${P}type: 'number',`,
+                    `${P}label: __( ${label}, ${td} ),`,
                     ...helpLine(),
-                    `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set(`value === '' ? undefined : ${cast}`)} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${P}value: attributes.${a.name},`,
+                    `${P}onChange: ( value ) => ${set(`value === '' ? undefined : ${cast}`)},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
             }
             case 'textarea':
                 return [
-                    `${CTRL_INDENT}<TextareaControl`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+                    `${CTRL_INDENT}el( TextareaControl, {`,
+                    `${P}label: __( ${label}, ${td} ),`,
                     ...helpLine(),
-                    `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${P}value: attributes.${a.name},`,
+                    `${P}onChange: ( value ) => ${set('value')},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
             default:
                 return [
-                    `${CTRL_INDENT}<TextControl`,
-                    `${CTRL_INDENT}\tlabel={ __( ${label}, ${td} ) }`,
+                    `${CTRL_INDENT}el( TextControl, {`,
+                    `${P}label: __( ${label}, ${td} ),`,
                     ...helpLine(),
-                    `${CTRL_INDENT}\tvalue={ attributes.${a.name} }`,
-                    `${CTRL_INDENT}\tonChange={ ( value ) => ${set('value')} }`,
-                    `${CTRL_INDENT}/>`,
+                    `${P}value: attributes.${a.name},`,
+                    `${P}onChange: ( value ) => ${set('value')},`,
+                    `${CTRL_INDENT}} )`,
                 ].join('\n');
         }
     })
-        .join('\n');
+        .join(',\n');
 }
-/** Imports for src/edit.js — exactly the components the generated controls use. */
-export function renderEditorImports(attrs) {
+/** wp.* destructures for edit.js — exactly the components the generated controls use. */
+export function renderEditorGlobals(attrs) {
     const kinds = new Set(attrs.map(controlKind));
     const blockEditor = ['useBlockProps', 'InspectorControls'];
     if (kinds.has('image'))
@@ -511,33 +515,32 @@ export function renderEditorImports(attrs) {
     if (kinds.has('image'))
         components.push('Button');
     const lines = [
-        `import { ${blockEditor.join(', ')} } from '@wordpress/block-editor';`,
-        `import { ${components.join(', ')} } from '@wordpress/components';`,
+        `\tconst { ${blockEditor.join(', ')} } = wp.blockEditor;`,
+        `\tconst { ${components.join(', ')} } = wp.components;`,
     ];
     if (kinds.has('structured'))
-        lines.push(`import { useState } from '@wordpress/element';`);
+        lines.push(`\tconst { useState } = wp.element;`);
     return lines.join('\n');
 }
-/** Helper components for src/edit.js, emitted only when a control needs them. */
+/** Helper components for edit.js, emitted only when a control needs them. */
 export function renderEditorHelpers(attrs, textdomain) {
     if (!attrs.some((a) => controlKind(a) === 'structured'))
         return '';
     const td = jsString(textdomain);
     return `
-/**
- * FALLBACK for a structured attribute — a site editor should never meet raw
- * JSON. Replace its usage below with a purpose-built control (one field per
- * property, add/remove rows) before this block is installed.
- */
-function StructuredFallbackControl( { label, help, value, onChange } ) {
-	const [ text, setText ] = useState( () => JSON.stringify( value ?? null, null, 2 ) );
-	const [ invalid, setInvalid ] = useState( false );
-	return (
-		<TextareaControl
-			label={ label }
-			help={ invalid ? __( 'Not applied yet — the value is not valid.', ${td} ) : help }
-			value={ text }
-			onChange={ ( next ) => {
+	/**
+	 * FALLBACK for a structured attribute — a site editor should never meet raw
+	 * JSON. Replace its usage below with a purpose-built control (one field per
+	 * property, add/remove rows) before this block is installed.
+	 */
+	function StructuredFallbackControl( { label, help, value, onChange } ) {
+		const [ text, setText ] = useState( () => JSON.stringify( value ?? null, null, 2 ) );
+		const [ invalid, setInvalid ] = useState( false );
+		return el( TextareaControl, {
+			label: label,
+			help: invalid ? __( 'Not applied yet — the value is not valid.', ${td} ) : help,
+			value: text,
+			onChange: ( next ) => {
 				setText( next );
 				try {
 					onChange( JSON.parse( next ) );
@@ -545,10 +548,9 @@ function StructuredFallbackControl( { label, help, value, onChange } ) {
 				} catch ( e ) {
 					setInvalid( true );
 				}
-			} }
-		/>
-	);
-}
+			},
+		} );
+	}
 `;
 }
 function labelFor(name) {
@@ -561,7 +563,7 @@ function labelFor(name) {
 /* ========================================================================== */
 /* Scaffold                                                                   */
 /* ========================================================================== */
-export const SCAFFOLD_FILES = ['block.json', 'render.php', 'package.json', 'src/index.js', 'src/edit.js'];
+export const SCAFFOLD_FILES = ['block.json', 'render.php', 'edit.js', 'edit.asset.php'];
 export function scaffold(input) {
     const slug = assertSlug(input.slug);
     const attrs = assertAttributes(input.attributes);
@@ -596,18 +598,17 @@ export function scaffold(input) {
         version,
         textdomain,
         css_class: cssClass,
-        wp_scripts_version: process.env.X_AGENT_WP_SCRIPTS_VERSION || DEFAULT_WP_SCRIPTS_VERSION,
         attributes_json: indentJson(attributesJson(attrs), '\t'),
         render_intent_comment: renderIntentComment(renderIntent),
         attribute_locals: renderAttributeLocals(attrs),
         attribute_output: renderAttributeOutput(attrs, cssClass, textdomain),
         inspector_controls: renderInspectorControls(attrs, textdomain),
-        editor_imports: renderEditorImports(attrs),
+        editor_globals: renderEditorGlobals(attrs),
         editor_helpers: renderEditorHelpers(attrs, textdomain),
     };
     const tpl = templateDir();
     const written = [];
-    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.mkdirSync(dir, { recursive: true });
     for (const rel of SCAFFOLD_FILES) {
         const src = path.join(tpl, rel);
         if (!fs.existsSync(src)) {
@@ -1037,99 +1038,58 @@ export function run(cmd, args, opts) {
     });
 }
 /**
- * `npm ci` when a lockfile is available, `npm install` otherwise, then
- * `wp-scripts build`.
+ * The no-build gate: parse every script block.json ships, exactly as shipped.
+ * Classic scripts (editorScript, script, viewScript) are checked with
+ * `node --check`; a viewScriptModule is checked as an ES module (the same
+ * check against a `.mjs` copy, so `import` syntax is not a false failure).
  *
- * Cold `npm install` of `@wordpress/scripts` is ~1500 packages and about a
- * minute of wall clock. That is paid once: the resolved `node_modules` and its
- * lockfile are parked in a content-addressed cache keyed by the scaffold's
- * devDependencies, and later scaffolds with the same dependency set get a
- * symlink instead of a download. Set `X_AGENT_BLOCK_CACHE=0` to opt out.
+ * This replaced `npm ci` + `wp-scripts build` (decision 2026-08-26): the
+ * scaffold is vanilla JS against the wp.* globals, so there is nothing to
+ * compile — and therefore no dependency cache to rot and no registry to reach.
  */
-export async function buildBlock(dir, opts = {}) {
-    const timeoutMs = opts.timeoutMs ?? envInt('X_AGENT_BLOCK_BUILD_TIMEOUT_MS', DEFAULT_BUILD_TIMEOUT_MS);
-    const pkgPath = path.join(dir, 'package.json');
-    if (!fs.existsSync(pkgPath)) {
-        throw errInvalidInput(`${dir} has no package.json.`, 'Pass the directory returned by wp_block_scaffold.', { dir });
+export async function syntaxGate(dir, opts = {}) {
+    const started = Date.now();
+    const meta = readBlockMetadata(dir);
+    const raw = meta.raw;
+    const refOf = (v) => typeof v === 'string' && v.startsWith('file:') ? v.slice('file:'.length).replace(/^\.\//, '') : null;
+    const entries = [];
+    for (const key of ['editorScript', 'script', 'viewScript']) {
+        const rel = refOf(raw[key]);
+        if (rel && rel.endsWith('.js'))
+            entries.push({ rel, module: false });
     }
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    const cacheDir = dependencyCacheDir(pkg.devDependencies ?? {});
-    const nodeModules = path.join(dir, 'node_modules');
-    const parts = [];
-    let installMs = 0;
-    let cached = false;
-    const deadline = Date.now() + timeoutMs;
-    if (opts.forceInstall)
-        fs.rmSync(nodeModules, { recursive: true, force: true });
-    if (!fs.existsSync(nodeModules)) {
-        if (cacheDir && fs.existsSync(path.join(cacheDir, 'node_modules'))) {
-            try {
-                fs.symlinkSync(path.join(cacheDir, 'node_modules'), nodeModules, 'dir');
-                const lock = path.join(cacheDir, 'package-lock.json');
-                if (fs.existsSync(lock))
-                    fs.copyFileSync(lock, path.join(dir, 'package-lock.json'));
-                cached = true;
-                parts.push(`$ (dependency cache hit) ${cacheDir}`);
-            }
-            catch (e) {
-                parts.push(`# dependency cache unusable (${e.message}); installing fresh`);
-            }
+    const mod = refOf(raw.viewScriptModule);
+    if (mod && mod.endsWith('.js'))
+        entries.push({ rel: mod, module: true });
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_SYNTAX_TIMEOUT_MS;
+    const problems = [];
+    for (const { rel, module } of entries) {
+        const abs = path.join(dir, rel);
+        if (!fs.existsSync(abs)) {
+            problems.push(`${rel}: named in block.json but missing from the scaffold`);
+            continue;
         }
-        if (!cached) {
-            const hasLock = fs.existsSync(path.join(dir, 'package-lock.json'));
-            const args = hasLock ? ['ci', '--no-audit', '--no-fund'] : ['install', '--no-audit', '--no-fund'];
-            parts.push(`$ npm ${args.join(' ')}`);
-            const res = await run('npm', args, { cwd: dir, timeoutMs: Math.max(1, deadline - Date.now()) });
-            installMs = res.ms;
-            parts.push(tail(res.stdout), tail(res.stderr));
+        // ES-module syntax needs the .mjs extension for node to parse it as ESM.
+        const target = module ? path.join(os.tmpdir(), `x-agent-gate-${crypto.randomBytes(6).toString('hex')}.mjs`) : abs;
+        if (module)
+            fs.copyFileSync(abs, target);
+        try {
+            const res = await run(process.execPath, ['--check', target], { cwd: dir, timeoutMs });
             if (res.code !== 0) {
-                return {
-                    ok: false,
-                    log: parts.filter(Boolean).join('\n'),
-                    installMs,
-                    buildMs: 0,
-                    cached,
-                };
+                const detail = (res.stderr || res.stdout).trim().split('\n').slice(0, 12).join('\n');
+                problems.push(`${rel}:\n${detail.replaceAll(target, rel)}`);
             }
-            if (cacheDir)
-                primeCache(cacheDir, dir, opts.logger);
+        }
+        finally {
+            if (module)
+                fs.rmSync(target, { force: true });
         }
     }
-    else {
-        parts.push('$ (node_modules already present, skipping install)');
-        cached = true;
-    }
-    parts.push('$ npm run build');
-    const build = await run('npm', ['run', 'build'], { cwd: dir, timeoutMs: Math.max(1, deadline - Date.now()) });
-    parts.push(tail(build.stdout), tail(build.stderr));
-    return { ok: build.code === 0, log: parts.filter(Boolean).join('\n'), installMs, buildMs: build.ms, cached };
+    return { ok: problems.length === 0, log: problems.join('\n\n'), ms: Date.now() - started };
 }
 function tail(s, max = 8000) {
     const t = s.trim();
     return t.length > max ? `…\n${t.slice(-max)}` : t;
-}
-function dependencyCacheDir(devDeps) {
-    if (process.env.X_AGENT_BLOCK_CACHE === '0')
-        return null;
-    const key = crypto.createHash('sha256').update(JSON.stringify(devDeps)).digest('hex').slice(0, 16);
-    return path.join(defaultWorkspace(), '.deps', key);
-}
-function primeCache(cacheDir, dir, logger) {
-    try {
-        if (fs.existsSync(path.join(cacheDir, 'node_modules')))
-            return;
-        fs.mkdirSync(cacheDir, { recursive: true });
-        const from = path.join(dir, 'node_modules');
-        const to = path.join(cacheDir, 'node_modules');
-        fs.renameSync(from, to);
-        fs.symlinkSync(to, from, 'dir');
-        const lock = path.join(dir, 'package-lock.json');
-        if (fs.existsSync(lock))
-            fs.copyFileSync(lock, path.join(cacheDir, 'package-lock.json'));
-    }
-    catch (e) {
-        logger?.warn(`could not prime the block dependency cache: ${e.message}`);
-    }
 }
 /* ========================================================================== */
 /* Smoke test — real Playground boot, in a child process                      */
@@ -1605,29 +1565,19 @@ export class BlockFactory {
         }
         const timings = {};
         const deviations = [];
-        // 1. Build. -----------------------------------------------------------
-        const buildOpts = {};
-        if (input.timeout_ms)
-            buildOpts.timeoutMs = input.timeout_ms;
-        if (input.force_install)
-            buildOpts.forceInstall = true;
-        if (this.logger)
-            buildOpts.logger = this.logger;
-        const build = await buildBlock(dir, buildOpts);
-        timings.install = build.installMs;
-        timings.build = build.buildMs;
-        // A cache hit is not a deviation — it is the same wp-scripts build with the
-        // same node_modules, just not re-downloaded. It is recorded in build_log.
-        timings.install_cached = build.cached ? 1 : 0;
-        if (!build.ok) {
+        // 1. The syntax gate — no compile step; the bytes checked are the bytes
+        //    that ship (decision 2026-08-26; npm/wp-scripts deleted).
+        const gate = await syntaxGate(dir, input.timeout_ms ? { timeoutMs: input.timeout_ms } : {});
+        timings.syntax_check = gate.ms;
+        if (!gate.ok) {
             return {
                 built: false,
                 smoke: { registered: false, rendered_html: '' },
-                build_log: build.log,
+                build_log: gate.log,
                 failure: {
                     code: 'build_failed',
-                    message: 'npm install / wp-scripts build failed; see build_log.',
-                    hint: 'Fix the JavaScript build errors in src/ and call wp_block_build_test again. Nothing is packaged and nothing is sent to an instance until the build passes.',
+                    message: 'A shipped script failed the syntax gate; see build_log.',
+                    hint: 'Fix the JavaScript syntax error build_log names and call wp_block_build_test again. Nothing is packaged and nothing is sent to an instance until the gate passes.',
                 },
                 timings_ms: timings,
                 deviations,
@@ -1639,11 +1589,11 @@ export class BlockFactory {
             return {
                 built: true,
                 smoke: { registered: false, rendered_html: '' },
-                build_log: build.log,
+                build_log: gate.log,
                 failure: {
                     code: 'build_failed',
-                    message: `block.json references file(s) the build did not produce: ${stage.missing.join(', ')}.`,
-                    hint: 'Run the build again, or correct the file: paths in block.json. The companion rejects a package whose block.json references a missing file.',
+                    message: `block.json references file(s) the scaffold does not contain: ${stage.missing.join(', ')}.`,
+                    hint: 'Correct the file: paths in block.json, or restore the missing file. The companion rejects a package whose block.json references a missing file.',
                 },
                 timings_ms: timings,
                 deviations,
@@ -1665,7 +1615,7 @@ export class BlockFactory {
             smokeOut.php_error = smoke.result.php_error;
         if (smoke.result.front)
             smokeOut.front = smoke.result.front;
-        const log = [build.log, smoke.log].filter(Boolean).join('\n');
+        const log = [gate.log, smoke.log].filter(Boolean).join('\n');
         // M6: R11 lint — surfaced always, never a failure by itself.
         const styleWarnings = styleLintWarnings(dir);
         // M6: front-end assets must actually work in a real browser. A viewScript

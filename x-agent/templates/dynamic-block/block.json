@@ -18,6 +18,6 @@
 		"color": { "background": true, "text": true }
 	},
 	"attributes": {{attributes_json}},
-	"editorScript": "file:./build/index.js",
+	"editorScript": "file:./edit.js",
 	"render": "file:./render.php"
 }

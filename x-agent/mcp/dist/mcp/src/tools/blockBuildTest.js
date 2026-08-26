@@ -6,7 +6,9 @@
  * (Playground smoke-test before POSTing)." This is that gate, and it is the only
  * producer of the `zip_path` that `wp_block_install` consumes.
  *
- *   1. `npm ci`/`npm install` + `wp-scripts build`
+ *   1. syntax-gate every script block.json ships (`node --check`; a
+ *      viewScriptModule is parsed as an ES module) — there is NO build step,
+ *      so the bytes checked are the bytes that ship
  *   2. stage the exact bytes that will ship, next to a one-line loader plugin
  *   3. boot a throwaway WordPress (`@wp-playground/cli`) with that plugin active
  *   4. assert the block is in `GET /wp/v2/block-types`
@@ -31,9 +33,8 @@ const InputSchema = z.looseObject({
         .record(z.string(), z.unknown())
         .optional()
         .describe('Attribute values used for the smoke render. Missing keys fall back to the block.json defaults.'),
-    timeout_ms: z.number().optional().describe('Ceiling for npm install + wp-scripts build. Defaults to X_AGENT_BLOCK_BUILD_TIMEOUT_MS or 15 minutes; a cold @wordpress/scripts install is ~1500 packages.'),
+    timeout_ms: z.number().optional().describe('Ceiling for the per-script syntax checks. Defaults to 30 seconds; there is no npm install and no build.'),
     smoke_timeout_ms: z.number().optional().describe('Ceiling for the Playground boot + smoke. Defaults to X_AGENT_BLOCK_SMOKE_TIMEOUT_MS or 5 minutes.'),
-    force_install: z.boolean().optional().describe('Reinstall dependencies even when node_modules is already present.'),
     port: z.number().optional().describe('Fixed port for the throwaway sandbox; otherwise the first free port in the configured range.'),
 });
 const FrontSmokeSchema = z.object({
@@ -76,7 +77,7 @@ const OutputSchema = z.object({
 export const wpBlockBuildTest = defineTool({
     name: 'wp_block_build_test',
     title: 'Build and smoke-test a scaffolded block',
-    description: 'THE SAFETY GATE. Runs the wp-scripts build, boots @wp-playground/cli, registers the built block, asserts it appears in /wp/v2/block-types and renders sample markup, then produces an install zip that satisfies the companion install policy. The companion deliberately does not lint PHP — nothing reaches an instance that has not passed here. On any failure it returns {failure:{code,message,hint}} and NO zip_path.',
+    description: 'THE SAFETY GATE. Syntax-gates every shipped script (no build step — the block is vanilla no-build JS), boots @wp-playground/cli, registers the block, asserts it appears in /wp/v2/block-types and renders sample markup, then produces an install zip that satisfies the companion install policy. The companion deliberately does not lint PHP — nothing reaches an instance that has not passed here. On any failure it returns {failure:{code,message,hint}} and NO zip_path.',
     inputSchema: InputSchema,
     outputSchema: OutputSchema,
     local: true,
@@ -90,8 +91,6 @@ export const wpBlockBuildTest = defineTool({
             buildArgs.timeout_ms = args.timeout_ms;
         if (args.smoke_timeout_ms)
             buildArgs.smoke_timeout_ms = args.smoke_timeout_ms;
-        if (args.force_install)
-            buildArgs.force_install = true;
         if (args.port)
             buildArgs.port = args.port;
         return factory.buildAndTest(buildArgs);

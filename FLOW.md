@@ -72,7 +72,7 @@ sequenceDiagram
     A->>L: wp_block_scaffold → block.json + render.php + edit.js
     Note over A,L: agent implements render.php.<br/>edit.js is an inline-editable 1:1 mirror<br/>(RichText for text, MediaPlaceholder for images)
     A->>L: wp_block_build_test
-    Note over L: wp-scripts build → throwaway Playground →<br/>register, render sample attrs, zip.<br/>THE safety gate — nothing ships without it
+    Note over L: syntax gate (no build step) → throwaway Playground →<br/>register, render sample attrs, zip.<br/>THE safety gate — nothing ships without it
     L-->>A: built ✓ registered ✓ zip
     A->>C: POST /blocks/install (zip)
     C-->>A: NEW fingerprint — the epoch moved

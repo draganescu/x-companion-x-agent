@@ -70,7 +70,7 @@
     ],
     "mcp_tool_amendments": [
       "wp_manifest gains {section} passthrough mirroring GET /manifest?section=.",
-      "wp_block_scaffold gains {interactivity: 'none'|'view-script'|'interactivity-api', stylesheet: bool}. 'view-script' templates a vanilla view.js (no framework, no build-time deps beyond wp-scripts) declared as block.json viewScript; 'interactivity-api' templates data-wp-* directives in render.php + a store module, only offered when manifest.features.interactivity_api is true. stylesheet templates style.css restricted to token custom properties.",
+      "wp_block_scaffold gains {interactivity: 'none'|'view-script'|'interactivity-api', stylesheet: bool}. 'view-script' templates a vanilla view.js (no framework, no build-time deps at all — the block package is no-build end to end) declared as block.json viewScript; 'interactivity-api' templates data-wp-* directives in render.php + a store module, only offered when manifest.features.interactivity_api is true. stylesheet templates style.css restricted to token custom properties.",
       "wp_block_build_test smoke additionally asserts: viewScript enqueues and executes without console errors against the rendered sample; style.css enqueues; any hardcoded color/size literal in style.css (not a var(--wp--preset--*)) is a warning surfaced in the result.",
       "wp_validate implements the three new diagnostics locally where possible (styles, bindable attributes) before the round trip."
     ],

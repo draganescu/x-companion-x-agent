@@ -11,7 +11,7 @@
  *
  * WHAT IS BEING PROVEN
  *   1. A scaffolded block, with render.php implemented against the embedded
- *      intent, builds with wp-scripts, registers in a real WordPress, renders
+ *      intent, passes the no-build syntax gate, registers in a real WordPress, renders
  *      the sample attributes, and packages into a policy-clean zip.
  *   2. Installing it onto a TOOLCHAIN instance moves the epoch, and a tree using
  *      the new block compiles/validates clean at that new epoch.
@@ -172,7 +172,7 @@ describe.skipIf(!LIVE)('M5 factory — live', () => {
       });
       expect(r.ok, JSON.stringify(r.data)).toBe(true);
       expect(r.data.name).toBe(BLOCK);
-      expect(r.data.files).toEqual(['block.json', 'package.json', 'render.php', 'src/edit.js', 'src/index.js']);
+      expect(r.data.files).toEqual(['block.json', 'edit.asset.php', 'edit.js', 'render.php']);
       ctx.dir = r.data.dir;
 
       const meta = JSON.parse(fs.readFileSync(path.join(ctx.dir!, 'block.json'), 'utf8')) as Record<string, unknown>;
@@ -237,7 +237,8 @@ describe.skipIf(!LIVE)('M5 factory — live', () => {
       const names = new Zip(ctx.zipPath!).getEntries().map((e) => e.entryName);
       expect(names).toContain(`${SLUG}/block.json`);
       expect(names).toContain(`${SLUG}/render.php`);
-      expect(names).toContain(`${SLUG}/build/index.js`);
+      expect(names).toContain(`${SLUG}/edit.js`);
+      expect(names).toContain(`${SLUG}/edit.asset.php`);
     },
     BUILD_TIMEOUT,
   );
