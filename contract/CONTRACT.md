@@ -310,7 +310,8 @@ window.__registry(): string[]       // wp.blocks.getBlockTypes().map(t => t.name
 window.__compile(blocks: BlockNode[]): {
   markup: string,
   all_valid: boolean,
-  invalid: { path: string, name: string, validation_issues: any }[]
+  invalid: { path: string, name: string, validation_issues: any }[],
+  content_lost: { path: string, name: string, attribute?: string, message: string }[]
 } | { error: string }
 ```
 
@@ -320,6 +321,17 @@ attrs), `wp.blocks.serialize(blocks)` → markup, then `wp.blocks.parse(markup)`
 result collecting `isValid` per block with its path. `path` is the same RFC 6901 pointer style
 rooted at the passed array: `/0/innerBlocks/2`. The entire body is wrapped in try/catch and
 returns `{ error: message }` on throw — it never leaves the caller hanging.
+
+**Content parity (`content_lost`):** the parse-back is also compared against the INPUT tree,
+node by node. An authored **sourced content attribute** (attribute definition with `source`
+`html`/`text`/`rich-text`/`children`/`query`, or `role`/`__experimentalRole` `"content"`) that
+comes back empty was silently dropped by the current `save()` — block.json keeps such
+attributes only to migrate old markup (e.g. `core/quote`'s `value`, `core/list`'s `values`), so
+`all_valid` stays true while the text vanishes. The same applies to authored `innerBlocks` a
+`save()` never renders. Detection is loss-only (authored non-empty → parsed empty), never
+equality, so `save()`'s own normalisation cannot produce false positives. Consumers MUST treat
+a non-empty `content_lost` as a failed compile. Additive in interfaces v1: an older harness
+omits the field and clients normalise it to `[]`.
 
 **Registry gap detection:** the agent diffs `__registry()` against `manifest.blocks` keys. Blocks
 present in the manifest but missing from `__registry()` failed to self-register client-side. If a

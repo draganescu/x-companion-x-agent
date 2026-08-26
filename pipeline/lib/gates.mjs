@@ -2,6 +2,7 @@
 // the toolchain's (wp_validate, wp_block_build_test, wp_schema_build_test);
 // this module only encodes the spec's mechanical review of their output —
 // which warnings fail an artifact, which diagnostics may be deferred.
+import { contrastRatio } from './tokens.mjs';
 
 const WARNING_FAILS = new Set(['W_ATTR_UNKNOWN', 'W_STYLE_UNKNOWN']);
 
@@ -27,6 +28,24 @@ export function screenTreeDiagnostics(result, { allowedUnknown = new Set() } = {
         // W_STATIC_NEEDS_HARNESS, W_HINT_ALLOWED_BLOCKS, W_HINT_TEMPLATE_LOCK pass.
     }
     return { status: failures.length === 0 ? 'pass' : 'fail', deferred, failures };
+}
+
+// S4/S7/S8: the compile-parity screen. wp_compile round-trips its own OUTPUT
+// (all_valid), but only the input tree knows what was AUTHORED: content_lost
+// lists every node whose sourced content attribute or inner blocks the site's
+// own save() silently dropped — the quote-value class of loss, where
+// block.json still declares a migration-era attribute (`value`, `values`) the
+// current save() ignores, so validation passes and the text vanishes from the
+// page. Either finding fails the artifact; the diagnostics carry the path and
+// the fix (content lives where save() reads it — innerBlocks).
+export function screenContentParity(compiled) {
+    const failures = (compiled.content_lost ?? []).map((l) => ({ code: 'content_lost', path: l.path, message: l.message }));
+    if (compiled.all_valid !== true) {
+        for (const i of compiled.invalid ?? []) {
+            failures.push({ code: 'compile_invalid', path: i.path, message: `the compiled markup for ${i.name} does not round-trip the site's own parser (isValid false)` });
+        }
+    }
+    return failures;
 }
 
 // Local pre-check for LLM tree output: catches shape violations on the
@@ -339,6 +358,95 @@ export function screenBandSeams(boxTree) {
 // (block stylesheet, tree attribute, theme wiring), because the block
 // factory's own gate smokes on a throwaway default theme where the site
 // palette does not even exist.
+// The ink screen at the artifact's birth (S4/S7): everything S9's measured
+// audit computes for the RENDERED page is already computable at tree time from
+// the applied palette hexes — for colours the tree itself declares. Walk the
+// tree tracking the ground and ink each node actually sits on; a pair under
+// 3:1 fails the artifact while a repair is still one budget-covered call, not
+// a dead run after publish (the brass-on-bone field bug: 2.74:1 numerals
+// passed every markup gate and killed the run at S9). Mirrors S9's thresholds
+// exactly: under 3:1 fails, 3–4.5:1 is advisory (display-scale text only).
+// S9 stays the backstop for inks no tree declares — block CSS, theme wiring.
+function walkInk(tree, palette, visit) {
+    const bySlug = new Map(palette.map((p) => [p.slug, p.color]));
+    const walk = (nodes, path, bg, ink) => {
+        (nodes ?? []).forEach((n, i) => {
+            const p = `${path}/${i}`;
+            const a = n.attributes ?? {};
+            // A gradient ground is unmeasurable from slugs: checks pause for
+            // the subtree until a solid backgroundColor appears again.
+            const gradient = a.gradient !== undefined || a.style?.color?.gradient !== undefined;
+            const nodeBg = gradient ? null : (a.backgroundColor ?? bg);
+            const nodeInk = a.textColor ?? ink;
+            const raw = [a.content, a.text, a.citation].find((v) => typeof v === 'string');
+            const hasText = typeof raw === 'string' && raw.replace(/<[^>]*>/g, '').trim().length > 0;
+            // Buttons paint their own theme surface: only a button declaring
+            // BOTH colours is measurable from the tree.
+            const measurable = n.name === 'core/button'
+                ? (a.textColor !== undefined && a.backgroundColor !== undefined)
+                : true;
+            if (hasText && measurable && nodeBg && nodeInk && bySlug.has(nodeBg) && bySlug.has(nodeInk)) {
+                visit({ node: n, path: p, bg: nodeBg, ink: nodeInk, ratio: contrastRatio(bySlug.get(nodeBg), bySlug.get(nodeInk)) });
+            }
+            // Re-read after visit: substitution edits textColor in place and
+            // the corrected ink is what descendants inherit.
+            walk(n.innerBlocks, `${p}/innerBlocks`, gradient ? null : ((n.attributes ?? {}).backgroundColor ?? bg), (n.attributes ?? {}).textColor ?? ink);
+        });
+    };
+    walk(tree?.blocks ?? [], '/blocks', null, null);
+}
+
+const INK_HARD_FLOOR = 3;
+const INK_SAFE = 4.5;
+
+export function screenTreeInk(tree, { palette } = {}) {
+    const failures = [];
+    const advisories = [];
+    if (!Array.isArray(palette) || palette.length === 0) return { failures, advisories };
+    walkInk(tree, palette, ({ path, bg, ink, ratio }) => {
+        const r = Math.round(ratio * 100) / 100;
+        if (ratio < INK_HARD_FLOOR) {
+            failures.push({ code: 'ink_contrast', path, message: `textColor "${ink}" reads ${r}:1 on its actual ground "${bg}" — under the 3:1 floor; spend a slug from this band's safe ink menu, or move the element to a band this colour clears` });
+        } else if (ratio < INK_SAFE) {
+            advisories.push({ path, message: `textColor "${ink}" reads ${r}:1 on "${bg}" — legible but muddy; display-scale text only` });
+        }
+    });
+    return { failures, advisories };
+}
+
+// S7's last resort before the pattern baseline: swap each failing declared ink
+// for the palette's closest compliant slug, deterministically. Never a model
+// call, never silent — every change is recorded and reported. Rationale: when
+// the model's repair also failed, losing three numerals' exact colour is
+// strictly less destructive than replacing the whole designed section with a
+// stock pattern. Inherited inks are left alone (they are the measured band
+// pair's business); mutation is in place, pre-order, so descendants inherit
+// the corrected colour.
+export function substituteInk(tree, palette) {
+    const bySlug = new Map(palette.map((p) => [p.slug, p.color]));
+    const rgb = (hex) => {
+        const h = hex.replace('#', '');
+        const f = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+        return [0, 2, 4].map((i) => parseInt(f.slice(i, i + 2), 16));
+    };
+    const dist = (a, b) => rgb(a).reduce((s, v, i) => s + (v - rgb(b)[i]) ** 2, 0);
+    const changes = [];
+    walkInk(tree, palette, ({ node, path, bg, ink, ratio }) => {
+        if (ratio >= INK_HARD_FLOOR) return;
+        if (node.attributes?.textColor === undefined) return;
+        const bgHex = bySlug.get(bg);
+        const rated = palette.filter((p) => p.slug !== bg)
+            .map((p) => ({ slug: p.slug, ratio: contrastRatio(bgHex, p.color), d: dist(bySlug.get(ink), p.color) }));
+        const safe = rated.filter((c) => c.ratio >= INK_SAFE).sort((a, b) => a.d - b.d);
+        const legible = rated.filter((c) => c.ratio >= INK_HARD_FLOOR).sort((a, b) => b.ratio - a.ratio);
+        const pick = safe[0] ?? legible[0];
+        if (!pick) return;
+        changes.push({ path, from: ink, to: pick.slug });
+        node.attributes.textColor = pick.slug;
+    });
+    return changes;
+}
+
 const INK_FLOOR = 3;
 
 export function screenTextContrast(findings) {

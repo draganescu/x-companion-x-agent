@@ -46,11 +46,20 @@ export interface InvalidBlock {
   validation_issues: unknown;
 }
 
+/** A node whose authored content the site's own save() did not render. */
+export interface ContentLostEntry {
+  path: string;
+  name: string;
+  attribute?: string;
+  message: string;
+}
+
 /** Raw `window.__compile` return shape, CONTRACT.md §6. */
 export interface HarnessCompileReturn {
   markup?: string;
   all_valid?: boolean;
   invalid?: InvalidBlock[];
+  content_lost?: ContentLostEntry[];
   error?: string;
 }
 
@@ -58,6 +67,10 @@ export interface CompileResult {
   markup: string;
   all_valid: boolean;
   invalid: InvalidBlock[];
+  /** Sourced content attributes or inner blocks the save() silently dropped —
+   * empty on a healthy compile. An older harness.js reports nothing; the field
+   * is normalized to [] so callers can gate on it unconditionally. */
+  content_lost: ContentLostEntry[];
   registry_gaps: string[];
   epoch: string;
   /** ms spent inside this call, split so cold-vs-warm is observable. */
@@ -581,6 +594,7 @@ export class HarnessSession {
       markup: raw.markup,
       all_valid: raw.all_valid,
       invalid: Array.isArray(raw.invalid) ? raw.invalid : [],
+      content_lost: Array.isArray(raw.content_lost) ? raw.content_lost : [],
       registry_gaps: gaps,
       epoch: this.ctx.companion.expectedFingerprint ?? manifest.fingerprint,
       timing: { total_ms: total, page_ms: pageMs, compile_ms: compileMs, cold },

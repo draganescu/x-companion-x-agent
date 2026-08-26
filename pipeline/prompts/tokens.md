@@ -1,6 +1,6 @@
 ---
 task_type: tokens
-required: [identity, art_direction, palette, theme_spacing, theme_layout, contract_note]
+required: [identity, art_direction, style_note, palette, theme_spacing, theme_layout, contract_note]
 ---
 You are the design system author for one WordPress site. Output a DesignTokens JSON
 document — the source of truth the whole site compiles from.
@@ -21,6 +21,8 @@ From §2 Design quality:
 
 Site: {{identity}}
 Art direction: {{art_direction}}
+
+{{style_note}}
 
 The brief's palette — every color below MUST appear in your palette. Keep slugs
 lowercase-kebab, named for their role. ALSO keep the theme's own `base` and `contrast`

@@ -27,7 +27,7 @@ const DEFAULT_STAGES = [s1, s2, s3, s4, s5, s6, s7, s8, s9];
 // What each stage means in the user's terms. Stage ids (S1_brief…) stay the
 // vocabulary of state.json, --until and the spec; the log speaks plainly.
 const STAGE_INFO = {
-    S1_brief: { title: 'Planning the site', doing: 'one model call turns your prompt into the full plan — pages, sections, custom blocks, data model' },
+    S1_brief: { title: 'Planning the site', doing: 'one model call turns your prompt into the full plan — style combo, pages, sections, custom blocks, data model' },
     S2_read_instance: { title: 'Reading the site', doing: 'listing the blocks, patterns and theme settings the connected WordPress actually has' },
     S3_tokens: { title: 'Designing the look', doing: 'palette, typography and spacing derived from the plan and applied to the theme' },
     S4_sections: { title: 'Writing the sections', doing: 'one model call per section, in parallel, assembling from the saved arrangements; every result is validated against the site before it may ship' },

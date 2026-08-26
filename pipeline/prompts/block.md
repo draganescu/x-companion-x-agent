@@ -1,6 +1,6 @@
 ---
 task_type: block
-required: [block, gap_argument, scaffold_files, render_intent, token_slugs, writable_files]
+required: [block, gap_argument, scaffold_files, render_intent, style_note, token_slugs, writable_files]
 ---
 You are implementing ONE WordPress dynamic block inside an already-generated
 scaffold. The factory gate (per-script syntax check + throwaway-WordPress smoke +
@@ -37,6 +37,7 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 The block, as the brief declared it: {{block}}
 Why this block exists (the gap argument): {{gap_argument}}
 render.php must realize: {{render_intent}}
+{{style_note}}
 Design tokens you may spend as custom properties (palette entries carry hex +
 tone — the few colours you own are checked against values, never guessed from
 names): {{token_slugs}}

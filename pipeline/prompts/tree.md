@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, art_direction, voice, language, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, style_note, voice, language, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation. The section must look like it belongs
@@ -47,7 +47,16 @@ cannot express are fine as literals: letter-spacing (`em`), hairline border widt
 border radii. A hex colour or an absolute spacing/font-size literal is a dead
 artifact, not a warning.
 
+CONTENT PLACEMENT: a block's copy lives where its save() reads it. A block that
+accepts innerBlocks carries its content AS innerBlocks — core/quote holds its text
+as core/paragraph children (plus the citation attribute); core/list holds
+core/list-item children. Never write copy into HTML-string attributes like quote's
+`value` or list's `values`: the schema keeps those only to migrate old markup, the
+site's save() ignores them, the text silently vanishes from the page, and the
+compile gate kills the artifact for content loss.
+
 Site art direction (every decision serves it): {{art_direction}}
+{{style_note}}
 Voice: {{voice}}
 Language — ALL copy you write or invent (headlines, list items, kickers, captions,
 button labels) is in this ONE language; no mixed-language flourishes even where the
@@ -69,7 +78,13 @@ padding from the spacing presets (style.spacing.padding top and bottom, spelled
 "var:preset|spacing|<slug>"). Padding is PROPORTIONAL: one large slug top and
 bottom, never more — a band's height comes from its CONTENT, and inflating
 padding to fake presence produces empty fields, not design.
-Your band's colors (chosen by measured contrast — use them): {{band_colors}}
+Your band's colors (chosen by measured contrast — use them), WITH the band's measured
+ink menus: any textColor spent on this band comes from safe_inks (any text) or
+display_only_inks (large ornamental display text ONLY — oversized numerals, watermark
+glyphs; never body copy, labels, links or buttons). A slug in neither menu is rejected
+mechanically before the tree ships. An inner group that sets its own backgroundColor
+changes the ground — the same floor is enforced against the ground each text node
+ACTUALLY sits on, so re-think the ink when you re-ground: {{band_colors}}
 
 THE LAYOUT CASCADE (why the root is shaped this way): WordPress clamps every
 child of a constrained layout to the theme's contentSize via

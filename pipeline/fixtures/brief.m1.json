@@ -6,6 +6,11 @@
         "voice": "Warm, floury, plain-spoken; a baker talking, never a brand talking."
     },
     "art_direction": "Warm stoneground neutrals under a deep rye brown, with one ember-orange accent used sparingly like a heat lamp. Generous whitespace, oversized serif headlines, photography that looks flour-dusted rather than staged.",
+    "style": {
+        "artistic": "Rustic",
+        "ui": "Editorial Serif",
+        "rationale": "A neighborhood bakery reads as warm and handmade: rustic texture and warmth carried through an editorial serif page that treats the menu like a well-set broadsheet."
+    },
     "axis": {
         "anchor": "left",
         "argument": "A plain-spoken baker voice and oversized serif headlines read ranged-left; the ember accent works as a heat lamp, not a pulpit."
@@ -80,7 +85,7 @@
             "slug": "signup-banner",
             "title": "Signup Banner",
             "description": "An email signup banner that submits to the bakery newsletter list.",
-            "gap_argument": "Core vocabulary has no block that renders a form posting to a custom REST route: supports and tokens style existing blocks but cannot add a submit lane, no registered block style or variation of core/buttons produces an email field, and the form must POST with a nonce to the newsletter package route \u2014 behavior, not styling, so rungs 1-4 cannot express it.",
+            "gap_argument": "Core vocabulary has no block that renders a form posting to a custom REST route: supports and tokens style existing blocks but cannot add a submit lane, no registered block style or variation of core/buttons produces an email field, and the form must POST with a nonce to the newsletter package route — behavior, not styling, so rungs 1-4 cannot express it.",
             "render_intent": "Render a single-field email signup form: label, email input, submit button, honeypot field, nonce; POST via view.js fetch to the newsletter package subscribe route and swap in a thank-you line on success.",
             "attributes": [
                 {
@@ -104,7 +109,7 @@
         {
             "slug": "newsletter",
             "intent": "Store newsletter subscribers submitted from the public signup form.",
-            "lifecycle_argument": "Subscribers are records with a lifecycle the block cannot own: created anonymously from the front end, held in a moderated pending state, listed and exported by staff in wp-admin, and cleanly removed on uninstall \u2014 storage with statuses and an admin surface, which is wp-schema territory, never render.php state.",
+            "lifecycle_argument": "Subscribers are records with a lifecycle the block cannot own: created anonymously from the front end, held in a moderated pending state, listed and exported by staff in wp-admin, and cleanly removed on uninstall — storage with statuses and an admin surface, which is wp-schema territory, never render.php state.",
             "post_types": [
                 {
                     "slug": "subscriber",

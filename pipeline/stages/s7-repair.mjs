@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, screenImageGeometry, screenBandRoot } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, screenImageGeometry, screenBandRoot, screenTreeInk, substituteInk, screenContentParity } from '../lib/gates.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { pLimit } from '../lib/limit.mjs';
 
@@ -47,10 +47,10 @@ function minimalSlot(ctx, key) {
 // Baselines are gated too: a token-shifted world can invalidate a theme
 // pattern. A pattern baseline that fails wp_validate degrades to the minimal
 // honest slot (core blocks only) — never bypassed, never improvised.
-async function substituteBaseline(ctx, key) {
+async function substituteBaseline(ctx, key, palette) {
     let blocks = baselineFor(ctx, key);
     let tree = { version: 1, epoch: ctx.state.fingerprint, blocks };
-    const gate = await gateTree(ctx, tree, new Set());
+    const gate = await gateTree(ctx, tree, new Set(), palette);
     if (gate.status !== 'pass') {
         blocks = minimalSlot(ctx, key);
         tree = { version: 1, epoch: ctx.state.fingerprint, blocks };
@@ -58,12 +58,56 @@ async function substituteBaseline(ctx, key) {
     writeFileSync(join(ctx.runDir, 'trees', `${key}.json`), JSON.stringify({ tree, gate: { status: 'baseline' } }, null, 2));
 }
 
-async function gateTree(ctx, tree, allowedUnknown) {
+// The rescue before the baseline: when the model's repair also failed, swap
+// each failing DECLARED ink for the palette's closest compliant slug and
+// re-gate. Deterministic, recorded, never a model call — and strictly less
+// destructive than replacing the whole designed section with a stock pattern.
+async function rescueInk(ctx, key, art, allowedUnknown, palette) {
+    if (palette.length === 0) return false;
+    let rec;
+    try {
+        rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', `${key}.json`), 'utf8'));
+    } catch {
+        return false;
+    }
+    if (!rec.tree) return false; // no artifact ever satisfied the contract — nothing to rescue
+    const tree = structuredClone(rec.tree);
+    const changes = substituteInk(tree, palette);
+    if (changes.length === 0) return false; // the failures were never ink-shaped
+    const gate = await gateTree(ctx, tree, allowedUnknown, palette);
+    if (gate.status !== 'pass') return false;
+    writeFileSync(join(ctx.runDir, 'trees', `${key}.json`),
+        JSON.stringify({ tree, gate: { ...gate, ink_substituted: changes } }, null, 2));
+    art.deferred = gate.deferred;
+    art.failures = [];
+    art.ink_substituted = changes;
+    return true;
+}
+
+async function gateTree(ctx, tree, allowedUnknown, palette = []) {
     const res = await ctx.call('wp_validate', tree);
     if (!res.ok) {
         return { status: 'fail', deferred: [], failures: [{ code: res.data.code ?? 'companion_error', message: res.data.message }] };
     }
-    return screenTreeDiagnostics(res.data, { allowedUnknown });
+    const screen = screenTreeDiagnostics(res.data, { allowedUnknown });
+    // The same ink floor the authoring lane enforced: a repair or a rescued
+    // tree must not sneak an unreadable pair past the gate it was born under.
+    const ink = screenTreeInk(tree, { palette }).failures;
+    screen.failures = [...screen.failures, ...ink];
+    // And the same compile-parity gate: a repaired tree that still carries its
+    // content in a sourced attribute the save() ignores must die HERE, with
+    // the loss named, not publish an empty block at S8. A deferred tree
+    // cannot compile before its block installs; S8 compiles it instead.
+    if (screen.failures.length === 0 && screen.deferred.length === 0) {
+        const compiled = await ctx.call('wp_compile', tree);
+        if (!compiled.ok) {
+            screen.failures.push({ code: compiled.data.code ?? 'companion_error', message: compiled.data.message });
+        } else {
+            screen.failures = [...screen.failures, ...screenContentParity(compiled.data)];
+        }
+    }
+    screen.status = screen.failures.length === 0 ? 'pass' : 'fail';
+    return screen;
 }
 
 function writeFiles(dir, files) {
@@ -72,14 +116,14 @@ function writeFiles(dir, files) {
     }
 }
 
-async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
+async function repairOnce(ctx, kind, key, art, { allowedUnknown, palette = [] }) {
     let artifact;
     let validate;
     if (kind === 'trees') {
         const rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', `${key}.json`), 'utf8'));
         artifact = rec.tree;
         // The SAME gate the authoring lane used (spec: through the same gate) —
-        // shape first, then the literal screen a repair must not sneak past.
+        // shape first, then the literal and ink screens a repair must not sneak past.
         validate = (v) => {
             const issues = localTreeCheck(v, { epoch: ctx.state.fingerprint });
             if (issues.length > 0) return issues;
@@ -87,6 +131,8 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
             if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
             const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
             if (literals.length > 0) return literals;
+            const ink = screenTreeInk(v, { palette }).failures;
+            if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
             return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
         };
     } else {
@@ -124,7 +170,7 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
 
     if (kind === 'trees') {
         normalizeTreeBorders(value);
-        const gate = await gateTree(ctx, value, allowedUnknown);
+        const gate = await gateTree(ctx, value, allowedUnknown, palette);
         if (gate.status !== 'pass') {
             art.failures = [...art.failures, ...gate.failures];
             return false;
@@ -164,6 +210,10 @@ export async function run(ctx) {
     const arts = ctx.state.artifacts ?? {};
     ctx.state.dead = ctx.state.dead ?? [];
     const declared = new Set((ctx.state.brief.custom_blocks ?? []).map((b) => `agent/${b.slug}`));
+    let palette = [];
+    try {
+        palette = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8')).palette ?? [];
+    } catch { /* a pre-tokens run dir — the ink screens no-op on an empty palette */ }
 
     // Repairs fan out like the stages that made the artifacts: each build test
     // already owns a distinct sandbox port from S5/S6, wp_validate is read-only
@@ -212,13 +262,16 @@ export async function run(ctx) {
         if (art.status === 'fail') {
             treeRepairs.push(limiter(async () => {
                 ctx.log(`section ${key}: repairing — one model call, judged by the same validation`);
-                const repaired = await repairOnce(ctx, 'trees', key, art, { allowedUnknown: survivingUnknown });
+                const repaired = await repairOnce(ctx, 'trees', key, art, { allowedUnknown: survivingUnknown, palette });
                 if (repaired) {
                     art.status = 'repaired';
                     ctx.log(`section ${key}: repaired — validation passed this time`);
+                } else if (await rescueInk(ctx, key, art, survivingUnknown, palette)) {
+                    art.status = 'repaired';
+                    ctx.log(`section ${key}: the repair failed but the defect was ink — swapped ${art.ink_substituted.map((c) => `${c.from}→${c.to}`).join(', ')} deterministically; the gate passed and the designed section survives`);
                 } else {
                     art.status = 'baseline';
-                    await substituteBaseline(ctx, key);
+                    await substituteBaseline(ctx, key, palette);
                     ctx.state.dead.push({ kind: 'trees', key, diagnostics: art.failures });
                     ctx.log(`section ${key}: the repair failed too — publishing the theme's stock pattern in that slot instead`);
                 }
@@ -227,12 +280,12 @@ export async function run(ctx) {
             // The block this tree waited for is dead: re-gate without it (spec: re-gated).
             treeRepairs.push(limiter(async () => {
                 const rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', `${key}.json`), 'utf8'));
-                const gate = await gateTree(ctx, rec.tree, survivingUnknown);
+                const gate = await gateTree(ctx, rec.tree, survivingUnknown, palette);
                 if (gate.status === 'pass') {
                     art.deferred = gate.deferred;
                 } else {
                     art.status = 'baseline';
-                    await substituteBaseline(ctx, key);
+                    await substituteBaseline(ctx, key, palette);
                     ctx.state.dead.push({ kind: 'trees', key, diagnostics: [{ code: 'E_UNKNOWN_BLOCK', message: `section referenced dead block(s): ${[...deadBlocks].join(', ')}` }] });
                     ctx.log(`section ${key}: depended on a block that died — publishing the theme's stock pattern in that slot instead`);
                 }

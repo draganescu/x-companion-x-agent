@@ -74,6 +74,20 @@ anything else.
 | `x-pipeline config init [--provider P] [--model M]` | write `pipeline.config.json` with the proven per-task temperatures; stores the provider key in `.x-agent.json` if missing |
 | `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips image generation and leaves the placeholder pixels in place |
 
+## The style combo
+
+Every build is driven by a pairing decided in the brief: one **artistic style**
+(mood, color story, texture, imagery) and one **UI design style** (layout, density,
+component shapes) chosen from the two rosters in `pipeline/styles/` — hundreds of
+names, each enriched with palette/typography/composition/texture cues, and curated
+to name whole visual worlds: no single widgets, no corporate design systems, no
+behaviors a static compiled page cannot keep. The brief call sees
+both lists shuffled (seeded from the prompt, so the same prompt always sees the same
+order — determinism and `--resume` survive, position bias does not), picks by exact
+name, and argues the pairing in `style.rationale`; the chosen entries' cues then ride
+into every writing call. A style the prompt itself names is detected in code and
+**pinned — never overridden**; only the missing half is chosen.
+
 ## Where things live
 
 - `.x-agent.json` (repo root, gitignored, mode 0600) — site connection + provider API

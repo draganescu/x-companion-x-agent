@@ -2,8 +2,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit } from '../lib/limit.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot } from '../lib/gates.mjs';
-import { resolveBandColors, annotatePalette } from '../lib/tokens.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity } from '../lib/gates.mjs';
+import { resolveBandColors, annotatePalette, resolveInkMenus } from '../lib/tokens.mjs';
+import { renderStyleNote } from '../lib/styles.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { sectionImageIntents } from '../budget.mjs';
 
@@ -32,6 +33,12 @@ export async function run(ctx) {
     // dominant language; every writing call obeys it. The fallback sentence
     // keeps pre-language run dirs resumable and still instructs correctly.
     const language = brief.language ?? 'the language the brief\'s own copy is written in';
+    // The style combo (§ style, decided in the brief): every tree call sees it
+    // next to the art direction. Empty for a pre-style run dir, like the axis
+    // and language fallbacks above.
+    const comboNote = renderStyleNote(brief.style);
+    const styleNote = comboNote && `${comboNote}
+In this section the UI style decides how the composition is EXPRESSED (density, corner language, component shapes — through supports and spacing slugs); the artistic style decides its VOICE (which palette slugs, image treatment, editorial detail). Both live inside the page plan and the site axis.`;
     const OPPOSITE = { left: 'center', center: 'left' };
     const sectionAnchor = (sec) => (sec.design?.axis_break === true ? OPPOSITE[axis.anchor] : axis.anchor);
     // Pre-axis briefs named the axis inside the layout enum; both legacy values
@@ -48,6 +55,12 @@ export async function run(ctx) {
     }))]));
     ctx.state.artifacts = ctx.state.artifacts ?? {};
     ctx.state.artifacts.trees = ctx.state.artifacts.trees ?? {};
+    // The band pair plus its measured ink menus: the choice is constrained
+    // before it is judged, so the ink screen below almost never fires.
+    const bandColors = (band) => {
+        const pair = resolveBandColors(band, brief.palette, tokens.palette);
+        return { ...pair, ...resolveInkMenus(pair.background, tokens.palette) };
+    };
 
     const runSection = async (s) => {
         const entry = JSON.parse(readFileSync(join(ctx.runDir, s.file), 'utf8'));
@@ -70,6 +83,7 @@ export async function run(ctx) {
             section,
             page: entry.page,
             art_direction: brief.art_direction,
+            style_note: styleNote,
             voice: brief.identity.voice ?? brief.identity.tagline,
             language,
             page_plan: pagePlans[s.page] ?? [],
@@ -80,7 +94,7 @@ export async function run(ctx) {
                 is_break: section.design?.axis_break === true,
                 argument: axis.argument,
             },
-            band_colors: resolveBandColors(design.band, brief.palette, tokens.palette),
+            band_colors: bandColors(design.band),
             manifest_slice: entry.manifest_slice,
             pattern_tree: entry.pattern?.parsed_tree ?? null,
             token_slugs: tokenSlugs,
@@ -101,6 +115,8 @@ export async function run(ctx) {
                     if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
+                    const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
+                    if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
                     return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
                 },
             }));
@@ -121,8 +137,25 @@ export async function run(ctx) {
         // A section carries copy and slugs, never a hardcoded design value.
         const literals = screenTreeLiterals(tree);
         screen.failures = [...screen.failures, ...literals];
+        // Compile parity — only the site's own save() knows which attributes
+        // it actually renders, so content loss (the quote-value class) is
+        // observable ONLY at compile. A deferred tree cannot compile before
+        // its block installs; S8 compiles it at the final epoch instead.
+        if (screen.failures.length === 0 && screen.deferred.length === 0) {
+            const compiled = await ctx.call('wp_compile', tree);
+            if (!compiled.ok) {
+                throw new PipelineError(compiled.data.code ?? 'companion_error', `wp_compile errored for ${s.key}: ${compiled.data.message}`, compiled.data.hint ?? '');
+            }
+            screen.failures = [...screen.failures, ...screenContentParity(compiled.data)];
+        }
         screen.status = screen.failures.length === 0 ? 'pass' : 'fail';
-        const gate = { ...screen, diagnostics: res.data.diagnostics };
+        // Muddy-but-legal pairs (3–4.5:1) ride into the record like S5's style
+        // advisories: visible in the report, never fatal (S9 mirrors this).
+        const inkAdvisories = screenTreeInk(tree, { palette: tokens.palette }).advisories;
+        if (inkAdvisories.length > 0) {
+            ctx.log(`section ${s.key}: ${inkAdvisories.length} ink pair(s) between 3:1 and 4.5:1 — legible but muddy, kept as advisory`);
+        }
+        const gate = { ...screen, ...(inkAdvisories.length > 0 ? { ink_advisories: inkAdvisories } : {}), diagnostics: res.data.diagnostics };
         writeFileSync(join(ctx.runDir, 'trees', `${s.key}.json`), JSON.stringify({ tree, gate }, null, 2));
         ctx.state.artifacts.trees[s.key] = { status: screen.status, deferred: screen.deferred, failures: screen.failures };
         ctx.log(screen.status === 'pass'
@@ -161,6 +194,7 @@ export async function run(ctx) {
             part_note: PART_NOTES[part],
             identity: brief.identity,
             art_direction: brief.art_direction,
+            style_note: styleNote,
             voice: brief.identity.voice ?? brief.identity.tagline,
             language,
             palette: brief.palette,
@@ -168,7 +202,7 @@ export async function run(ctx) {
             nav_items: brief.navigation.items,
             footer_intent: brief.footer.intent,
             footer_items: brief.footer.items,
-            band_colors: resolveBandColors(part === 'footer' ? 'contrast' : 'base', brief.palette, tokens.palette),
+            band_colors: bandColors(part === 'footer' ? 'contrast' : 'base'),
             manifest_slice: furnitureSlice,
             token_slugs: tokenSlugs,
             epoch,
@@ -187,6 +221,8 @@ export async function run(ctx) {
                     if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
+                    const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
+                    if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
                     return part === 'header' ? headerShape(v) : [];
                 },
             }));
@@ -202,6 +238,17 @@ export async function run(ctx) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for the ${part} part: ${res.data.message}`, res.data.hint ?? '');
         }
         const screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+        // The same compile-parity gate the sections pass: a footer quote with
+        // its text in a dead sourced attribute must degrade to the
+        // deterministic floor, never ship an empty blockquote on every page.
+        if (screen.failures.length === 0) {
+            const compiled = await ctx.call('wp_compile', tree);
+            if (!compiled.ok) {
+                throw new PipelineError(compiled.data.code ?? 'companion_error', `wp_compile errored for the ${part} part: ${compiled.data.message}`, compiled.data.hint ?? '');
+            }
+            screen.failures = [...screen.failures, ...screenContentParity(compiled.data)];
+            screen.status = screen.failures.length === 0 ? 'pass' : 'fail';
+        }
         writeFileSync(join(ctx.runDir, 'trees', `furniture--${part}.json`), JSON.stringify({ tree, gate: { ...screen, diagnostics: res.data.diagnostics } }, null, 2));
         ctx.state.artifacts.furniture[part] = { status: screen.status, failures: screen.failures };
         ctx.log(screen.status === 'pass'

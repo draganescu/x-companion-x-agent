@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { deriveThemeSpacing, deriveThemeLayout, tokenChecks } from '../lib/tokens.mjs';
+import { renderStyleNote } from '../lib/styles.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-tokens.schema.json', import.meta.url), 'utf8'));
 
@@ -29,6 +30,9 @@ export async function run(ctx) {
     const payload = {
         identity: brief.identity,
         art_direction: brief.art_direction,
+        // Empty string on a pre-style run dir — resumes stay whole (axis precedent).
+        style_note: renderStyleNote(brief.style) && `${renderStyleNote(brief.style)}
+The token system is where the combo becomes real: the palette carries the artistic style's color story; the type scale carries its typographic attitude filtered through the UI style's discipline. A token set that could belong to any other combo is not done.`,
         palette: brief.palette,
         theme_spacing,
         theme_layout,

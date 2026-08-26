@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { pLimit } from '../lib/limit.mjs';
 import { screenFileMap, screenBlockCss, blockGate } from '../lib/gates.mjs';
 import { annotatePalette } from '../lib/tokens.mjs';
+import { renderStyleNote } from '../lib/styles.mjs';
 
 export const id = 'S5_blocks';
 export const kind = 'gated-generative';
@@ -43,6 +44,10 @@ export async function run(ctx) {
         spacing: tokens.spacing.steps.map((s) => s.slug),
         font_sizes: tokens.typography.sizes.map((s) => s.slug),
     };
+    // The combo, for the block's design decisions; empty on a pre-style run dir.
+    const comboNote = renderStyleNote(ctx.state.brief.style);
+    const styleNote = comboNote && `${comboNote}
+The block is a component of this combo: its shapes, density and detail follow the UI style; its few owned colours and any texture follow the artistic style — all inside the token system and the instance's colour supports.`;
 
     const buildBlock = async (decl, index) => {
         const attributes = normalizeAttributes(decl.attributes);
@@ -100,6 +105,7 @@ export async function run(ctx) {
                     block: { name: `agent/${decl.slug}`, title: decl.title, attributes, interactivity: decl.interactivity ?? 'view-script', stylesheet: decl.stylesheet ?? false },
                     gap_argument: decl.gap_argument,
                     render_intent: decl.render_intent,
+                    style_note: styleNote,
                     scaffold_files: scaffoldFiles,
                     token_slugs: tokenSlugs,
                     writable_files: writable,

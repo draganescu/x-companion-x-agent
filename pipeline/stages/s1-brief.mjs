@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { validateSchema } from '../lib/schema.mjs';
 import { computeBudget } from '../budget.mjs';
 import { crossChecks } from '../lib/brief-checks.mjs';
+import { loadStyles, matchPinnedStyles, seededShuffle, styleChecks, renderPinNote } from '../lib/styles.mjs';
 
 const schema = JSON.parse(readFileSync(new URL('../schemas/brief.schema.json', import.meta.url), 'utf8'));
 
@@ -41,10 +42,27 @@ function brochureChecks(brief) {
 
 export async function run(ctx) {
     const brochure = ctx.state.brochure === true;
+    // The style combo: both rosters ride into the one high-effort call, order
+    // shuffled deterministically per prompt (a fixed order would let position
+    // bias the choice; Math.random() would break same-prompt determinism and
+    // resume). User-named styles are detected HERE, in code — set in stone.
+    const styles = loadStyles();
+    const pins = matchPinnedStyles(ctx.prompt, styles);
+    if (pins.artistic || pins.ui || pins.flexible) {
+        const named = [pins.artistic, pins.ui, pins.flexible?.artistic].filter(Boolean).join('", "');
+        ctx.log(`the request names "${named}" — pinned; the brief chooses only what is missing`);
+    }
     const { value: brief } = await ctx.llm.generate({
         task_type: 'brief',
         label: 'brief',
-        payload: { prompt: ctx.prompt, contract: schema, mode_note: brochure ? BROCHURE_NOTE : '' },
+        payload: {
+            prompt: ctx.prompt,
+            contract: schema,
+            mode_note: brochure ? BROCHURE_NOTE : '',
+            artistic_styles: seededShuffle(styles.artistic.map((e) => e.name), `${ctx.prompt}:artistic`).join(', '),
+            ui_styles: seededShuffle(styles.ui.map((e) => e.name), `${ctx.prompt}:ui`).join(', '),
+            style_pin_note: renderPinNote(pins),
+        },
         // NOT passed as a structured-outputs contract: this schema compiles to
         // a grammar the API rejects as too large (field-tested 2026-08-25,
         // req_011CeQ6s…). The generate() contract knob works only for schemas
@@ -52,11 +70,13 @@ export async function run(ctx) {
         validate: (v) => [
             ...validateSchema(schema, v),
             ...crossChecks(v),
+            ...styleChecks(v, { styles, pins }),
             ...(brochure ? brochureChecks(v) : []),
         ],
     });
     writeFileSync(join(ctx.runDir, 'brief.json'), JSON.stringify(brief, null, 2));
     ctx.state.brief = brief;
+    if (brief.style) ctx.log(`style combo: ${brief.style.artistic} × ${brief.style.ui} — ${brief.style.rationale}`);
     const budget = computeBudget(brief);
     if (ctx.state.no_images) {
         // --no-images: the placeholder pixels still ship (minted free in S8, each

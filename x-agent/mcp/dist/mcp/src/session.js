@@ -389,6 +389,7 @@ export class HarnessSession {
             markup: raw.markup,
             all_valid: raw.all_valid,
             invalid: Array.isArray(raw.invalid) ? raw.invalid : [],
+            content_lost: Array.isArray(raw.content_lost) ? raw.content_lost : [],
             registry_gaps: gaps,
             epoch: this.ctx.companion.expectedFingerprint ?? manifest.fingerprint,
             timing: { total_ms: total, page_ms: pageMs, compile_ms: compileMs, cold },

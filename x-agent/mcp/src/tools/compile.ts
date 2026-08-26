@@ -30,6 +30,9 @@ const OutputSchema = z.object({
   markup: z.string(),
   all_valid: z.boolean(),
   invalid: z.array(z.object({ path: z.string(), name: z.string(), validation_issues: z.unknown() })),
+  content_lost: z
+    .array(z.object({ path: z.string(), name: z.string(), attribute: z.string().optional(), message: z.string() }))
+    .describe('Nodes whose authored content the save() silently dropped — a sourced attribute the current save() ignores (e.g. core/quote `value`), or inner blocks a save() never renders. Must be empty before markup ships.'),
   registry_gaps: z.array(z.string()),
   epoch: z.string(),
   timing: z.object({
@@ -49,7 +52,7 @@ export const wpCompile = defineTool({
   name: 'wp_compile',
   title: 'Compile a TreeIR to canonical block markup',
   description:
-    'Drives window.__compile on the instance GET /harness page in a warm headless browser, so markup comes from each block\'s real save() implementation. NEVER hand-write "<!-- wp:" markup; this tool is the only legitimate source of it. Returns {markup, all_valid, invalid[], registry_gaps, epoch}; all_valid must be true before you ship a layout. If a block in the tree is in the manifest but missing from the client-side registry the call fails with {code:"harness_gap", blocks:[...]}.',
+    'Drives window.__compile on the instance GET /harness page in a warm headless browser, so markup comes from each block\'s real save() implementation. NEVER hand-write "<!-- wp:" markup; this tool is the only legitimate source of it. Returns {markup, all_valid, invalid[], content_lost[], registry_gaps, epoch}; all_valid must be true AND content_lost empty before you ship a layout — a content_lost entry means the save() silently dropped authored content (a migration-era sourced attribute like core/quote `value`, or inner blocks the block never renders). If a block in the tree is in the manifest but missing from the client-side registry the call fails with {code:"harness_gap", blocks:[...]}.',
   inputSchema: InputSchema,
   outputSchema: OutputSchema,
   handler: async (input: unknown, ctx: Ctx) => {
@@ -88,6 +91,7 @@ export const wpCompile = defineTool({
       markup: result.markup,
       all_valid: result.all_valid,
       invalid: result.invalid,
+      content_lost: result.content_lost,
       registry_gaps: result.registry_gaps,
       epoch: result.epoch,
       timing: result.timing,

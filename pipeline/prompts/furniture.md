@@ -1,6 +1,6 @@
 ---
 task_type: furniture
-required: [part, part_note, identity, art_direction, voice, language, palette, axis, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
+required: [part, part_note, identity, art_direction, style_note, voice, language, palette, axis, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
 ---
 You are designing ONE site template part — the {{part}} — as TreeIR JSON. It bookends
 EVERY page: it is the first or the last thing every visitor sees, and it must read as
@@ -30,8 +30,17 @@ and no px/rem font sizes or spacing values under `style` — spend palette slugs
 cannot express are fine as literals: letter-spacing (`em`), hairline border widths,
 border radii.
 
+CONTENT PLACEMENT: a block's copy lives where its save() reads it. A block that
+accepts innerBlocks carries its content AS innerBlocks — core/quote holds its text
+as core/paragraph children (plus the citation attribute); core/list holds
+core/list-item children. Never write copy into HTML-string attributes like quote's
+`value` or list's `values`: the schema keeps those only to migrate old markup, the
+site's save() ignores them, the text silently vanishes from the page, and the
+compile gate kills the artifact for content loss.
+
 Site identity: {{identity}}
 Art direction (every decision serves it): {{art_direction}}
+{{style_note}}
 Voice: {{voice}}
 Language — ALL copy in this part (taglines, footer lines, labels) is in this ONE
 language; no mixed-language flourishes, and proper nouns keep their own language
@@ -55,7 +64,10 @@ brief; follow it the way a section call follows its section brief:
 Footer page links (href="/<page_slug>/" only): {{footer_items}}
 
 Band colours for this part — the resolved slugs to spend, not your own reading of the
-palette: {{band_colors}}
+palette — WITH the part's measured ink menus: any textColor comes from safe_inks (any
+text) or display_only_inks (large ornamental display text only); a slug in neither menu
+is rejected mechanically, and an inner group that sets its own backgroundColor is held
+to the same floor against its new ground: {{band_colors}}
 
 BAND DISCIPLINE (non-negotiable): your root node is ONE core/group with attributes
 {"align": "full", "backgroundColor": "<band background slug>", "textColor":

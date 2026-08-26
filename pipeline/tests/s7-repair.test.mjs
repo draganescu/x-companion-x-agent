@@ -15,7 +15,7 @@ const EPOCH = 'f2'.padEnd(64, '0');
 const GOOD_TREE = { version: 1, epoch: EPOCH, blocks: [{ name: 'core/group', attributes: { align: 'full', layout: { type: 'constrained' } }, innerBlocks: [] }] };
 const BAD_TREE = { version: 1, epoch: EPOCH, blocks: [{ name: 'core/group', attributes: { glow: 11 }, innerBlocks: [] }] };
 
-function makeCtx({ repairText, validateResults, artifacts }) {
+function makeCtx({ repairText, validateResults, artifacts, compileResults = [] }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s7-'));
     for (const d of ['trees', 'sections', 'blocks', 'packages']) mkdirSync(join(runDir, d), { recursive: true });
     // Section payload files (baseline source) for every section in the brief.
@@ -40,6 +40,7 @@ function makeCtx({ repairText, validateResults, artifacts }) {
     const ledger = new Ledger(runDir);
     const provider = { id: 'scripted', complete: async () => ({ text: repairText.shift() ?? '{}', usage: { input_tokens: 1, output_tokens: 1 } }) };
     const validations = [...validateResults];
+    const compiles = [...compileResults];
     return {
         runDir, budget, ledger,
         config: { concurrency: 2 },
@@ -47,6 +48,9 @@ function makeCtx({ repairText, validateResults, artifacts }) {
         state: { brief: structuredClone(brief), fingerprint: EPOCH, artifacts, dead: [] },
         log: () => {},
         call: async (name) => {
+            if (name === 'wp_compile') {
+                return { ok: true, data: compiles.shift() ?? { markup: '<!-- wp:group /-->', all_valid: true, invalid: [], content_lost: [] } };
+            }
             assert.equal(name, 'wp_validate');
             return { ok: true, data: validations.shift() ?? { valid: true, epoch_ok: true, diagnostics: [] } };
         },
@@ -171,4 +175,29 @@ test('a scaffolded artifact with a file set is still repaired normally', async (
     // readFileSync on the fake dir throws — that is fine, it proves the repair
     // lane was entered rather than skipped.
     await assert.rejects(s7.run(ctx), (e) => e.code === 'ENOENT' || /ENOENT/.test(String(e)));
+});
+
+test('a repaired tree that still loses content at compile dies to the baseline', async () => {
+    // The repair fixed what the diagnostics named but kept the quote text in
+    // the dead `value` attribute: wp_validate passes, the compile-parity gate
+    // in gateTree catches the loss, and the slot falls to the pattern baseline
+    // instead of publishing an empty blockquote.
+    const ctx = makeCtx({
+        repairText: [JSON.stringify(GOOD_TREE)],
+        validateResults: [
+            { valid: true, epoch_ok: true, diagnostics: [] }, // repaired tree validates...
+            { valid: true, epoch_ok: true, diagnostics: [] }, // ...and the baseline validates
+        ],
+        compileResults: [
+            { markup: '<!-- wp:quote --><blockquote class="wp-block-quote"></blockquote><!-- /wp:quote -->', all_valid: true, invalid: [], content_lost: [{ path: '/0/attributes/value', name: 'core/quote', attribute: 'value', message: 'save() does not render it' }] }, // the repair still loses content
+            { markup: '<!-- wp:cover /-->', all_valid: true, invalid: [], content_lost: [] }, // the baseline compiles clean
+        ],
+        artifacts: { trees: { 'home--hero': failedArt() }, blocks: {}, packages: {} },
+    });
+    await s7.run(ctx);
+    assert.equal(ctx.state.artifacts.trees['home--hero'].status, 'baseline');
+    assert.ok(ctx.state.artifacts.trees['home--hero'].failures.some((f) => f.code === 'content_lost'));
+    const rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', 'home--hero.json'), 'utf8'));
+    assert.equal(rec.gate.status, 'baseline');
+    assert.equal(rec.tree.blocks[0].name, 'core/cover');
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths, screenBandSeams, screenTextContrast } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, screenBlockCss, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths, screenBandSeams, screenTextContrast, screenContentParity } from '../lib/gates.mjs';
 
 const diag = (code, severity, message = '', path = '/blocks/0') => ({ code, severity, path, message });
 
@@ -301,4 +301,24 @@ test('screenImageGeometry: an intent node must carry width and aspectRatio', () 
         version: 1, epoch: 'e',
         blocks: [{ name: 'core/image', attributes: { url: 'http://x/real.jpg' }, innerBlocks: [] }],
     }), []);
+});
+
+test('screenContentParity: content_lost entries fail with their path; a clean compile passes', () => {
+    // The quote-value class: validation passed, save() dropped the text.
+    const lost = screenContentParity({
+        all_valid: true,
+        invalid: [],
+        content_lost: [{ path: '/0/innerBlocks/1/attributes/value', name: 'core/quote', attribute: 'value', message: 'save() does not render it' }],
+    });
+    assert.equal(lost.length, 1);
+    assert.equal(lost[0].code, 'content_lost');
+    assert.equal(lost[0].path, '/0/innerBlocks/1/attributes/value');
+    // all_valid false folds each invalid block in as a failure too.
+    const invalid = screenContentParity({ all_valid: false, invalid: [{ path: '/0', name: 'core/x', validation_issues: [] }], content_lost: [] });
+    assert.equal(invalid.length, 1);
+    assert.equal(invalid[0].code, 'compile_invalid');
+    // Clean compile: nothing to report. An older toolchain result without the
+    // field behaves identically (normalized upstream, guarded here too).
+    assert.deepEqual(screenContentParity({ all_valid: true, invalid: [], content_lost: [] }), []);
+    assert.deepEqual(screenContentParity({ all_valid: true, invalid: [] }), []);
 });

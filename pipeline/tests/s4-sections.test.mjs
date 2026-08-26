@@ -50,7 +50,7 @@ function treeFor(label, extra = {}) {
     };
 }
 
-function makeCtx({ treesByLabel, validateByKey }) {
+function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s4-'));
     for (const d of ['trees', 'sections']) mkdirSync(join(runDir, d), { recursive: true });
     writeFileSync(join(runDir, 'tokens.json'), JSON.stringify(TOKENS));
@@ -90,11 +90,14 @@ function makeCtx({ treesByLabel, validateByKey }) {
         log: () => {},
         peak: () => peak,
         call: async (name, tree) => {
+            const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
+            if (name === 'wp_compile') {
+                return { ok: true, data: compileByKey[key] ?? { markup: '<!-- wp:group /-->', all_valid: true, invalid: [], content_lost: [] } };
+            }
             assert.equal(name, 'wp_validate');
             active += 1; peak = Math.max(peak, active);
             await new Promise((r) => setTimeout(r, 5));
             active -= 1;
-            const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
             return { ok: true, data: validateByKey[key] ?? { valid: true, epoch_ok: true, diagnostics: [] } };
         },
     };
@@ -156,6 +159,58 @@ test('a tree that never satisfies the local contract records contract_failed wit
     assert.equal(ctx.budget.spent, 2 + 2 + 2); // hero burned 2 (attempt+retry), other sections and the 2 furniture parts 1 each
 });
 
+test('content the save() ignores fails the artifact at the compile-parity gate', async () => {
+    // The quote-value field bug: a legal sourced attribute (block.json keeps
+    // `value` for migration) that the current save() never renders. Validation
+    // passes; only compile can see the loss — and it must fail the artifact so
+    // the repair lane gets it, instead of publishing an empty blockquote.
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero', {
+            blocks: [{
+                name: 'core/group',
+                attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } },
+                innerBlocks: [
+                    { name: 'core/heading', attributes: { content: 'home/hero' } },
+                    { name: 'core/quote', attributes: { value: '<p>the quote text</p>', citation: 'someone' }, innerBlocks: [] },
+                ],
+            }],
+        }),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const compileByKey = {
+        'home/hero': {
+            markup: '<!-- wp:group --><blockquote class="wp-block-quote"><cite>someone</cite></blockquote><!-- /wp:group -->',
+            all_valid: true,
+            invalid: [],
+            content_lost: [{
+                path: '/0/innerBlocks/1/attributes/value',
+                name: 'core/quote',
+                attribute: 'value',
+                message: 'attribute "value" carries authored content but this block\'s save() does not render it',
+            }],
+        },
+        // Poisoned on purpose: a deferred section cannot compile before its
+        // block installs, so this result must never be consulted.
+        'home/signup': { markup: '', all_valid: true, invalid: [], content_lost: [{ path: '/0', name: 'x', message: 'must not be read' }] },
+    };
+    const validateByKey = {
+        'home/signup': { valid: false, epoch_ok: true, diagnostics: [{ code: 'E_UNKNOWN_BLOCK', severity: 'error', path: '/blocks/0', message: 'unknown block agent/signup-banner' }] },
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey, compileByKey });
+    await s4.run(ctx);
+    const hero = ctx.state.artifacts.trees['home--hero'];
+    assert.equal(hero.status, 'fail');
+    assert.equal(hero.failures[0].code, 'content_lost');
+    assert.match(hero.failures[0].message, /value/);
+    assert.equal(hero.failures[0].path, '/0/innerBlocks/1/attributes/value');
+    assert.equal(ctx.state.artifacts.trees['home--what-we-bake'].status, 'pass');
+    // The deferred section (waiting on an install) cannot compile yet: its
+    // poisoned compile result was never consulted and the deferral stands.
+    assert.equal(ctx.state.artifacts.trees['home--signup'].status, 'pass');
+    assert.deepEqual(ctx.state.artifacts.trees['home--signup'].deferred, ['agent/signup-banner']);
+});
+
 test('every section payload carries the shared design language', async () => {
     const treesByLabel = {
         'home/hero': treeFor('home/hero'),
@@ -169,10 +224,17 @@ test('every section payload carries the shared design language', async () => {
     assert.match(hero.art_direction, /ember-orange accent/);
     assert.equal(hero.page_plan.length, 3);
     assert.deepEqual(hero.page_plan.map((p) => p.band), ['contrast', 'base', 'accent']);
-    assert.deepEqual(hero.band_colors, { background: 'contrast', text: 'base' }); // hero band: contrast
+    // hero band: contrast — the pair plus the band's measured ink menus.
+    assert.deepEqual(hero.band_colors, { background: 'contrast', text: 'base', safe_inks: ['base'], display_only_inks: ['ember'] });
 
     const signup = ctx.payloads['home/signup'];
-    assert.deepEqual(signup.band_colors, { background: 'ember', text: 'contrast' }); // accent by hex; dark ink by luminance
+    // accent by hex; dark ink by luminance; menus measured against ember. This
+    // accent band has no 4.5:1 ink at all — the best pair (3.99:1) is honest
+    // display-only territory, exactly what S9 logs as advisory.
+    assert.equal(signup.band_colors.background, 'ember');
+    assert.equal(signup.band_colors.text, 'contrast');
+    assert.deepEqual(signup.band_colors.safe_inks, []);
+    assert.ok(signup.band_colors.display_only_inks.includes('contrast'));
 
     // The axis rides in every payload: one site anchor, obeyed per section…
     assert.deepEqual(hero.axis, { site: 'left', section: 'left', is_break: false, argument: brief.axis.argument });

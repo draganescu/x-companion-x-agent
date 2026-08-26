@@ -110,6 +110,27 @@ export function mixHex(hexA, hexB, t) {
     return `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 }
 
+// The band's measured ink menus: which palette slugs may carry text on this
+// ground. safe_inks clear 4.5:1 (any text); display_only_inks clear 3:1 — legal
+// only for large ornamental display text, and S9 still logs them as advisory.
+// A slug in neither menu is rejected mechanically at S4 (the brass-on-bone
+// field bug: an accent spent as body ink on a light band read at 2.74:1,
+// passed every markup-level gate, and killed the run at S9 after publish).
+export function resolveInkMenus(background, appliedPalette) {
+    const bySlug = new Map(appliedPalette.map((p) => [p.slug, p.color]));
+    const bgHex = bySlug.get(background);
+    const safe_inks = [];
+    const display_only_inks = [];
+    if (!bgHex) return { safe_inks, display_only_inks };
+    for (const p of appliedPalette) {
+        if (p.slug === background) continue;
+        const r = contrastRatio(bgHex, p.color);
+        if (r >= 4.5) safe_inks.push(p.slug);
+        else if (r >= 3) display_only_inks.push(p.slug);
+    }
+    return { safe_inks, display_only_inks };
+}
+
 export function resolveBandColors(band, briefPalette, appliedPalette) {
     const slugs = new Set(appliedPalette.map((p) => p.slug));
     const bySlug = new Map(appliedPalette.map((p) => [p.slug, p.color]));

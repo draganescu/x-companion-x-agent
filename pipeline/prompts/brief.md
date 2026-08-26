@@ -1,6 +1,6 @@
 ---
 task_type: brief
-required: [prompt, contract, mode_note]
+required: [prompt, contract, mode_note, artistic_styles, ui_styles, style_pin_note]
 ---
 You are planning a WordPress site build that a deterministic pipeline will execute.
 You make ALL the creative decisions now — nothing is renegotiated later. Your output
@@ -68,6 +68,25 @@ From the wp-schema skill (when a schema package may exist):
 A schema_packages[] entry exists ONLY where data has a lifecycle (created, moderated,
 listed, uninstalled) that a block alone cannot own; write that argument into its
 lifecycle_argument.
+
+THE STYLE COMBO — the design is driven by a pairing you choose HERE: exactly ONE
+artistic style and exactly ONE UI design style, each the EXACT name of an entry from its
+list below. The artistic style is the soul (mood, color story, texture, imagery); the UI
+design style is the body (layout, density, component shapes, navigation feel). Choose the
+pairing that best serves THIS request — the styles must reinforce each other, and the
+combo must be arguable in one sentence (style.rationale). Then write art_direction FROM
+the combo: the two or three sentences that translate this exact pairing into this exact
+site. Every later decision — axis, palette, bands, section design — is made against it.
+Do not default to the famous or the first plausible pick; an unexpected pairing that fits
+the request beats a safe one that fits any request.
+
+{{style_pin_note}}
+
+The artistic styles list:
+{{artistic_styles}}
+
+The UI design styles list:
+{{ui_styles}}
 
 {{mode_note}}
 

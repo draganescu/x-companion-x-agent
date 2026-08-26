@@ -103,6 +103,13 @@ export async function run(ctx) {
         if (compiled.all_valid !== true) {
             throw new PipelineError('gate_failed', `wp_compile page "${page.slug}" not all_valid`, '', { invalid: compiled.invalid });
         }
+        // Content parity at the final epoch — the backstop for sections that
+        // could not compile at S4/S7 because they waited on an install. A
+        // page that silently drops authored text never ships.
+        if ((compiled.content_lost ?? []).length > 0) {
+            throw new PipelineError('gate_failed', `page "${page.slug}" lost authored content in compile — the site's save() ignored it`,
+                'Each entry names the node and attribute; content for these blocks lives where their save() reads it (innerBlocks).', { content_lost: compiled.content_lost });
+        }
         const treeNames = new Set();
         const collect = (ns) => ns.forEach((n) => { treeNames.add(n.name); collect(n.innerBlocks ?? []); });
         collect(tree.blocks);
@@ -187,8 +194,8 @@ export async function run(ctx) {
             return null;
         }
         const compiled = await ctx.call('wp_compile', tree);
-        if (!compiled.ok || compiled.data.all_valid !== true) {
-            ctx.log(`${part} part: the site's own save() would not accept it — using the deterministic ${part}`);
+        if (!compiled.ok || compiled.data.all_valid !== true || (compiled.data.content_lost ?? []).length > 0) {
+            ctx.log(`${part} part: the site's own save() would not accept it (or dropped authored content) — using the deterministic ${part}`);
             return null;
         }
         return compiled.data.markup;

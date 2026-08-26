@@ -81,6 +81,56 @@
 		} );
 	}
 
+	/**
+	 * Content parity — the second silent-loss guard, one layer down from the
+	 * unregistered-name refusal in create(). A sourced attribute (source html /
+	 * text / rich-text / children / query, or role "content") lives in the saved
+	 * markup, not the comment delimiter, so when the CURRENT save() does not
+	 * render it — block.json keeps such attributes for migrating old markup,
+	 * e.g. core/quote's `value` — the authored content exists NOWHERE in the
+	 * output, and the round-trip parse is still perfectly valid. Only comparing
+	 * the parse-back against the INPUT tree can see it. Same for inner blocks a
+	 * save() never renders. "Lost" only — never equality, so save()'s own
+	 * normalisation (entities, whitespace) can not produce false positives.
+	 */
+	function isSourcedContent( def ) {
+		if ( ! def ) { return false; }
+		if ( 'content' === def.role || 'content' === def.__experimentalRole ) { return true; }
+		return -1 !== [ 'html', 'text', 'rich-text', 'children', 'query' ].indexOf( def.source );
+	}
+
+	function textOf( value ) {
+		if ( null === value || undefined === value ) { return ''; }
+		if ( Array.isArray( value ) ) { return value.length ? 'x' : ''; }
+		return String( value ).replace( /<[^>]*>/g, ' ' ).trim();
+	}
+
+	function parity( nodes, parsed, prefix, out ) {
+		nodes.forEach( function ( node, index ) {
+			var path = prefix + '/' + index;
+			var got = parsed[ index ];
+			if ( ! got || got.name !== node.name ) {
+				out.push( { path: path, name: node.name, message: 'the block did not survive compile: its serialized markup parses back as ' + ( got ? '"' + got.name + '"' : 'nothing' ) } );
+				return;
+			}
+			var type = window.wp.blocks.getBlockType( node.name );
+			var defs = ( type && type.attributes ) || {};
+			var attrs = node.attributes || {};
+			Object.keys( attrs ).forEach( function ( key ) {
+				if ( ! isSourcedContent( defs[ key ] ) ) { return; }
+				if ( '' === textOf( attrs[ key ] ) ) { return; }
+				if ( '' !== textOf( got.attributes ? got.attributes[ key ] : undefined ) ) { return; }
+				out.push( { path: path + '/attributes/' + key, name: node.name, attribute: key, message: 'attribute "' + key + '" carries authored content but this block\'s current save() does not render it (the schema keeps it only to migrate old markup) — the text would silently vanish from the page. Author this block\'s content where its save() reads it: as innerBlocks (core/quote holds core/paragraph children; core/list holds core/list-item children).' } );
+			} );
+			var inner = node.innerBlocks || [];
+			var gotInner = got.innerBlocks || [];
+			if ( gotInner.length < inner.length ) {
+				out.push( { path: path + '/innerBlocks', name: node.name, message: inner.length + ' inner block(s) authored but only ' + gotInner.length + ' survived compile — this block\'s save() does not render inner blocks; move the content to a block that does' } );
+			}
+			parity( inner.slice( 0, gotInner.length ), gotInner, path + '/innerBlocks', out );
+		} );
+	}
+
 	window.__compile = function ( blocks ) {
 		try {
 			if ( ! window.wp || ! window.wp.blocks ) {
@@ -91,8 +141,11 @@
 			}
 			var markup = window.wp.blocks.serialize( blocks.map( create ) );
 			var invalid = [];
-			walk( window.wp.blocks.parse( markup ), '', invalid );
-			return { markup: markup, all_valid: 0 === invalid.length, invalid: invalid };
+			var reparsed = window.wp.blocks.parse( markup );
+			walk( reparsed, '', invalid );
+			var lost = [];
+			parity( blocks, reparsed, '', lost );
+			return { markup: markup, all_valid: 0 === invalid.length, invalid: invalid, content_lost: lost };
 		} catch ( e ) {
 			return { error: message( e ) };
 		}

@@ -9,6 +9,7 @@
         "version",
         "identity",
         "art_direction",
+        "style",
         "axis",
         "language",
         "palette",
@@ -47,6 +48,33 @@
             "type": "string",
             "minLength": 40,
             "description": "Two or three sentences (wp-blocks SKILL \u00a72). Also the style line for the image pass."
+        },
+        "style": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "artistic",
+                "ui",
+                "rationale"
+            ],
+            "description": "The site's ONE style combo: an artistic style and a UI design style, chosen from the two lists in the prompt (exact names). A style the request itself names is set in stone — never overridden; only the missing half is chosen. The art_direction is written FROM this combo.",
+            "properties": {
+                "artistic": {
+                    "type": "string",
+                    "minLength": 2,
+                    "description": "EXACT name of one entry from the artistic styles list. Drives mood, color story, texture, imagery."
+                },
+                "ui": {
+                    "type": "string",
+                    "minLength": 2,
+                    "description": "EXACT name of one entry from the UI design styles list. Drives layout, density, component shapes, navigation feel."
+                },
+                "rationale": {
+                    "type": "string",
+                    "minLength": 20,
+                    "description": "One or two sentences: why THIS pairing serves THIS site — an argument, not a preference."
+                }
+            }
         },
         "axis": {
             "type": "object",
