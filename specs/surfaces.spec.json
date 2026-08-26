@@ -1,0 +1,186 @@
+{
+  "spec_version": "1.0.0",
+  "id": "x-surfaces",
+  "title": "X Surfaces — imagery as the skin of the layout: the image pass generalizes into ONE asset pass with two lanes (content and surface), so generated texture and decoration land on the page's structure through background supports and global styles, never as content-flow blocks",
+  "mission": "Give the pipeline the instrument its own style system keeps naming and cannot play. Every roster entry carries a texture cue ('damask, filigree borders'; 'cracked glaze, patina'; 'none — pure flat color planes') and every writing call is told 'the artistic style drives mood, color story, texture and imagery' — but the sanctioned channels (tokens + block supports) can only say flat color. This spec makes generated imagery a PRESENTATION material: band skins, band-edge friezes, page canvas, spot ornaments — attached to core/group background supports, core/cover, and global styles, born on-palette, deduplicated into a small per-site asset dictionary, applied in the same manifest-mediated drift-refusing transaction as content images, and measured by a contrast oracle that samples rendered pixels instead of going blind over imagery. The un-swapped state is the current flat-band design, so every failure degrades to today's output.",
+  "problem_context": {
+    "why": "Field observation, and a structural diagnosis. (1) No AI site generator uses texture in design — page grounds, band surfaces, borders, small ornament — despite having image generation on tap; the gap is general because texture lives in the seam between the color system and the image system, and it breaks cheap verification. (2) This repo has the seam mapped precisely: bands are mandated flat backgroundColor slugs (the band discipline), the ink oracle's guarantee is computed against flat grounds, and oracle.ts SKIPS contrast measurement for any text over a background image — flatness was implicitly traded for provability. (3) The conveyor already exists and is agnostic: metadata intent -> Gemini -> media library -> manifest-mediated refuse-on-drift swap -> recompile through save(). Nothing in it restricts assets to content; only the authoring vocabulary and the landing surface do. Decoration and texture are therefore two gaps, not a new machine: an AUTHORING gap (no brief/S4 vocabulary for ornamental imagery) and an APPLICATION gap (assets can only land on url/id of flow blocks, never become a surface).",
+    "canon_principle": "A surface is design-system material, not content: it is born on-palette (band hexes and the style line baked into its prompt), it lands as a real media-library attachment, and it is applied ONLY through mechanisms an admin can see and undo in core UI — the group Background panel, the cover overlay, the Styles background. The flat band is both the reservation and the fallback: a surface that never generates leaves the current design, correct and complete. Repetition is the point: a site owns a handful of surface assets applied many times — a dictionary, not a stream — because reuse is what reads as a designed material system instead of AI noise. And ambition is paid for with measurement: texture goes under text ONLY once the oracle rates ink against rendered pixels; until that gate exists the blind spot is treated as a hard constraint, not a shrug.",
+    "amends": "This spec amends x-pipeline (specs/pipeline.spec.json: S1 brief schema, S4 payloads, S8's image pass, S9's audits, the call budget) and x-agent (specs/agent-plugin.spec.json: wp_images_generate/wp_images_apply generalize into the asset pass keeping their names and two-phase contract; the verify oracle gains pixel-sampled contrast). It KNOWINGLY relaxes two of the pipeline spec's non-goals for its own scope only: the asset-pass tools change (they are the subject), and the companion gains ONE addition — the tokens route accepts an optional styles.background so the page canvas can ship through global styles. Everywhere else the base specs win on conflict; TreeIR, epoch, postures, R1 (no LLM markup) and R4 (supports and tokens only, no raw CSS) are untouched — this spec exists precisely because background image IS a block support.",
+    "recorded_decision": "ONE asset pass, not a parallel surface pass: the scan returns TYPED refs (kind: content | surface) from one parse, one manifest carries typed entries, and apply is ONE transaction per page — parse once, swap every content url/id AND write every style.background object, recompile once, update once. Two passes would double the drift window and the recompiles. Surface identity is the intent string (dictionary dedup: one asset, many target paths); content identity stays per-node. The model never emits alpha and never emits seamless tiles — both are deterministic post-processing in the warm Chromium canvas (mirror-tile, chroma-key), because the model cannot be trusted with either and code can. The page canvas requires a vocabulary change, not a gate change: a 'canvas' band is a root group with NO backgroundColor over the global-styles background (the band_root gate already checks structure only); without canvas bands the page canvas is invisible behind flush opaque bands and MUST NOT be generated. Sequencing is a hard rule: the brief fixes the surface dictionary BEFORE decor intents are authored, because ground-baked decor (band hex painted into a JPEG) is only legal on bands with no skin."
+  },
+  "operating_rules_for_implementing_agent": [
+    "Read specs/pipeline.spec.json and specs/agent-plugin.spec.json first; this spec assumes their vocabulary (TreeIR, epoch, gates, manifest, the two-phase image pass).",
+    "The flat band is the reservation: no new placeholder route, no minted pixel for surfaces. A surface that fails to generate or apply ships the flat band and a LOUD report entry — the page itself will not scream, so the ledger and report must.",
+    "Never write a data: URI into tree attributes and never route texture through custom CSS. A surface is a media-library attachment referenced by a block support or global styles, or it does not exist.",
+    "Surfaces are born on-palette: every surface prompt carries the exact hexes of the bands it will touch, plus the run's one style line. A surface prompt without its hexes is a bug.",
+    "One group, one layer: layered surfaces (skin + edge frieze) are expressed by nesting groups, never by inventing a multi-image mechanism.",
+    "Texture under text ships only behind the pixel-sampled ink audit. Until M5 lands, generated surfaces may not be applied to grounds that carry body text — enforce mechanically in the apply lane, not by prompt hope.",
+    "styles whose texture cue is 'none' produce an EMPTY surface dictionary, and that run is correct and complete. Flatness honored is a feature outcome, not a degraded one.",
+    "Capability is probed, never assumed: S2 reads the live manifest; a site whose core/group lacks the background support degrades every group-skin surface to none and says so in the report — it never errors and never falls back to CSS."
+  ],
+  "environment": {
+    "wordpress": "core/group background image support (style.background.backgroundImage + size/repeat/position) requires WP >= 6.5; global-styles background (styles.background) requires WP >= 6.6. The Playground boots 'latest' so both hold there; on arbitrary instances S2's manifest probe decides which surfaces are available.",
+    "provider": "The existing Gemini image client (gemini.ts) unchanged in shape: same key chain (gemini_api_key / GEMINI_API_KEY), same model default, same retry/timing discipline. image_size stays config ('1K' default); the canvas asset class may route to '2K' via config, never hardcoded.",
+    "post_processing": "The warm Chromium the MCP already drives: canvas 2D only (drawImage, getImageData, toBlob). No new npm dependency for image work.",
+    "config": "pipeline.config.json gains nothing mandatory. Optional: tasks.image size overrides per asset class."
+  },
+  "surface_inventory": [
+    {
+      "surface": "band_skin",
+      "mechanism": "style.background on the band's root (or an inner) core/group: backgroundImage {url, id}, backgroundSize, backgroundRepeat, backgroundPosition — a genuine block support, visible in the core Background inspector panel",
+      "asset_classes": ["field", "pattern"],
+      "notes": "The heart of the feature. backgroundColor stays set underneath — it is the reservation and the fallback."
+    },
+    {
+      "surface": "band_edge",
+      "mechanism": "the same group background support with backgroundRepeat repeat-x and backgroundPosition top or bottom, on a NESTED group when the band also carries a skin (one group, one layer)",
+      "asset_classes": ["frieze"],
+      "notes": "This is imagery-as-border done the WordPress-legal way — what CSS border-image would do, without a stylesheet."
+    },
+    {
+      "surface": "loud_band",
+      "mechanism": "core/cover: url/id (the existing swap mechanics, shared attribute with the content lane), overlayColor = a palette slug with dimRatio 70-90 as the veil, optional isRepeated, focalPoint",
+      "asset_classes": ["field", "pattern"],
+      "notes": "The one block where both lanes touch the same attributes; the metadata key decides the prompt lane. One cover, one intent kind — carrying both imageIntent and surfaceIntent is a schema error."
+    },
+    {
+      "surface": "divider_band",
+      "mechanism": "a shallow full-width group whose only job is its skin (repeat-x frieze or field strip); it is a band like any other to the width and seam audits",
+      "asset_classes": ["frieze"],
+      "notes": "Ornamental separation between sections without an <img> in the flow."
+    },
+    {
+      "surface": "spot_ornament",
+      "mechanism": "group background, no-repeat, positioned (corner/edge), sized by backgroundSize",
+      "asset_classes": ["spot"],
+      "notes": "Requires true alpha (chroma-key post-process) when the ground is textured or varies; ground-baked JPEG (band hex painted in) is permitted ONLY on skin-less flat bands — the sequencing rule exists for this."
+    },
+    {
+      "surface": "page_canvas",
+      "mechanism": "global styles: styles.background.backgroundImage via the tokens route (the one companion addition), shipped with the token set",
+      "asset_classes": ["canvas"],
+      "notes": "Invisible unless the page contains 'canvas' bands (root groups with NO backgroundColor). Generated only when the brief declares at least one canvas band; ink on canvas bands is measurable only by the pixel oracle (M5 gates M6)."
+    }
+  ],
+  "asset_classes": {
+    "field": "even, non-repeating texture wash (paper, plaster, concrete, linen) — no focal point, low internal contrast; applied backgroundSize cover; the veil or intensity bound tames it",
+    "pattern": "a repeating motif (damask, geometric, weave) — generated once, mirror-tiled 2x2 in post-processing into a guaranteed-seamless sheet, applied backgroundRepeat repeat",
+    "frieze": "a horizontally uniform ornamental strip (botanical band, deco border, rule-work) — widest API aspect (21:9), applied repeat-x at an edge",
+    "spot": "a discrete ornament (filigree corner, medallion, flourish) — generated on a computed key color (max distance from the site palette, recorded in the manifest), chroma-keyed to real alpha PNG in post-processing",
+    "canvas": "a page-scale field texture behind everything; same rules as field at larger size"
+  },
+  "the_asset_pass": {
+    "scan": "One parse per page (the harness parser, as today) returns typed refs: kind 'content' = placeholder URL (x-pixel-*) + metadata.imageIntent on an image-bearing block, exactly today's contract; kind 'surface' = metadata.surfaceIntent on a core/group or core/cover, carrying the dictionary asset id it references plus the target mechanism (group background | cover | canvas). An image node inside a surface-carrying group is still a content slot — the scan must not get clever.",
+    "prompt_lanes": "Content lane unchanged: intent + style line + the hard suffix ('No text, no watermarks, no logos, no borders.'). Surface lane: the dictionary entry's prompt seed + asset-class phrasing (seamless/uniform/no focal point as the class demands) + the exact hexes of every band the asset will touch + the same style line. Both lanes share one look because they share the one style line — coherence falls out of the existing discipline.",
+    "dedup": "Surface generation is keyed by dictionary id: one Gemini call per unique asset per run, however many targets reference it. The manifest entry for a surface carries ONE file and MANY target paths. Content entries stay one-file-one-path.",
+    "post_processing": "Between generate and upload, deterministically in the warm Chromium canvas: pattern -> mirror-tile (2x2 reflected sheet, seams impossible by construction); spot -> chroma-key knockout of the recorded key color to alpha PNG; all classes -> recompress at class-appropriate quality. Content assets pass through untouched. No randomness: identical input bytes produce identical output bytes.",
+    "apply": "ONE transaction per page: fetch and re-parse fresh, upload every manifest file, swap content url/id (exact-placeholder-URL match, refuse on drift — unchanged), write each surface's style.background object / cover attributes / canvas payload (refuse if the target attribute is no longer empty-or-our-reservation: an admin's own background is never overwritten), recompile the whole tree through the instance's save(), gate all_valid, update the post once. Canvas ships via the tokens route in the same S8 step, before page verification.",
+    "alt_text": "Content assets keep alt = intent. Surface assets have NO alt anywhere — a background image is decorative by construction; the accessibility flag problem disappears rather than being solved."
+  },
+  "coexistence_rules": [
+    "One scan, one manifest (schema version bumped, entries typed), one budget meter, one apply transaction. The tools keep their names (wp_images_generate / wp_images_apply) and their two-phase, changes-nothing-then-transacts contract.",
+    "core/cover carries exactly one intent kind. surfaceIntent + imageIntent on one node is a validation error at S4, not a runtime surprise.",
+    "Sequencing: the brief fixes the surface dictionary and each band's skin BEFORE section trees are authored; S4's payload tells every section whether its band is skinned, and ground-baked decor intents are only authorable on skin-less bands. Decor on a skinned band requires the spot class (true alpha) or does not happen.",
+    "Nesting is the layer compositor: outer group skin, inner group edge, content in flow. Each layer is one group, individually admin-editable.",
+    "Placeholder tones are unchanged: content slots mint accent pixels (band-toned under --no-images); the surface's reservation is the flat band either way, so the un-swapped page is coherent whichever lane lands first.",
+    "--no-images skips the WHOLE asset pass, both lanes; flat bands and band-toned pixels ship, exactly today's degraded output.",
+    "Drift refusal is per-entry and per-kind; a partial apply (some entries refused) still recompiles and ships what matched, with every refusal in the report."
+  ],
+  "brief_amendment": {
+    "surface_dictionary": "brief.json gains surfaces[]: {id, class: field|pattern|frieze|spot|canvas, prompt_seed, intensity: whisper|present|loud, attach: [band or section references]}. The dictionary is small by design — 2 to 4 entries for a textured site, EMPTY for styles whose texture cue says none (Bauhaus, Flat Design: an empty dictionary is the correct realization of the style). The roster texture cues are the quantization source, same as palette/typography cues feed the existing brief fields.",
+    "band_vocabulary": "design.band gains the value 'canvas': a root group with NO backgroundColor, sitting directly on the page_canvas surface. Legal only when the dictionary declares a canvas asset; ink menus for canvas bands are computed from the canvas asset's measured luminance range (post-generation) and verified by the pixel oracle. The band_root gate is untouched — it already checks structure, not color.",
+    "cross_checks": "brief cross-checks gain: canvas bands without a canvas asset (or vice versa) is a violation; a spot attached to a skinned band is a violation; a non-empty dictionary under a texture-cue-none combo is a violation burnt on the schema-retry like any other."
+  },
+  "verification_amendment": {
+    "presence": "S9 gains a surface probe: every applied surface's computed background-image resolves and its asset returned HTTP 200 — presence for surfaces, as loaded/natural_w is presence for content images.",
+    "pixel_ink": "The oracle's overImage skip (text over any background image is unmeasured) is replaced by measurement: clip-screenshot the text node's box, sample the rendered ground's luminance range, rate the declared ink against worst-case sampled ground with the existing thresholds (under 3:1 fails the run, 3-4.5:1 advisory). This retires the blind spot for the surface lane AND for content covers, which are skipped today. Screenshots taken for sampling are instrument readings inside wp_verify, not run evidence: the one-screenshot rule of S9 refers to the terminal evidence artifact and is unchanged.",
+    "unchanged": "Seam audit, band-width audit, heading outline, content-parity: all as they are. A divider band and a canvas band are bands to every existing audit."
+  },
+  "call_budget_amendment": {
+    "formula": "I = C + U, where C = surviving content image intents (as today, one call per slot) and U = unique surface dictionary assets (one call per asset, however many bands it lands on). Applications are free; only births are metered. The ceiling formula is otherwise unchanged and still prints after S1.",
+    "reporting": "The budget line names both: 'I = C content + U surfaces'. The report lists each dictionary asset with its class, its call, its post-processing, and every path it landed on."
+  },
+  "determinism": {
+    "claim": "Unchanged from the pipeline spec, extended over post-processing: mirror-tile and chroma-key are pure functions of input bytes and recorded parameters (key hex in the manifest), so fake-provider runs remain byte-identical end to end.",
+    "ledger": "Surface calls enter the ledger as task_type 'image' with the dictionary id in the label; the manifest is the audit trail for the fan-out from one asset to many targets.",
+    "resume": "Unchanged: a resumed run replays generated assets from runs/<ts>/images/ and re-enters at apply."
+  },
+  "milestones": [
+    {
+      "id": "M1_typed_scan_and_manifest",
+      "goal": "The scan returns typed refs; the manifest schema carries typed entries (surface entries: one file, many target paths). dry_run reports both kinds. No apply changes yet.",
+      "acceptance": [
+        "a fixture page with 2 content slots and a group carrying surfaceIntent scans to 3 refs, correctly typed, targets resolved to RFC 6901 paths",
+        "dry_run output names C and U separately and spends nothing",
+        "an image node INSIDE the surface-carrying group is found as a content ref"
+      ]
+    },
+    {
+      "id": "M2_group_skin_apply",
+      "goal": "The surface lane lands: generate per dictionary id (dedup observable in the ledger), apply writes style.background on group targets in the SAME transaction as content swaps, one recompile, one post update.",
+      "acceptance": [
+        "one dictionary asset referenced by 3 bands = exactly 1 image call and 3 style.background writes, one recompile, all_valid",
+        "a target whose background is no longer empty is refused and reported; the rest of the transaction completes",
+        "under --no-images the pass is skipped whole and the published page is byte-identical to today's output"
+      ]
+    },
+    {
+      "id": "M3_brief_dictionary_and_sequencing",
+      "goal": "S1 authors the surface dictionary from the roster texture cues; S4 payloads carry each band's skin state; cross-checks enforce the sequencing and none-stays-flat rules; the budget prints I = C + U.",
+      "acceptance": [
+        "a Wabi-Sabi-class prompt yields a 2-3 entry dictionary; a Bauhaus/Flat prompt yields an EMPTY one and a run that completes flat and green",
+        "a decor intent ground-baked onto a skinned band is rejected at the brief gate with the exact correction",
+        "the post-S1 budget line names C and U and the ceiling holds"
+      ]
+    },
+    {
+      "id": "M4_processing_station",
+      "goal": "Deterministic canvas post-processing in the warm Chromium: mirror-tiling for pattern, chroma-key to alpha PNG for spot, class-appropriate recompression.",
+      "acceptance": [
+        "a pattern asset's processed sheet tiles with zero visible seam by construction (left edge equals mirrored right edge, byte-asserted on the pixel rows)",
+        "a spot generated on the recorded key hex knocks out to alpha and composites cleanly over two different band hexes in a fixture render",
+        "identical input bytes produce identical output bytes across two runs"
+      ]
+    },
+    {
+      "id": "M5_pixel_oracle",
+      "goal": "wp_verify rates ink over rendered pixels; the overImage skip is deleted; S9 gains the surface presence probe. This milestone GATES M6 and gates lifting the no-text-over-texture apply constraint.",
+      "acceptance": [
+        "text over a deliberately dark-noised fixture surface fails the run at under 3:1; the same text over the veiled version passes",
+        "text over a content cover hero — skipped today — is now rated",
+        "every applied surface has a presence probe entry; a 404'd asset fails the run"
+      ]
+    },
+    {
+      "id": "M6_page_canvas",
+      "goal": "The companion tokens route accepts styles.background; the brief can declare canvas bands; the canvas asset ships with the tokens and canvas-band ink is rated by the pixel oracle.",
+      "acceptance": [
+        "a brief with one canvas asset and two canvas bands publishes a page where the canvas is visible exactly in those bands, seam and width audits clean",
+        "removing the background in the Styles UI restores a plain page (admin-undoable, asserted manually once and recorded)",
+        "a brief declaring canvas bands with no canvas asset dies at the brief gate"
+      ]
+    },
+    {
+      "id": "M7_end_to_end",
+      "goal": "The full promise: one prompt, a textured site, a fixed bill.",
+      "acceptance": [
+        "a Victorian-class prompt ships a site with a band skin, an edge frieze and a page canvas, zero ink failures, budget predicted == spent",
+        "a Flat-Design-class prompt ships a completely flat site through the SAME code path with U = 0",
+        "two fake-provider runs over the same fixtures produce byte-identical artifacts including processed surface assets"
+      ]
+    }
+  ],
+  "progress_protocol": {
+    "same_as": "companion spec progress_protocol — identical PROGRESS.json schema and rules, recorded in PROGRESS.surfaces.json; log every place a surface was tempted to ship under text before M5, and every ground-baking decision the sequencing rule prevented or permitted."
+  },
+  "non_goals": [
+    "No parallel surface pass: one asset pass, one manifest, one transaction. A second pipeline is the failure mode this spec exists to avoid.",
+    "No data: URIs in tree attributes and no texture through custom CSS, stylesheets, border-image or mask hacks — a surface is a media attachment on a core support or it does not exist (R4 spirit, deliverable purity).",
+    "No per-application unique textures: the dictionary is the cardinality. A model call per band is both a budget leak and a cohesion leak.",
+    "No model-side alpha and no model-side seamlessness: both are deterministic post-processing; trusting the model with either is a recorded anti-decision.",
+    "No forced texture: an empty dictionary under a flat style combo is a correct, complete, green run. The spec adds a capability, never an obligation.",
+    "No new placeholder route and no minted surface pixels: the flat band is the reservation and the fallback, and the report — not the page — carries the failure signal.",
+    "No content-lane changes beyond typing: the hard prompt suffix, per-slot cardinality, alt-from-intent and placeholder minting stay exactly as shipped."
+  ]
+}
