@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenOutline, screenBandWidths } from '../lib/gates.mjs';
+import { screenOutline, screenBandWidths, screenBandSeams } from '../lib/gates.mjs';
 
 export const id = 'S9_verify';
 export const kind = 'deterministic';
@@ -48,6 +48,8 @@ export async function run(ctx) {
     // Layout Cascade measured in the rendered DOM, where a clamped band shows
     // as a number no markup-level screen can produce.
     failures.push(...screenBandWidths(verify.box_tree, { viewportWidth: verify.measured?.viewport?.width }));
+    // …and no daylight between them: the S3 seam reset holds, or the run fails.
+    failures.push(...screenBandSeams(verify.box_tree));
     for (const img of verify.images ?? []) {
         if (img.loaded !== true || img.natural_w === 0) {
             failures.push({ code: 'image', message: `image not loaded: ${img.selector_path} (loaded=${img.loaded}, natural ${img.natural_w}x${img.natural_h})` });

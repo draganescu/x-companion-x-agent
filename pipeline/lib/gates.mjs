@@ -237,7 +237,10 @@ export function screenOutline(outline) {
 // the bands' own padding and is not audited here.)
 const CLAMP_SLACK = 48;
 
-export function screenBandWidths(boxTree, { viewportWidth } = {}) {
+// The page's top-level structures, found in the measured box tree: both
+// template parts, plus every direct child group of post-content (the band
+// roots). Shared by the width and seam audits.
+function bandStructures(boxTree) {
     const nodes = boxTree ?? [];
     const last = (n) => n.selector_path.split(' > ').pop() ?? '';
     const parts = nodes.filter((n) => n.block_name === 'core/template-part' || last(n).includes('.wp-block-template-part'));
@@ -249,6 +252,11 @@ export function screenBandWidths(boxTree, { viewportWidth } = {}) {
             return n.selector_path.startsWith(prefix) && !n.selector_path.slice(prefix.length).includes(' > ');
         })
         : [];
+    return { parts, bands, last };
+}
+
+export function screenBandWidths(boxTree, { viewportWidth } = {}) {
+    const { parts, bands, last } = bandStructures(boxTree);
     const failures = [];
     if (typeof viewportWidth === 'number' && viewportWidth > 0) {
         for (const n of [...parts, ...bands]) {
@@ -261,6 +269,33 @@ export function screenBandWidths(boxTree, { viewportWidth } = {}) {
         const widths = parts.map((n) => n.box.w);
         if (Math.max(...widths) - Math.min(...widths) > 8) {
             failures.push({ code: 'band_width', message: `the template parts disagree on width (${parts.map((n) => `${last(n)}=${Math.round(n.box.w)}px`).join(', ')}) — header and footer bookend the same design and must span the same row` });
+        }
+    }
+    return failures;
+}
+
+// S9: the seam audit — bands butt flush. Core injects a default
+// --wp--style--block-gap margin between top-level blocks even on a theme that
+// declares no blockGap (measured: 19px of page background between every band
+// of a real build); S3 resets it in one deliberate stroke, and this audit
+// keeps it dead. Any daylight between consecutive bands, or between a band
+// and a template part, is the page background leaking through — deliberate
+// space between bands is the bands' own padding, which is inside the band and
+// leaves no seam. Skipped when no band was measured: template parts alone are
+// not adjacent to each other.
+const SEAM_TOLERANCE = 4;
+
+export function screenBandSeams(boxTree) {
+    const { parts, bands } = bandStructures(boxTree);
+    if (bands.length === 0) return [];
+    const rows = [...parts, ...bands].sort((a, b) => a.box.y - b.box.y);
+    const failures = [];
+    for (let i = 1; i < rows.length; i += 1) {
+        const prev = rows[i - 1];
+        const next = rows[i];
+        const gap = next.box.y - (prev.box.y + prev.box.h);
+        if (gap > SEAM_TOLERANCE) {
+            failures.push({ code: 'band_seam', message: `${Math.round(gap)}px of page background between bands (${prev.selector_path} -> ${next.selector_path}) — the block-gap seam is back; bands butt flush and carry their spacing as their own padding` });
         }
     }
     return failures;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths, screenBandSeams } from '../lib/gates.mjs';
 
 const diag = (code, severity, message = '', path = '/blocks/0') => ({ code, severity, path, message });
 
@@ -225,6 +225,36 @@ test('screenBandWidths: clamped bands and disagreeing parts fail; full-bleed pas
     assert.deepEqual(screenBandWidths(clamped, {}), []);
     assert.equal(screenBandWidths(bug, {}).length, 1);
     assert.deepEqual(screenBandWidths([], { viewportWidth: 1440 }), []);
+});
+
+test('screenBandSeams: the 19px block-gap seam fails; flush bands pass; parts alone are skipped', () => {
+    const node = (selector_path, block_name, y, h) => ({ selector_path, block_name, box: { x: 0, y, w: 1440, h } });
+    const pc = 'body:nth-child(2) > main:nth-child(2) > div.wp-block-post-content:nth-child(1)';
+    const header = 'body:nth-child(2) > header.wp-block-template-part:nth-child(1)';
+    const footer = 'body:nth-child(2) > footer.wp-block-template-part:nth-child(3)';
+    const flush = [
+        node(header, 'core/template-part', 0, 113),
+        node(pc, 'core/post-content', 113, 2000),
+        node(`${pc} > div.wp-block-group:nth-child(1)`, 'core/group', 113, 900),
+        node(`${pc} > div.wp-block-group:nth-child(2)`, 'core/group', 1013, 1100),
+        node(footer, 'core/template-part', 2113, 400),
+    ];
+    assert.deepEqual(screenBandSeams(flush), []);
+
+    // the measured field bug: core's default block gap between every band
+    const seamed = [
+        node(header, 'core/template-part', 0, 113),
+        node(pc, 'core/post-content', 113, 2038),
+        node(`${pc} > div.wp-block-group:nth-child(1)`, 'core/group', 113, 900),
+        node(`${pc} > div.wp-block-group:nth-child(2)`, 'core/group', 1032, 1100),
+        node(footer, 'core/template-part', 2151, 400),
+    ];
+    const failures = screenBandSeams(seamed);
+    assert.equal(failures.length, 2);
+    assert.match(failures[0].message, /19px of page background/);
+
+    // template parts with no measured band between them are not adjacent — no verdict
+    assert.deepEqual(screenBandSeams([flush[0], flush[4]]), []);
 });
 
 test('screenImageGeometry: an intent node must carry width and aspectRatio', () => {

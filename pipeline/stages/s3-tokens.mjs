@@ -54,6 +54,20 @@ export async function run(ctx) {
         } : raw.typography,
     };
 
+    // One deliberate seam reset, stage-authored like the R9 passthrough (never
+    // the model's to write). Core injects margin-block-start:
+    // var(--wp--style--block-gap) between top-level blocks — header, every
+    // section, footer — even when the theme declares no blockGap at all (TT5
+    // declares none; the seams measured 19px of page background, core's 1.2rem
+    // default). Bands own their vertical rhythm through their own padding, so
+    // the seams are pure leakage, reset once here. Rung 5 citation: rungs 1-4
+    // cannot reach the space BETWEEN template-level blocks (no block owns it),
+    // and zeroing global blockGap instead would collapse rhythm inside every
+    // layout site-wide. Inner layouts keep their default gap untouched.
+    const SEAM_RESET = '.wp-site-blocks > * + * { margin-block-start: 0; }\n'
+        + '.wp-block-post-content > * + * { margin-block-start: 0; }';
+    tokens.css = { ...(tokens.css ?? {}), global: [tokens.css?.global, SEAM_RESET].filter(Boolean).join('\n') };
+
     // Gate, part 1: the free rehearsal. Deterministic sanity on the compiled diff.
     const dry = await ctx.call('wp_tokens_apply', { ...tokens, dry_run: true });
     if (!dry.ok) {
@@ -86,6 +100,13 @@ export async function run(ctx) {
     if (!applied.ok) {
         throw new PipelineError(applied.data.code ?? 'companion_error',
             `wp_tokens_apply failed: ${applied.data.message}`, applied.data.hint ?? '', { envelope: applied.data });
+    }
+    // The sanitizer never silently drops css; a rejected seam reset means the
+    // seams are back on every page — that is a gate failure, not a footnote.
+    if ((applied.data.css_rejected ?? []).length > 0) {
+        throw new PipelineError('gate_failed',
+            `the css sanitizer rejected part of the token css (${applied.data.css_rejected.join(' | ')}) — the seam reset must land whole`,
+            '', { css_rejected: applied.data.css_rejected });
     }
     writeFileSync(join(ctx.runDir, 'tokens.json'), JSON.stringify(tokens, null, 2));
     ctx.state.fingerprint = applied.data.fingerprint;

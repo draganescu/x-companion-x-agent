@@ -196,6 +196,36 @@ test('S9: a band clamped to the content column fails the width audit', async () 
     await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed' && /clamped to the content column/.test(e.message));
 });
 
+test('S9: daylight between bands fails the seam audit', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-seam-'));
+    const pc = 'body:nth-child(2) > main:nth-child(2) > div.wp-block-post-content:nth-child(1)';
+    const ctx = {
+        runDir,
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        log: () => {},
+        call: async (name) => {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') {
+                return { ok: true, data: {
+                    pass: true,
+                    measured: { viewport: { width: 1440, height: 900 } },
+                    box_tree: [
+                        { selector_path: 'body:nth-child(2) > header.wp-block-template-part:nth-child(1)', block_name: 'core/template-part', box: { x: 0, y: 0, w: 1425, h: 113 } },
+                        { selector_path: pc, block_name: 'core/post-content', box: { x: 0, y: 113, w: 1425, h: 1019 } },
+                        { selector_path: `${pc} > div.wp-block-group:nth-child(1)`, block_name: 'core/group', box: { x: 0, y: 113, w: 1425, h: 500 } },
+                        { selector_path: `${pc} > div.wp-block-group:nth-child(2)`, block_name: 'core/group', box: { x: 0, y: 632, w: 1425, h: 500 } },
+                        { selector_path: 'body:nth-child(2) > footer.wp-block-template-part:nth-child(3)', block_name: 'core/template-part', box: { x: 0, y: 1151, w: 1425, h: 300 } },
+                    ],
+                    a11y_outline: [{ role: 'heading', name: 'H', level: 1 }],
+                    images: [],
+                } };
+            }
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed' && /page background between bands/.test(e.message));
+});
+
 test('the footer part is chosen by canonical slug, not by whichever has area=footer', () => {
     // Twenty Twenty-Five's real listing order: the variants come back first.
     const parts = [

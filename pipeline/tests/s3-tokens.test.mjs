@@ -68,6 +68,12 @@ test('S3 happy path: dry run first, gate checks, real apply moves the fingerprin
     assert.equal(ctx.calls.length, 2);
     assert.equal(ctx.calls[0][1].dry_run, true);
     assert.equal(ctx.calls[1][1].dry_run, undefined);
+    // The stage-authored seam reset rides BOTH calls: core's default block-gap
+    // margin between top-level blocks never ships as page-background seams.
+    for (const [, args] of ctx.calls) {
+        assert.match(args.css.global, /\.wp-site-blocks > \* \+ \* \{ margin-block-start: 0; \}/);
+        assert.match(args.css.global, /\.wp-block-post-content > \* \+ \* \{ margin-block-start: 0; \}/);
+    }
     assert.ok(existsSync(join(ctx.runDir, 'tokens.json')));
     assert.ok(existsSync(join(ctx.runDir, 'tokens-dry-run.json')));
     assert.equal(ctx.state.fingerprint, 'f2');
@@ -103,6 +109,17 @@ test('a missing brief color in the preview is a gate failure naming the color', 
         throw new Error('real apply must not run');
     };
     await assert.rejects(s3.run(ctx), (e) => e.code === 'gate_failed' && /#D96C2C/.test(e.message));
+});
+
+test('a css sanitizer rejection is a gate failure — the seam reset must land whole', async () => {
+    const ctx = makeCtx({ outputs: [JSON.stringify(goodTokens())] });
+    const inner = ctx.call;
+    ctx.call = async (name, args) => {
+        const res = await inner(name, args);
+        if (!args.dry_run) res.data.css_rejected = ['.wp-site-blocks rule rejected'];
+        return res;
+    };
+    await assert.rejects(s3.run(ctx), (e) => e.code === 'gate_failed' && /css sanitizer/.test(e.message));
 });
 
 test('a theme with no contentSize/wideSize fails S3 before any call is spent', async () => {

@@ -68,11 +68,12 @@ in these attributes, and a gate rejects a root that is not a full band. Inner
 content that must span the whole band (a header row with the brand left and the
 navigation right) carries "align": "wide".
 
-THE SEAM: WordPress inserts a default margin (--wp--style--block-gap, 24px even
-when no theme declares it) between the header part, the page content, and the
-footer part. Your band owns its vertical rhythm through its OWN padding — design
-the part as if it butts flush against the page, and never add margins to
-compensate for a seam that belongs to the theme.
+THE SEAM: WordPress inserts a default margin (--wp--style--block-gap, even when
+no theme declares it) between the header part, the page content, and the footer
+part — and the pipeline resets it to zero in one deliberate stroke, so bands
+butt truly flush and a verifier fails the run on any daylight between them.
+Your band owns its vertical rhythm through its OWN padding: design the part
+flush, and never add margins to reintroduce a seam the reset just killed.
 
 Your block vocabulary (manifest slice, with attribute schemas — use NOTHING outside
 it, and no attributes absent from it): {{manifest_slice}}

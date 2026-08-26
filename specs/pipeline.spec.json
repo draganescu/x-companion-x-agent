@@ -59,7 +59,7 @@
       "llm_task": "tokens",
       "calls": "1",
       "inputs": "brief identity + art direction, theme's own spacing/layout (passed through verbatim per the wp-blocks R9 discipline)",
-      "outputs": "DesignTokens validated against design-tokens.schema.json",
+      "outputs": "DesignTokens validated against design-tokens.schema.json, plus the stage-authored seam reset appended to css.global (rung 5, cited: core injects a default block-gap margin between top-level blocks even on a theme declaring no blockGap, leaking page background between full-bleed bands; bands own their rhythm via their own padding, so the reset zeroes .wp-site-blocks and post-content direct-child margins in one deliberate stroke — never per-section compensation). A css sanitizer rejection is a gate failure, not a footnote.",
       "gate": "wp_tokens_apply dry_run diff review (deterministic sanity: every brief color present, spacing/layout untouched) then wp_tokens_apply; new fingerprint recorded"
     },
     {
@@ -119,7 +119,7 @@
         "wp_screenshot"
       ],
       "calls": "0",
-      "outputs": "wp_verify pass with a sane heading outline, every image loaded, and the band-width audit clean on the measured box tree: every top-level band (section roots and both template parts) spans the viewport and header agrees with footer — a band clamped to the content column measures narrow in the rendered DOM where the markup-level screens cannot see (the 645px-header field bug); exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
+      "outputs": "wp_verify pass with a sane heading outline, every image loaded, the band-width audit clean on the measured box tree (every top-level band — section roots and both template parts — spans the viewport and header agrees with footer; the 645px-header field bug), and the seam audit clean: no daylight between consecutive bands or between a band and a template part — S3's block-gap reset holds or the run fails (the 19px-seams field bug); exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
     }
   ],
   "llm_contract": {
