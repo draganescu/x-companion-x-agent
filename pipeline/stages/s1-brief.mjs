@@ -50,7 +50,15 @@ export async function run(ctx) {
     writeFileSync(join(ctx.runDir, 'brief.json'), JSON.stringify(brief, null, 2));
     ctx.state.brief = brief;
     const budget = computeBudget(brief);
+    if (ctx.state.no_images) {
+        // --no-images: the placeholder pixels still ship (minted free in S8, each
+        // carrying its written imageIntent for a later fill); the metered
+        // generation pass is skipped, so its calls leave the bill.
+        budget.I = 0;
+        budget.ceiling = 2 * budget.base;
+    }
     ctx.budget.setCeiling(budget.ceiling); // throws budget_exceeded if > hard cap — before call #2
     ctx.state.budget = budget;
-    ctx.log(`this brief costs at most ${budget.ceiling} calls (S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I})${brochure ? ' — brochure mode, composition only' : ''}`);
+    const modes = [brochure ? 'brochure mode, composition only' : '', ctx.state.no_images ? 'images skipped, placeholders stay' : ''].filter(Boolean).join('; ');
+    ctx.log(`this brief costs at most ${budget.ceiling} calls (S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I})${modes ? ` — ${modes}` : ''}`);
 }

@@ -193,6 +193,13 @@ export async function run(ctx) {
     }
 
     // 9. The image pass: budget-metered per found intent, then generate + apply.
+    // Under --no-images the pass is skipped whole: the placeholders minted above
+    // stay in place, each carrying its imageIntent for a later fill, and no
+    // image call is spent (S1 already removed I from the ceiling).
+    if (ctx.state.no_images) {
+        ctx.log('image generation skipped (--no-images) — the placeholder pixels stay in place');
+        return;
+    }
     for (const page of ctx.state.published.pages.filter((p) => p.has_images)) {
         const dry = await toolOrThrow(ctx, 'wp_images_generate', { post_id: page.id, dry_run: true }, 'wp_images_generate dry_run');
         if (dry.found === 0) continue;

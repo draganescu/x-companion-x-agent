@@ -61,10 +61,12 @@ usage:
                             [--dry-run] [--yes]                delete build artifacts
   x-pipeline config init    [--provider cerebras|gemini|anthropic|openai] [--model ID] [--key API_KEY] [--force]
   x-pipeline build "<prompt>" [--until STAGE] [--resume RUN_DIR] [--config PATH]
-                              [--new-site] [--port N] [--slot NAME] [--brochure]
+                              [--new-site] [--port N] [--slot NAME] [--brochure] [--no-images]
                               --brochure: composition only — no custom blocks, no data
                               packages; the brief must express every section with the
                               blocks the site already has
+                              --no-images: skip image generation; the solid-colour
+                              placeholder pixels stay in place (no Gemini key needed)
 
 typical first run:
   x-pipeline config init                # picks a provider from your keys, or asks for one
@@ -419,6 +421,7 @@ async function build(flags, positionals) {
         resumeDir: flags.resume,
         until: flags.until,
         brochure: !!flags.brochure,
+        noImages: !!flags['no-images'],
         cwd,
     });
     const front = state.published?.pages?.find((p) => p.front_page);
@@ -462,7 +465,7 @@ export async function main(argv) {
             const { flags } = parseArgs(rest, { booleans: ['force'] });
             await configInit(flags);
         } else if (cmd === 'build') {
-            const { flags, positionals } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['new-site', 'brochure'] });
+            const { flags, positionals } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['new-site', 'brochure', 'no-images'] });
             await build(flags, positionals);
         } else {
             console.error(HELP);

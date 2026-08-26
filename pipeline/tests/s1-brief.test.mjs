@@ -116,3 +116,15 @@ test('without --brochure the mode note is empty and blocks/packages pass as befo
     assert.ok(!/BROCHURE MODE/.test(prompts[0]));
     assert.equal(ctx.state.budget.ceiling, 16);
 });
+
+test('--no-images: I leaves the bill; the ceiling is 2*base with placeholders staying', async () => {
+    const provider = { id: 'scripted', complete: async () => ({ text: JSON.stringify(fixtureBrief), usage: { input_tokens: 1, output_tokens: 1 } }) };
+    const ctx = makeCtx({ provider });
+    ctx.state.no_images = true;
+    await s1.run(ctx);
+    // S=3, B=1, P=1 -> base 7; I=2 dropped: ceiling 14, not 16.
+    assert.equal(ctx.state.budget.I, 0);
+    assert.equal(ctx.state.budget.ceiling, 14);
+    assert.equal(ctx.budget.ceiling, 14);
+    assert.ok(ctx.logs.some((l) => /images skipped, placeholders stay/.test(l)));
+});

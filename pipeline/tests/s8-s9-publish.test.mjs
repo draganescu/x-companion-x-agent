@@ -186,3 +186,28 @@ test('the footer part is chosen by canonical slug, not by whichever has area=foo
     // No footer part at all is a clean miss, not a throw.
     assert.equal(pick([{ id: 't//header', slug: 'header', area: 'header' }]), undefined);
 });
+
+test('S8 with --no-images: placeholders minted, the generation pass never runs, no image call spent', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({ restLog, toolLog });
+    ctx.state.no_images = true;
+    await s8.run(ctx);
+
+    // Placeholders still carry the design: minted, url/id set, intent preserved.
+    const validated = toolLog.find(([n, a]) => n === 'wp_validate' && a.blocks.length > 1);
+    const imageNodes = [];
+    const walk = (ns) => ns.forEach((n) => { if (n.name === 'core/image') imageNodes.push(n); walk(n.innerBlocks ?? []); });
+    walk(validated[1].blocks);
+    assert.equal(imageNodes.length, 2);
+    assert.ok(imageNodes.every((n) => n.attributes.url.includes('x-pixel')));
+    assert.ok(imageNodes.every((n) => n.attributes.metadata.imageIntent), 'intents stay for a later fill');
+
+    // The metered pass is skipped whole: no generate, no apply, zero image spend.
+    assert.ok(!toolLog.some(([n]) => n === 'wp_images_generate' || n === 'wp_images_apply'));
+    assert.ok(!ctx.budget.calls.some((c) => c.task_type === 'image'));
+    assert.ok(!ctx.ledger.entries.some((e) => e.task_type === 'image'));
+    // Everything before the pass still happened: installs, publish, nav, footer.
+    assert.deepEqual(ctx.state.installs.map((i) => i.kind), ['schema', 'block']);
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === '/wp/v2/pages'));
+});
