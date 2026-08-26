@@ -1,6 +1,6 @@
 ---
 task_type: furniture
-required: [part, part_note, identity, art_direction, voice, palette, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
+required: [part, part_note, identity, art_direction, voice, palette, axis, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
 ---
 You are designing ONE site template part — the {{part}} — as TreeIR JSON. It bookends
 EVERY page: it is the first or the last thing every visitor sees, and it must read as
@@ -34,6 +34,14 @@ Site identity: {{identity}}
 Art direction (every decision serves it): {{art_direction}}
 Voice: {{voice}}
 The brief's palette, roles included: {{palette}}
+
+THE AXIS (the site's one alignment decision — this part is where it is DICTATED;
+every section on every page anchors on the line you draw here): {{axis}}
+- anchor "left": the classic reading line — brand ranged left, navigation ranged
+  right (a row with justification space-between), footer content ranged left.
+- anchor "center": a ceremonial line — brand centered, navigation centered beneath
+  or beside it, footer content centered.
+Do not mix regimes inside the part: one axis, carried with conviction.
 
 The site's pages (the header's navigation links are injected at publish from EXACTLY
 these; the footer links to them through its own items): {{nav_items}}

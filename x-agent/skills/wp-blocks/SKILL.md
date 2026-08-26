@@ -82,9 +82,16 @@ tokens copied from the theme it replaced. Break that deliberately:
 
 - **Display-scale type.** Give the type scale a real top end — a `display` step (fluid,
   3rem → 6rem+) for hero statements and large numerals, not just a slightly bigger `xx-large`.
-- **Asymmetry.** Uneven column splits (58/42, 45/55), left-aligned heroes, staggered card grids
+- **Asymmetry.** Uneven column splits (58/42, 45/55), staggered card grids
   (an inner group with a `padding-top` preset drops one column), media-text rows that alternate
-  sides.
+  sides. Asymmetry lives in COMPOSITION — the anchoring axis is not where variety comes from.
+- **One axis.** A designed site anchors on a single alignment axis, dictated by the header and
+  obeyed by every band: ranged-left is the editorial default; a centered axis is a deliberate,
+  ceremonial choice (monumental, classical-symmetry, luxury attitudes can carry it). Pick the
+  one that serves the art direction and hold it. Composition varies down the page; the axis
+  does not — a page that opens on a left-anchored hero and closes on a centered CTA reads as
+  two designers. At most one deliberate axis break per page, argued, the way exactly one band
+  is accent.
 - **Band rhythm with one bright moment.** Sections alternate ground tones; exactly one band
   gets the loud color. Two loud bands cancel each other out.
 - **Editorial details.** Uppercase letterspaced kickers, a marquee strip, a large pullquote on

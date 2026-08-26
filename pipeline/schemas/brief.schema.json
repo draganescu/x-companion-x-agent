@@ -9,6 +9,7 @@
         "version",
         "identity",
         "art_direction",
+        "axis",
         "palette",
         "pages",
         "custom_blocks",
@@ -45,6 +46,29 @@
             "type": "string",
             "minLength": 40,
             "description": "Two or three sentences (wp-blocks SKILL \u00a72). Also the style line for the image pass."
+        },
+        "axis": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "anchor",
+                "argument"
+            ],
+            "description": "The site's ONE alignment axis (wp-blocks SKILL \u00a72, One axis). The header dictates it and every section anchors on it; composition varies down the page, the axis does not.",
+            "properties": {
+                "anchor": {
+                    "enum": [
+                        "left",
+                        "center"
+                    ],
+                    "description": "Where text and content anchor site-wide. Ranged-left is the editorial default; center is a deliberate, ceremonial choice."
+                },
+                "argument": {
+                    "type": "string",
+                    "minLength": 10,
+                    "description": "One sentence: why this axis serves THIS art direction (not a preference \u2014 an argument)."
+                }
+            }
         },
         "palette": {
             "type": "array",
@@ -162,17 +186,20 @@
                                         },
                                         "layout": {
                                             "enum": [
-                                                "centered",
-                                                "left-aligned",
+                                                "stack",
                                                 "split",
                                                 "asymmetric",
                                                 "grid"
                                             ],
-                                            "description": "The section's composition. Vary layouts down the page; a stack of centered bands is a default, not a design."
+                                            "description": "The section's COMPOSITION only — how the content is arranged. Vary it down the page. Anchoring comes from the site axis, never from this field."
+                                        },
+                                        "axis_break": {
+                                            "type": "boolean",
+                                            "description": "Deliberately break the site axis for this ONE section (it anchors on the opposite axis). At most one per page — the axis counterpart of the accent band — and the argument goes in notes."
                                         },
                                         "notes": {
                                             "type": "string",
-                                            "description": "One line of art direction specific to this section."
+                                            "description": "One line of art direction specific to this section. Required in spirit when axis_break is set: say why the break earns itself."
                                         }
                                     }
                                 },

@@ -174,6 +174,15 @@ test('every section payload carries the shared design language', async () => {
     const signup = ctx.payloads['home/signup'];
     assert.deepEqual(signup.band_colors, { background: 'ember', text: 'contrast' }); // accent by hex; dark ink by luminance
 
+    // The axis rides in every payload: one site anchor, obeyed per section…
+    assert.deepEqual(hero.axis, { site: 'left', section: 'left', is_break: false, argument: brief.axis.argument });
+    // …flipped only where the brief argued the break (signup, the accent moment)…
+    assert.deepEqual(signup.axis, { site: 'left', section: 'center', is_break: true, argument: brief.axis.argument });
+    assert.deepEqual(hero.page_plan.map((p) => p.axis), ['left', 'left', 'center']);
+    // …and dictated from the furniture, which sees it before any section ships.
+    assert.deepEqual(ctx.payloads['furniture/header'].axis, { anchor: 'left', argument: brief.axis.argument });
+    assert.deepEqual(ctx.payloads['furniture/footer'].axis, { anchor: 'left', argument: brief.axis.argument });
+
     const features = ctx.payloads['home/what-we-bake'];
     assert.equal(features.design.layout, 'grid');
     assert.match(features.image_note, /EXACTLY one core\/image node per intent/);

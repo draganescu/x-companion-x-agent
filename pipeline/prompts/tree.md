@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, art_direction, voice, page_plan, design, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, voice, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation. The section must look like it belongs
@@ -27,14 +27,18 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 >
 > R5 — retrieve first: adapt the starting pattern's idiom before inventing.
 >
-> §2 Design quality — a centered stack on a flat band is not a finished design.
-> Display-scale type for hero statements; asymmetry (uneven column splits,
-> left-aligned heroes); editorial details (uppercase letterspaced kickers); generous,
-> deliberate whitespace between bands. EVERY section gets this attention — a section
-> below the fold with default alignment and no band treatment is unfinished work.
+> §2 Design quality — a default stack on a flat band is not a finished design.
+> Display-scale type for hero statements; asymmetry (uneven column splits, staggered
+> grids — composition, never the anchoring axis); editorial details (uppercase
+> letterspaced kickers); generous, deliberate whitespace between bands. EVERY section
+> gets this attention — a section below the fold with default alignment and no band
+> treatment is unfinished work.
 > Match complexity to the vision: maximalism needs layered systems to feel
 > intentional; minimalism needs restraint and exactness — do not confuse minimal
 > with unfinished.
+> One axis: composition varies down the page; the anchoring axis does not — a page
+> that opens on a left-anchored hero and closes on a centered CTA reads as two
+> designers.
 
 Design values live in the applied tokens, never in your tree: NO hex colours anywhere, and no
 px/rem font sizes or spacing values under `style` — spend palette slugs, the
@@ -86,7 +90,7 @@ one thin paragraph. A section whose band is mostly empty background is
 unfinished work.
 
 IMAGE GEOMETRY: every image is a composition element, never a thumbnail. In a
-split or left-aligned layout the image fills its column (core/columns with the
+split or asymmetric layout the image fills its column (core/columns with the
 image column at 50-58%, or core/media-text with the image side). A lone hero
 image is large (sizeSlug "large", or the band's media half). Gallery images
 share one consistent aspectRatio. Set width AND aspectRatio deliberately on EVERY
@@ -97,17 +101,30 @@ STATEMENT SCALE: hero and cta sections carry one display-scale statement (the
 largest font-size slug available) — a cta whose text whispers in a loud band is
 a defect.
 
-LAYOUT: realize design.layout, not a default stack —
-- "centered": constrained column, display-scale heading, deliberate whitespace.
-- "left-aligned": headings and copy ranged left; no auto-centering.
-- "split": core/columns with an UNEVEN split (58/42 or 45/55), verticalAlignment set.
+THE AXIS (one decision for the whole site — the header dictates it, every band
+obeys it): {{axis}}
+Anchor this section on axis.section: headings, copy, button rows and column content
+all range the same way. "left" means ranged left — textAlign left, buttons justified
+left, NO auto-centered statement stacks. "center" means a centered discipline —
+statements textAlign center in a centered column, buttons justified center. When
+axis.is_break is true this section is the page's ONE argued break: commit to the
+opposite anchor fully (a half-break reads as a mistake). Never invent a third
+alignment regime beyond the axis and the declared break.
+
+LAYOUT: realize design.layout ON the axis, not a default stack —
+- "stack": one constrained column of statement and support — display-scale heading,
+  deliberate whitespace, everything anchored per the axis (a left-axis stack keeps a
+  strong left margin; only a center axis centers it).
+- "split": core/columns with an UNEVEN split (58/42 or 45/55), verticalAlignment set;
+  the text column anchors per the axis.
 - "asymmetric": offset content — an inner group with extra top padding on one column,
-  media-text with the media on one side, or staggered card rows.
+  media-text with the media on one side, or staggered card rows. The offsets are the
+  composition; the TEXT inside still anchors per the axis.
 - "grid": core/columns rows (or the block's own grid) with consistent card treatment —
-  every card the same band-aware styling. A card's background sits ON the
-  core/column node itself, never on an inner group: an inner group's background
-  covers only its content height and leaves the cell ragged (columns are flex
-  items that stretch; the column node is what fills the cell).
+  every card the same band-aware styling, card text anchored per the axis. A card's
+  background sits ON the core/column node itself, never on an inner group: an inner
+  group's background covers only its content height and leaves the cell ragged
+  (columns are flex items that stretch; the column node is what fills the cell).
 
 Your block vocabulary for this section (manifest slice, with attribute schemas — use
 NOTHING outside it, and no attributes absent from it; W_ATTR_UNKNOWN fails the

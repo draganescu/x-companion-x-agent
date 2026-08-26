@@ -19,12 +19,19 @@ From the wp-blocks skill, §2 Design quality (the method — the skill is the so
 > brief. If you cannot say what the site should feel like, you are not ready.
 >
 > What separates a designed page from a default one: display-scale type (a fluid `display`
-> step, 3rem → 6rem+); asymmetry (uneven column splits, left-aligned heroes, staggered
-> grids); band rhythm with ONE bright moment (sections alternate ground tones; exactly one
-> band gets the loud color); editorial details (uppercase letterspaced kickers, a pullquote
-> on the one accent band); ONE accent color, with palette slugs named after what they are
-> for; deliberate whitespace. If every section is a centered stack on a flat band, the
-> design is not done.
+> step, 3rem → 6rem+); asymmetry (uneven column splits, staggered grids — asymmetry lives
+> in COMPOSITION, the anchoring axis is not where variety comes from); band rhythm with ONE
+> bright moment (sections alternate ground tones; exactly one band gets the loud color);
+> editorial details (uppercase letterspaced kickers, a pullquote on the one accent band);
+> ONE accent color, with palette slugs named after what they are for; deliberate whitespace.
+> If every section is a centered stack on a flat band, the design is not done.
+>
+> One axis: a designed site anchors on a single alignment axis, dictated by the header and
+> obeyed by every band. Ranged-left is the editorial default; a centered axis is a
+> deliberate, ceremonial choice. Composition varies down the page; the axis does not — a
+> page that opens on a left-anchored hero and closes on a centered CTA reads as two
+> designers. At most one deliberate axis break per page, argued, the way exactly one band
+> is accent.
 >
 > Generic is a defect, not a baseline: no purple-gradient defaults, no predictable
 > hero/card/feature-grid page with no concept behind it, no visual formula reused across
@@ -78,8 +85,17 @@ Rules:
   - band: alternate grounds down the page (base / surface / contrast); AT MOST ONE
     accent band per page — the single bright moment (usually the cta). A page of
     same-band sections is a default, not a design.
-  - layout: vary it (centered / left-aligned / split / asymmetric / grid); no two
-    adjacent sections with the same layout unless the design argues for it.
+  - layout: the COMPOSITION only (stack / split / asymmetric / grid) — vary it; no two
+    adjacent sections with the same composition unless the design argues for it. Anchoring
+    is not this field's business.
+  - The axis is decided ONCE, in the top-level `axis` field {anchor, argument}, and it has
+    to make sense for THIS art direction: editorial, industrial, brutalist, magazine
+    attitudes read ranged-left; monumental, ceremonial, classical-symmetry attitudes can
+    argue a centered axis. Write the argument — an axis without a reason is a coin flip.
+    The header will dictate this axis on every page and every section anchors on it.
+  - design.axis_break flips at most ONE section per page onto the opposite anchor — the
+    axis counterpart of the accent band, often the same section — and its reason goes in
+    design.notes. A break without an argument is scattering, not design.
   - Below the fold gets the SAME attention as the hero — the last section is judged
     like the first.
   - The palette must cover the bands you plan: a surface band needs a palette entry

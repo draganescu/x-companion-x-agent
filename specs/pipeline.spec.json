@@ -39,7 +39,7 @@
       "llm_task": "brief",
       "calls": "1",
       "inputs": "the user prompt, verbatim",
-      "outputs": "brief.json validated against brief.schema.json: site identity, art direction sentence, pages[] each with sections[] (role, copy notes, image_intent?), custom_blocks[] (only where the brief itself argues core cannot express the section), schema_packages[] (only where data has a lifecycle), nav and footer intent",
+      "outputs": "brief.json validated against brief.schema.json: site identity, art direction sentence, ONE site alignment axis {anchor: left|center, argument} chosen to serve the art direction (the header dictates it, every section anchors on it; design.axis_break flips at most one argued section per page — enforced by crossChecks like the accent band), pages[] each with sections[] (role, copy notes, image_intent?, design {band, layout: composition only}), custom_blocks[] (only where the brief itself argues core cannot express the section), schema_packages[] (only where data has a lifecycle), nav and footer intent",
       "gate": "brief.schema.json validation; one schema-retry. The brief FIXES the fan-out: S, B, P, I are read from it and the full budget is printed before any further call."
     },
     {
@@ -67,7 +67,7 @@
       "kind": "generative",
       "llm_task": "tree",
       "calls": "S (one per section in the brief) + 2 (the header and footer template parts), concurrent",
-      "inputs": "per section: its brief entry, its manifest slice, its starting pattern's parsed_tree, the applied token slugs",
+      "inputs": "per section: its brief entry, its manifest slice, its starting pattern's parsed_tree, the applied token slugs, and the site axis (site anchor + this section's effective anchor + is_break); the furniture calls receive the same axis — the header is where it is dictated",
       "outputs": "one TreeIR fragment per section, validated against tree-ir.schema.json locally, then wp_validate at the current fingerprint Plus one TreeIR per furniture part (header: brand + a bare core/navigation node, links injected at publish; footer: built from the brief's own footer.intent), through the same gates.",
       "gate": "wp_validate valid:true with warnings reviewed mechanically (W_ATTR_UNKNOWN fails the artifact; W_STATIC_NEEDS_HARNESS passes); plus the band-root screen: a section or furniture tree is ONE root core/group carrying align:full and a declared inner layout — the Layout Cascade (WordPress clamps children of a constrained layout to contentSize via CSS no stylesheet outranks, so an unaligned band ships squeezed into the content column; width is fixed in tree attributes, never in CSS)"
     },

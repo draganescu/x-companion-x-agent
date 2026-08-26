@@ -7,7 +7,14 @@ export function crossChecks(brief) {
     (brief.pages ?? []).forEach((p, pi) => {
         const seen = new Set();
         let accentBands = 0;
+        let axisBreaks = 0;
         (p.sections ?? []).forEach((s, si) => {
+            if (s.design?.axis_break === true) {
+                axisBreaks += 1;
+                if (!s.design.notes) {
+                    issues.push({ path: `/pages/${pi}/sections/${si}/design/notes`, message: `section "${s.id}" breaks the site axis without arguing it — an axis break carries its reason in design.notes or it is scattering, not design` });
+                }
+            }
             if (s.uses_custom_block && !blockSlugs.has(s.uses_custom_block)) {
                 issues.push({ path: `/pages/${pi}/sections/${si}/uses_custom_block`, message: `no custom_blocks entry "${s.uses_custom_block}"` });
             }
@@ -20,6 +27,9 @@ export function crossChecks(brief) {
         });
         if (accentBands > 1) {
             issues.push({ path: `/pages/${pi}/sections`, message: `${accentBands} accent bands on one page — exactly one bright moment (§2): at most one section may sit on the accent band` });
+        }
+        if (axisBreaks > 1) {
+            issues.push({ path: `/pages/${pi}/sections`, message: `${axisBreaks} axis breaks on one page — the axis is one site-wide decision (§2, One axis): at most one section per page may break it, the way at most one band is accent` });
         }
     });
     for (const [field, items] of [['navigation', brief.navigation?.items], ['footer', brief.footer?.items]]) {

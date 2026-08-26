@@ -23,12 +23,23 @@ export async function run(ctx) {
         font_families: tokens.typography.families.map((f) => f.slug),
     };
     const allowedUnknown = new Set(brief.custom_blocks.map((b) => `agent/${b.slug}`));
+    // The site's ONE alignment axis (§2, One axis): the header dictates it and
+    // every section anchors on it; design.axis_break flips a single argued
+    // section onto the opposite anchor. A run dir from before the axis field
+    // falls back to the editorial default instead of crashing a --resume.
+    const axis = brief.axis ?? { anchor: 'left', argument: '' };
+    const OPPOSITE = { left: 'center', center: 'left' };
+    const sectionAnchor = (sec) => (sec.design?.axis_break === true ? OPPOSITE[axis.anchor] : axis.anchor);
+    // Pre-axis briefs named the axis inside the layout enum; both legacy values
+    // meant the single-column composition.
+    const composition = (l) => ({ centered: 'stack', 'left-aligned': 'stack' }[l] ?? l ?? 'stack');
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
         role: sec.role,
         band: sec.design?.band ?? 'base',
-        layout: sec.design?.layout ?? 'centered',
+        layout: composition(sec.design?.layout),
+        axis: sectionAnchor(sec),
         images: sectionImageIntents(sec).length,
     }))]));
     ctx.state.artifacts = ctx.state.artifacts ?? {};
@@ -49,7 +60,8 @@ export async function run(ctx) {
         const headingRule = isHeroSlot
             ? 'This section carries the page\'s SINGLE h1: the statement headline MUST be a core/heading with attributes.level set to 1 EXPLICITLY (core/heading defaults to level 2 when level is omitted). Any further headings inside this section are level 2.'
             : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
-        const design = section.design ?? { band: 'base', layout: 'centered' };
+        const design = { band: 'base', layout: 'stack', ...(section.design ?? {}) };
+        design.layout = composition(design.layout);
         const payload = {
             section,
             page: entry.page,
@@ -57,6 +69,12 @@ export async function run(ctx) {
             voice: brief.identity.voice ?? brief.identity.tagline,
             page_plan: pagePlans[s.page] ?? [],
             design,
+            axis: {
+                site: axis.anchor,
+                section: sectionAnchor(section),
+                is_break: section.design?.axis_break === true,
+                argument: axis.argument,
+            },
             band_colors: resolveBandColors(design.band, brief.palette, tokens.palette),
             manifest_slice: entry.manifest_slice,
             pattern_tree: entry.pattern?.parsed_tree ?? null,
@@ -140,6 +158,7 @@ export async function run(ctx) {
             art_direction: brief.art_direction,
             voice: brief.identity.voice ?? brief.identity.tagline,
             palette: brief.palette,
+            axis: { anchor: axis.anchor, argument: axis.argument },
             nav_items: brief.navigation.items,
             footer_intent: brief.footer.intent,
             footer_items: brief.footer.items,

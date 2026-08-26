@@ -82,6 +82,18 @@ test('crossChecks: two accent bands on one page fail; a gallery without array in
     assert.ok(crossChecks(gallery).some((i) => /empty frame/.test(i.message)));
 });
 
+test('crossChecks: the axis break is one per page and must argue itself', () => {
+    // signup is the fixture's one argued break; a second break on the same page
+    // is scattering, exactly as a second accent band is.
+    const twoBreaks = structuredClone(fixtureBrief);
+    twoBreaks.pages[0].sections[0].design.axis_break = true;
+    assert.ok(crossChecks(twoBreaks).some((i) => /axis breaks on one page/.test(i.message)));
+
+    const silentBreak = structuredClone(fixtureBrief);
+    delete silentBreak.pages[0].sections[2].design.notes;
+    assert.ok(crossChecks(silentBreak).some((i) => /without arguing/.test(i.message)));
+});
+
 test('--brochure: blocks and packages are gated out of the brief, and the prompt says why', async () => {
     const stripped = structuredClone(fixtureBrief);
     stripped.custom_blocks = [];
