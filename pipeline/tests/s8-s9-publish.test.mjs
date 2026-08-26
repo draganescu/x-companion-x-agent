@@ -169,6 +169,33 @@ test('S9: verify gate + exactly one screenshot; unloaded image fails', async () 
     await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /not loaded/.test(e.message));
 });
 
+test('S9: a band clamped to the content column fails the width audit', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-width-'));
+    const ctx = {
+        runDir,
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        log: () => {},
+        call: async (name) => {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') {
+                return { ok: true, data: {
+                    pass: true,
+                    measured: { viewport: { width: 1440, height: 900 } },
+                    // the field bug: the header part renders at 645px while the footer spans the row
+                    box_tree: [
+                        { selector_path: 'body:nth-child(2) > header.wp-block-template-part:nth-child(1)', block_name: 'core/template-part', box: { x: 397, y: 0, w: 645, h: 80 } },
+                        { selector_path: 'body:nth-child(2) > footer.wp-block-template-part:nth-child(3)', block_name: 'core/template-part', box: { x: 0, y: 900, w: 1425, h: 200 } },
+                    ],
+                    a11y_outline: [{ role: 'heading', name: 'H', level: 1 }],
+                    images: [],
+                } };
+            }
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed' && /clamped to the content column/.test(e.message));
+});
+
 test('the footer part is chosen by canonical slug, not by whichever has area=footer', () => {
     // Twenty Twenty-Five's real listing order: the variants come back first.
     const parts = [
@@ -229,6 +256,30 @@ test('placeholder tone: accent when the pixel will be swapped, surface when it s
     ctx2.state.no_images = true;
     await s8.run(ctx2);
     assert.ok(toolLog2.filter(([n]) => n === 'wp_placeholder').every(([, a]) => a.color === '#D96C2C'));
+});
+
+test('a shipping placeholder takes its tone from the image\'s own band, not one site-wide pick', async () => {
+    const toolLog = [];
+    const ctx = makeCtx({ restLog: [], toolLog });
+    ctx.state.no_images = true;
+    ctx.state.brief.palette.push({ name: 'Parchment', color: '#EFE6D8', role: 'surface' });
+    // The applied tokens name the bands; base here is near-black — the exact
+    // field bug was ONE quiet tone shipping as a dark hole on a light band.
+    writeFileSync(join(ctx.runDir, 'tokens.json'), JSON.stringify({ palette: [{ slug: 'base', name: 'B', color: '#14110C' }] }));
+    // Re-root the hero's intent image INSIDE a base band; what-we-bake keeps
+    // its bandless top-level image from makeCtx.
+    const hero = brief.pages[0].sections.find((s) => s.id === 'hero');
+    writeFileSync(join(ctx.runDir, 'trees', 'home--hero.json'), JSON.stringify({
+        tree: { version: 1, epoch: 'old', blocks: [{ name: 'core/group', attributes: { backgroundColor: 'base' }, innerBlocks: [
+            { name: 'core/image', attributes: { url: '', metadata: { imageIntent: hero.image_intent } }, innerBlocks: [] },
+        ] }] },
+        gate: { status: 'pass' },
+    }));
+    await s8.run(ctx);
+    const mintColors = toolLog.filter(([n]) => n === 'wp_placeholder').map(([, a]) => a.color);
+    const { mixHex } = await import('../lib/tokens.mjs');
+    assert.ok(mintColors.includes(mixHex('#14110C', '#FFFFFF', 0.12)), 'a dark band gets its own background nudged toward the ink');
+    assert.ok(mintColors.includes('#EFE6D8'), 'a slot with no band around it still takes the role-chain tone');
 });
 
 test('S8 furniture path: designed header ships with injected nav links, nav post skipped; designed footer ships', async () => {

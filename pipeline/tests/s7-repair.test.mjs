@@ -12,7 +12,7 @@ const brief = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', impor
 const PROMPTS_DIR = fileURLToPath(new URL('../prompts', import.meta.url));
 const EPOCH = 'f2'.padEnd(64, '0');
 
-const GOOD_TREE = { version: 1, epoch: EPOCH, blocks: [{ name: 'core/group', attributes: {}, innerBlocks: [] }] };
+const GOOD_TREE = { version: 1, epoch: EPOCH, blocks: [{ name: 'core/group', attributes: { align: 'full', layout: { type: 'constrained' } }, innerBlocks: [] }] };
 const BAD_TREE = { version: 1, epoch: EPOCH, blocks: [{ name: 'core/group', attributes: { glow: 11 }, innerBlocks: [] }] };
 
 function makeCtx({ repairText, validateResults, artifacts }) {

@@ -25,6 +25,17 @@ From the wp-blocks skill, §2 Design quality (the method — the skill is the so
 > on the one accent band); ONE accent color, with palette slugs named after what they are
 > for; deliberate whitespace. If every section is a centered stack on a flat band, the
 > design is not done.
+>
+> Generic is a defect, not a baseline: no purple-gradient defaults, no predictable
+> hero/card/feature-grid page with no concept behind it, no visual formula reused across
+> unrelated sites — vary grounds (light vs dark), type systems, and layout structures
+> across builds. The art direction commits to a NAMED tone (editorial/magazine,
+> brutalist/raw, luxury/refined, organic/natural, retro-futuristic, playful/toy-like,
+> soft/pastel, industrial/utilitarian, art deco/geometric — or another that fits the
+> request better) and answers the differentiation question: what makes THIS site
+> memorable. Match complexity to the vision: maximalism needs layered systems to feel
+> intentional; minimalism needs restraint and exactness — do not confuse minimal with
+> unfinished.
 
 From wp-blocks R7 (when a custom block may exist):
 

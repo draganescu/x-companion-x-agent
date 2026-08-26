@@ -32,6 +32,9 @@ From the wp-blocks skill (the method — the skill is the source of truth):
 > left-aligned heroes); editorial details (uppercase letterspaced kickers); generous,
 > deliberate whitespace between bands. EVERY section gets this attention — a section
 > below the fold with default alignment and no band treatment is unfinished work.
+> Match complexity to the vision: maximalism needs layered systems to feel
+> intentional; minimalism needs restraint and exactness — do not confuse minimal
+> with unfinished.
 
 Design values live in the applied tokens, never in your tree: NO hex colours anywhere, and no
 px/rem font sizes or spacing values under `style` — spend palette slugs, the
@@ -59,8 +62,22 @@ padding from the spacing presets (style.spacing.padding top and bottom, spelled
 bottom, never more — a band's height comes from its CONTENT, and inflating
 padding to fake presence produces empty fields, not design.
 Your band's colors (chosen by measured contrast — use them): {{band_colors}}
-Inner content uses the constrained width; use "wide" on individual inner blocks
-where the layout calls for breadth.
+
+THE LAYOUT CASCADE (why the root is shaped this way): WordPress clamps every
+child of a constrained layout to the theme's contentSize via
+`.is-layout-constrained > *:not(.alignwide):not(.alignfull)` — a selector no
+custom CSS outranks. A band without "align": "full" therefore ships squeezed
+into the narrow content column; width is fixed in the tree's attributes, never
+in CSS, and a gate rejects a root that is not a full band. Inner content uses
+the constrained width; an inner block that must span the whole band carries
+"align": "wide"; for edge-to-edge inner content (image grids, galleries) use an
+inner core/group with {"align": "full", "layout": {"type": "default"}}.
+
+VERTICAL RHYTHM: the space between sibling blocks is the theme's blockGap
+(--wp--style--block-gap, applied by layout CSS as a margin between siblings),
+not your margins. When the design needs a tighter or looser rhythm inside your
+band, set style.spacing.blockGap on the containing group with a spacing preset
+— a deliberate decision, never margins fighting the gap.
 
 CONTENT DENSITY: realize the copy notes FULLY. Notes promising a list (taps,
 menu items, hours, features) become an ACTUAL styled list or card grid with 4-6
@@ -72,8 +89,9 @@ IMAGE GEOMETRY: every image is a composition element, never a thumbnail. In a
 split or left-aligned layout the image fills its column (core/columns with the
 image column at 50-58%, or core/media-text with the image side). A lone hero
 image is large (sizeSlug "large", or the band's media half). Gallery images
-share one consistent aspectRatio. Set width/aspectRatio deliberately on every
-core/image — a default-sized image floating in a band is a defect.
+share one consistent aspectRatio. Set width AND aspectRatio deliberately on EVERY
+core/image — a default-sized image floating in a band is a defect, and an image
+that arrives as a placeholder pixel has no geometry of its own to fall back on.
 
 STATEMENT SCALE: hero and cta sections carry one display-scale statement (the
 largest font-size slug available) — a cta whose text whispers in a loud band is
@@ -86,7 +104,10 @@ LAYOUT: realize design.layout, not a default stack —
 - "asymmetric": offset content — an inner group with extra top padding on one column,
   media-text with the media on one side, or staggered card rows.
 - "grid": core/columns rows (or the block's own grid) with consistent card treatment —
-  every card the same band-aware styling.
+  every card the same band-aware styling. A card's background sits ON the
+  core/column node itself, never on an inner group: an inner group's background
+  covers only its content height and leaves the cell ragged (columns are flex
+  items that stretch; the column node is what fills the cell).
 
 Your block vocabulary for this section (manifest slice, with attribute schemas — use
 NOTHING outside it, and no attributes absent from it; W_ATTR_UNKNOWN fails the
@@ -100,6 +121,20 @@ palette slugs; fontSize takes font-size slugs; spacing presets are spelled
 "var:preset|spacing|<slug>" inside style.spacing values): {{token_slugs}}
 Font sizes are the PRESET attribute — {"fontSize": "display"} on the node — never
 a slug inside style.typography.fontSize (that emits invalid CSS the browser drops).
+
+CONTRAST DISCIPLINE (non-negotiable): every palette entry above carries its hex and
+tone — USE them. Never pick a colour by the sound of its slug: on this site base and
+contrast may be inverted from the WordPress default, and two slugs may share one hex.
+Any textColor you set on an inner node must read against the background it actually
+sits on — body text at 4.5:1 or better, display-scale headings at 3:1. The measured
+band pair is always safe; every override is yours to check against the hexes.
+
+BORDERS: a per-side border carries its colour INSIDE the side entry —
+{"style": {"border": {"top": {"width": "1px", "style": "solid",
+"color": "var:preset|color|<slug>"}}}}. NEVER set the flat borderColor attribute
+alongside a per-side style.border: WordPress paints the undeclared sides solid at
+the browser's 3px default, shipping borders nobody designed. Flat borderColor is
+for a full box only, and then style.border.width must be set.
 
 {{image_note}}
 

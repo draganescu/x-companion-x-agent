@@ -69,8 +69,12 @@ mean the output may be plain.
 
 **Before the tokens, write the art direction.** Two or three sentences, stated explicitly: a
 mood or reference style, a color story, a typographic attitude, the one image the site should
-leave in someone's mind. Every token and section decision is then made against that brief. If
-you cannot say what the site should feel like, you are not ready to write `DesignTokens`.
+leave in someone's mind. Commit to a NAMED tone from a real vocabulary — editorial/magazine,
+brutalist/raw, luxury/refined, organic/natural, retro-futuristic, playful/toy-like,
+soft/pastel, industrial/utilitarian, art deco/geometric, or another that fits the brief
+better — and answer the differentiation question: what should make this site memorable. Every
+token and section decision is then made against that brief. If you cannot say what the site
+should feel like, you are not ready to write `DesignTokens`.
 
 **What separates a designed page from a default one.** Default output has a recognizable
 shape: every section a centered stack on a flat band, one heading size doing all the work,
@@ -99,6 +103,16 @@ data-shaped — a custom dynamic block is not a failure of composition; it is of
 element on the page. The R7 process still applies (try recomposition and styles first, always
 run `wp_block_build_test`, the block is owned code); R7 governs *how* you build one, not
 whether you may.
+
+**Generic is a defect, not a baseline.** The overused AI aesthetic is recognizable: purple
+gradients on white, the predictable hero/card/feature-grid page with no concept behind it, the
+same visual formula reused across unrelated sites. Interpret each brief specifically — the art
+direction names what makes THIS site memorable — and vary grounds (light vs dark), type
+systems, and layout structures across builds.
+
+**Match complexity to the vision.** Maximalism needs enough layered detail, motion, and visual
+system to feel intentional; minimalism needs restraint, exact spacing, strong typography, and
+careful hierarchy. Do not confuse minimal with unfinished.
 
 **Self-check before you compile:** if every section is a centered stack on a flat band, the
 design is not done — go back to the art direction.
@@ -323,10 +337,11 @@ is 90% right and needs its content swapped is still option 2, not option 3.
 order, none skippable:
 
 ```
-wp_block_scaffold  → a directory: block.json (agent/{slug}), render.php, src/edit.js, package.json
+wp_block_scaffold  → a directory: block.json (agent/{slug}), render.php, edit.js, edit.asset.php
+                     — vanilla no-build JS: no package.json, no src/, no npm, ever
   ↓  you implement render.php against the render_intent comment
      — escape every attribute, use get_block_wrapper_attributes(), no raw echo of input
-wp_block_build_test → the safety check. wp-scripts build, boot a local Playground, register the
+wp_block_build_test → the safety check. Syntax-gate every shipped script, boot a local Playground, register the
                       block, assert it appears in /wp/v2/block-types, render sample attributes,
                       produce the install zip. Must return built:true, smoke.registered:true and
                       no smoke.php_error. Nothing reaches the instance without this.
@@ -1096,7 +1111,7 @@ range rather than trusted.
       "registered": true,
       "rendered_html": "<figure class=\"wp-block-agent-testimonial-card is-variant-card\"><blockquote><p>It compiles the first time.</p></blockquote><figcaption><span class=\"wp-block-agent-testimonial-card__author\">A. Developer</span><span class=\"wp-block-agent-testimonial-card__role\">Staff Engineer</span><span role=\"img\" aria-label=\"5 out of 5 stars\">…</span></figcaption></figure>" },
     "zip_path": "/tmp/x-agent-blocks/agent-testimonial-card-1.0.0.zip",
-    "build_log": "… (wp-scripts build output, 41 lines)" }
+    "build_log": "… (syntax-gate output when a script fails to parse)" }
 ```
 
 This is **the safety check**: `built: true`, `registered: true`, and `rendered_html`

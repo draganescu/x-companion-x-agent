@@ -105,6 +105,16 @@ test('a missing brief color in the preview is a gate failure naming the color', 
     await assert.rejects(s3.run(ctx), (e) => e.code === 'gate_failed' && /#D96C2C/.test(e.message));
 });
 
+test('a theme with no contentSize/wideSize fails S3 before any call is spent', async () => {
+    // No core default backs constrained layout: without these, "constrained"
+    // constrains nothing and every centered section silently runs full width.
+    const ctx = makeCtx({ outputs: [JSON.stringify(goodTokens())] });
+    ctx.state.instance.theme_tokens = { ...THEME_TOKENS, layout: {} };
+    await assert.rejects(s3.run(ctx), (e) => e.code === 'gate_failed' && /contentSize/.test(e.message));
+    assert.equal(ctx.budget.spent, 0); // the gate fires before the generative call
+    assert.equal(ctx.calls.length, 0);
+});
+
 test('deriveThemeSpacing/Layout map global-settings shapes into DesignTokens shapes', () => {
     assert.deepEqual(deriveThemeSpacing(THEME_TOKENS),
         { scale_unit: 'px', steps: [{ slug: '40', size: '1rem' }, { slug: '50', size: 'clamp(2rem, 4vw, 3rem)' }] });
@@ -143,6 +153,27 @@ test('resolveBandColors maps bands to applied slugs via brief roles', async () =
     assert.deepEqual(resolveBandColors('accent', briefPalette, applied), { background: 'ember', text: 'contrast' });
     assert.deepEqual(resolveBandColors('contrast', briefPalette, applied), { background: 'contrast', text: 'base' });
     assert.deepEqual(resolveBandColors('base', briefPalette, applied), { background: 'base', text: 'contrast' });
+});
+
+test('annotatePalette tags each slug with its hex and measured tone', async () => {
+    const { annotatePalette, toneOf, mixHex } = await import('../lib/tokens.mjs');
+    // the field bug's palette: base DARK, contrast LIGHT — inverted from the WP default
+    const annotated = annotatePalette([
+        { slug: 'base', name: 'Night', color: '#14110C', role: 'background' },
+        { slug: 'spuma', name: 'Foam', color: '#F5EFE2', role: 'text' },
+        { slug: 'chihlimbar', name: 'Amber', color: '#E8A317', role: 'accent' },
+    ]);
+    assert.deepEqual(annotated, [
+        { slug: 'base', color: '#14110C', tone: 'dark' },
+        { slug: 'spuma', color: '#F5EFE2', tone: 'light' },
+        { slug: 'chihlimbar', color: '#E8A317', tone: 'light' }, // mid-bright amber: dark ink wins
+    ]);
+    assert.equal(toneOf('#fff'), 'light');
+    assert.equal(toneOf('#000000'), 'dark');
+    // mixHex: the placeholder tone math — a nudge toward the ink, deterministic
+    assert.equal(mixHex('#000000', '#FFFFFF', 0.5), '#808080');
+    assert.equal(mixHex('#F5EFE2', '#000000', 0), '#F5EFE2');
+    assert.equal(mixHex('#14110C', '#FFFFFF', 1), '#FFFFFF');
 });
 
 // ---- the contrast gate (the invisible-header field bug) ----------------------

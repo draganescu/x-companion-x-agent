@@ -84,6 +84,21 @@ anything else.
 - `runs/<timestamp>/` — every artifact of a run: `brief.json`, `tokens.json`, `trees/`,
   `blocks/`, `packages/`, `images/`, `ledger.json`, `report.md`, `screenshot.png`.
 
+## After S9: the polish pass that is not built yet
+
+S9 verifies structure — heading outline, images loaded, every band spanning the
+viewport. It does not judge design. When a polish stage exists it takes this shape,
+and until then this is the method for hand-QA of a run:
+
+1. **Diagnose the whole page first, read-only.** Enumerate every section, then read
+   the rendered DOM section by section — the screenshot is the symptom, the DOM is
+   the cause; never diagnose from the screenshot alone (doubled button padding
+   barely shows in pixels). The complete issue list — section, root cause, exact
+   fix — is the gate into fixing. No edit before the list is complete.
+2. **Fix the whole batch**, no screenshots in between.
+3. **Verify once.** One pass for every page except the front page, which is worth
+   looping — re-diagnose what remains, capped at 5 passes.
+
 ## Tests
 
 - Unit: `node --test pipeline/tests/*.test.mjs` (no network, no instance).

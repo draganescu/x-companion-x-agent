@@ -3,16 +3,20 @@ import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { sha256 } from '../lib/hash.mjs';
 import { screenTreeDiagnostics } from '../lib/gates.mjs';
+import { mixHex, toneOf } from '../lib/tokens.mjs';
 import { createRest, readConnection } from '../lib/rest.mjs';
 
 export const id = 'S8_publish';
 export const kind = 'deterministic';
 
-function walkImages(blocks, visit, path = '/blocks') {
+// Each visit gets the nearest ancestor backgroundColor slug — the image's band,
+// which decides its placeholder tone.
+function walkImages(blocks, visit, path = '/blocks', bandSlug = null) {
     blocks.forEach((node, i) => {
         const p = `${path}/${i}`;
-        if (node.name === 'core/image' && node.attributes?.metadata?.imageIntent) visit(node, p);
-        if (Array.isArray(node.innerBlocks)) walkImages(node.innerBlocks, visit, `${p}/innerBlocks`);
+        const bg = node.attributes?.backgroundColor ?? bandSlug;
+        if (node.name === 'core/image' && node.attributes?.metadata?.imageIntent) visit(node, p, bg);
+        if (Array.isArray(node.innerBlocks)) walkImages(node.innerBlocks, visit, `${p}/innerBlocks`, bg);
     });
 }
 
@@ -53,10 +57,23 @@ export async function run(ctx) {
 
     // 3. Placeholders: mint the pixel that carries each image intent.
     // Tone: in a normal run the pixel is swapped within minutes, and accent
-    // makes the swap easy to spot. Under --no-images it SHIPS — a quiet
-    // surface tone reads as intentional texture, not six alarm-coloured holes.
+    // makes the swap easy to spot. Under --no-images it SHIPS — then the tone
+    // follows each image's own BAND: the band background nudged 12% toward its
+    // ink, so the slot reads as intentional texture on light and dark bands
+    // alike (one site-wide tone once shipped a near-black hole on a cream
+    // hero). The role chain stays as the fallback for slots with no band.
     const toneRoles = ctx.state.no_images ? ['surface', 'muted', 'secondary', 'accent'] : ['accent'];
     const accent = toneRoles.map((r) => brief.palette.find((p) => p.role === r)).find(Boolean) ?? brief.palette[0];
+    let paletteBySlug = new Map();
+    try {
+        const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
+        paletteBySlug = new Map(tokens.palette.map((p) => [p.slug, p.color]));
+    } catch { /* a run dir without applied tokens — the role fallback covers it */ }
+    const placeholderTone = (bandSlug) => {
+        const bandHex = ctx.state.no_images ? paletteBySlug.get(bandSlug) : undefined;
+        if (!bandHex) return accent.color;
+        return mixHex(bandHex, toneOf(bandHex) === 'light' ? '#000000' : '#FFFFFF', 0.12);
+    };
 
     // 4. Assemble, gate, compile, publish each page.
     for (const page of brief.pages) {
@@ -68,9 +85,9 @@ export async function run(ctx) {
         const tree = { version: 1, epoch, blocks };
 
         const mints = [];
-        walkImages(tree.blocks, (node) => mints.push(node));
-        for (const node of mints) {
-            const ph = await toolOrThrow(ctx, 'wp_placeholder', { color: accent.color }, 'wp_placeholder');
+        walkImages(tree.blocks, (node, _p, bandSlug) => mints.push({ node, bandSlug }));
+        for (const { node, bandSlug } of mints) {
+            const ph = await toolOrThrow(ctx, 'wp_placeholder', { color: placeholderTone(bandSlug) }, 'wp_placeholder');
             node.attributes.url = ph.url;
             node.attributes.id = ph.id;
         }
@@ -97,6 +114,14 @@ export async function run(ctx) {
         writeFileSync(join(ctx.runDir, 'trees', `page--${page.slug}.json`), JSON.stringify(tree, null, 2));
 
         const existing = await rest('GET', '/wp/v2/pages', { query: { slug: page.slug, status: 'publish,draft,pending' } });
+        // Designed pages carry their own h1, so each takes the theme's
+        // no-title template — per page, which is the ONLY correct lever. The
+        // two tempting alternatives are both wrong: deleting core/post-title
+        // from page.html leaves every ordinary page untitled (a missing h1 is
+        // worse than a doubled one), and adding a front-page.html overrides
+        // the whole front-page hierarchy (front-page -> home -> index) whether
+        // the front page is static or blog-first. The per-page template has no
+        // hierarchy side effects.
         const body = { title: page.title, slug: page.slug, status: 'publish', template: 'page-no-title', content: compiled.markup };
         const saved = Array.isArray(existing) && existing.length > 0
             ? await rest('POST', `/wp/v2/pages/${existing[0].id}`, { body })

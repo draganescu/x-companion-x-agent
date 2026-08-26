@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, styleLiteralSeverity, screenImageGeometry, screenBandRoot, screenBandWidths } from '../lib/gates.mjs';
 
 const diag = (code, severity, message = '', path = '/blocks/0') => ({ code, severity, path, message });
 
@@ -179,4 +179,71 @@ test('the literal screen is property-aware: no preset category means no failure'
         version: 1, epoch: 'e',
         blocks: [{ name: 'core/heading', attributes: { style: { color: { text: '#ff0000' } } } }],
     }).length, 1);
+});
+
+test('screenBandRoot: one full-band core/group root with a declared inner layout', () => {
+    const root = (attributes) => ({ version: 1, epoch: 'e', blocks: [{ name: 'core/group', attributes, innerBlocks: [] }] });
+    assert.deepEqual(screenBandRoot(root({ align: 'full', layout: { type: 'constrained' } })), []);
+    assert.deepEqual(screenBandRoot(root({ align: 'full', layout: { type: 'default' } })), []);
+    // the 645px-header field bug: no align — the band ships clamped to the content column
+    assert.ok(screenBandRoot(root({ layout: { type: 'constrained' } })).some((f) => /align "full"/.test(f.message)));
+    // an undeclared inner layout leaves the cascade to chance
+    assert.ok(screenBandRoot(root({ align: 'full' })).some((f) => /inner layout/.test(f.message)));
+    // exactly one root, and it is a group
+    assert.ok(screenBandRoot({ version: 1, epoch: 'e', blocks: [root({}).blocks[0], root({}).blocks[0]] })
+        .some((f) => /ONE root/.test(f.message)));
+    assert.ok(screenBandRoot({ version: 1, epoch: 'e', blocks: [{ name: 'core/cover', attributes: { align: 'full', layout: { type: 'constrained' } }, innerBlocks: [] }] })
+        .some((f) => /core\/group/.test(f.message)));
+});
+
+test('screenBandWidths: clamped bands and disagreeing parts fail; full-bleed passes', () => {
+    const node = (selector_path, block_name, w) => ({ selector_path, block_name, box: { x: 0, y: 0, w, h: 100 } });
+    const pc = 'body:nth-child(2) > div:nth-child(1) > main:nth-child(2) > div.wp-block-post-content:nth-child(1)';
+    const clean = [
+        node('body:nth-child(2) > header.wp-block-template-part:nth-child(1)', 'core/template-part', 1425),
+        node('body:nth-child(2) > footer.wp-block-template-part:nth-child(3)', 'core/template-part', 1425),
+        node(pc, 'core/post-content', 1425),
+        node(`${pc} > div.wp-block-group:nth-child(1)`, 'core/group', 1425),
+        // constrained INNER content is allowed to be narrow — not a band root
+        node(`${pc} > div.wp-block-group:nth-child(1) > div.wp-block-group:nth-child(1)`, 'core/group', 640),
+    ];
+    assert.deepEqual(screenBandWidths(clean, { viewportWidth: 1440 }), []);
+
+    // the field bug: a 645px header on a 1440px viewport over a full-bleed footer
+    const bug = structuredClone(clean);
+    bug[0].box.w = 645;
+    const failures = screenBandWidths(bug, { viewportWidth: 1440 });
+    assert.ok(failures.some((f) => /645px of a 1440px viewport/.test(f.message)));
+    assert.ok(failures.some((f) => /template parts disagree/.test(f.message)));
+
+    // a section band clamped to contentSize
+    const clamped = structuredClone(clean);
+    clamped[3].box.w = 640;
+    assert.ok(screenBandWidths(clamped, { viewportWidth: 1440 }).some((f) => /clamped to the content column/.test(f.message)));
+
+    // no measured viewport: only the parts-agreement check can run
+    assert.deepEqual(screenBandWidths(clamped, {}), []);
+    assert.equal(screenBandWidths(bug, {}).length, 1);
+    assert.deepEqual(screenBandWidths([], { viewportWidth: 1440 }), []);
+});
+
+test('screenImageGeometry: an intent node must carry width and aspectRatio', () => {
+    const intentImage = (attributes) => ({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/group', attributes: {}, innerBlocks: [
+            { name: 'core/image', attributes: { url: '', metadata: { imageIntent: 'a moody cellar' }, ...attributes }, innerBlocks: [] },
+        ] }],
+    });
+    // both present: passes (the shape the working hero shipped)
+    assert.deepEqual(screenImageGeometry(intentImage({ width: '100%', aspectRatio: '3/4', scale: 'cover' })), []);
+    // missing either: the 1x1 placeholder would render at one pixel
+    const missing = screenImageGeometry(intentImage({ aspectRatio: '4/3' }));
+    assert.equal(missing.length, 1);
+    assert.match(missing[0].message, /width/);
+    assert.equal(screenImageGeometry(intentImage({})).length, 2);
+    // an image WITHOUT an intent is not this gate's business
+    assert.deepEqual(screenImageGeometry({
+        version: 1, epoch: 'e',
+        blocks: [{ name: 'core/image', attributes: { url: 'http://x/real.jpg' }, innerBlocks: [] }],
+    }), []);
 });

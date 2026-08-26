@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenFileMap, blockGate, schemaGate, screenImageGeometry, screenBandRoot } from '../lib/gates.mjs';
+import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { pLimit } from '../lib/limit.mjs';
 
 export const id = 'S7_repair';
@@ -16,11 +17,13 @@ export const kind = 'generative';
 function baselineFor(ctx, key) {
     const entry = JSON.parse(readFileSync(join(ctx.runDir, 'sections', `${key}.json`), 'utf8'));
     if (entry.pattern?.parsed_tree) return entry.pattern.parsed_tree;
-    // No pattern matched this role at S2 time: the minimal honest slot.
+    // No pattern matched this role at S2 time: the minimal honest slot. Even
+    // the floor is a proper band — align full, constrained inner — so a
+    // degraded slot never ships clamped to the content column.
     const title = entry.section.id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     return [{
         name: 'core/group',
-        attributes: {},
+        attributes: { align: 'full', layout: { type: 'constrained' } },
         innerBlocks: [
             { name: 'core/heading', attributes: { content: title }, innerBlocks: [] },
             { name: 'core/paragraph', attributes: { content: entry.section.copy_notes }, innerBlocks: [] },
@@ -33,7 +36,7 @@ function minimalSlot(ctx, key) {
     const title = entry.section.id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     return [{
         name: 'core/group',
-        attributes: {},
+        attributes: { align: 'full', layout: { type: 'constrained' } },
         innerBlocks: [
             { name: 'core/heading', attributes: { content: title }, innerBlocks: [] },
             { name: 'core/paragraph', attributes: { content: entry.section.copy_notes }, innerBlocks: [] },
@@ -80,7 +83,11 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
         validate = (v) => {
             const issues = localTreeCheck(v, { epoch: ctx.state.fingerprint });
             if (issues.length > 0) return issues;
-            return screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
+            const band = screenBandRoot(v);
+            if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
+            const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
+            if (literals.length > 0) return literals;
+            return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
         };
     } else {
         artifact = { files: Object.fromEntries((art.files ?? []).map((f) => [f, readFileSync(join(art.dir, f), 'utf8')])) };
@@ -110,6 +117,7 @@ async function repairOnce(ctx, kind, key, art, { allowedUnknown }) {
     }
 
     if (kind === 'trees') {
+        normalizeTreeBorders(value);
         const gate = await gateTree(ctx, value, allowedUnknown);
         if (gate.status !== 'pass') {
             art.failures = [...art.failures, ...gate.failures];

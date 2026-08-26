@@ -14,6 +14,18 @@ export async function run(ctx) {
     const theme_spacing = deriveThemeSpacing(themeTokens);
     const theme_layout = deriveThemeLayout(themeTokens);
 
+    // No core default backs constrained layout: when a theme declares neither
+    // contentSize nor wideSize, WordPress omits the max-width from
+    // `.is-layout-constrained > *` entirely — "constrained" constrains nothing
+    // and every centered section silently runs full width. We pass the theme's
+    // own values through verbatim (R9), so assert there is something to pass.
+    if (!theme_layout.contentSize || !theme_layout.wideSize) {
+        throw new PipelineError('gate_failed',
+            `the theme declares no settings.layout.${theme_layout.contentSize ? 'wideSize' : 'contentSize'} — constrained layout would constrain nothing and every "centered" section would silently run full width`,
+            'Declare both contentSize and wideSize in the theme\'s theme.json; the pipeline passes them through, it never invents them.',
+            { theme_layout });
+    }
+
     const payload = {
         identity: brief.identity,
         art_direction: brief.art_direction,

@@ -12,6 +12,7 @@
   "operating_rules_for_implementing_agent": [
     "Read specs/agent-plugin.spec.json and specs/canon-factory.spec.json first; this spec assumes their vocabulary (TreeIR, epoch, gates, rungs).",
     "Never bypass a gate to make a stage green. A stage that cannot pass wp_validate / wp_block_build_test / wp_schema_build_test fails with diagnostics in the run report.",
+    "Validation is posture, not cleanup: never apply, publish, or install content that has not passed its gate. A build that skips validation is incomplete even if the page renders.",
     "Every provider call goes through the one LlmProvider interface. No provider SDK import outside pipeline/providers/.",
     "Temperature and model ids are config, never hardcoded in a stage.",
     "The budget module is consulted BEFORE every generative call; exceeding the ceiling is a thrown structured error, not a warning."
@@ -68,7 +69,7 @@
       "calls": "S (one per section in the brief) + 2 (the header and footer template parts), concurrent",
       "inputs": "per section: its brief entry, its manifest slice, its starting pattern's parsed_tree, the applied token slugs",
       "outputs": "one TreeIR fragment per section, validated against tree-ir.schema.json locally, then wp_validate at the current fingerprint Plus one TreeIR per furniture part (header: brand + a bare core/navigation node, links injected at publish; footer: built from the brief's own footer.intent), through the same gates.",
-      "gate": "wp_validate valid:true with warnings reviewed mechanically (W_ATTR_UNKNOWN fails the artifact; W_STATIC_NEEDS_HARNESS passes)"
+      "gate": "wp_validate valid:true with warnings reviewed mechanically (W_ATTR_UNKNOWN fails the artifact; W_STATIC_NEEDS_HARNESS passes); plus the band-root screen: a section or furniture tree is ONE root core/group carrying align:full and a declared inner layout — the Layout Cascade (WordPress clamps children of a constrained layout to contentSize via CSS no stylesheet outranks, so an unaligned band ships squeezed into the content column; width is fixed in tree attributes, never in CSS)"
     },
     {
       "id": "S5_blocks",
@@ -118,7 +119,7 @@
         "wp_screenshot"
       ],
       "calls": "0",
-      "outputs": "wp_verify pass with a sane heading outline and every image loaded; exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
+      "outputs": "wp_verify pass with a sane heading outline, every image loaded, and the band-width audit clean on the measured box tree: every top-level band (section roots and both template parts) spans the viewport and header agrees with footer — a band clamped to the content column measures narrow in the rendered DOM where the markup-level screens cannot see (the 645px-header field bug); exactly one screenshot; report.md: budget predicted vs spent, per-artifact gate outcomes, dead artifacts with diagnostics, the ledger"
     }
   ],
   "llm_contract": {

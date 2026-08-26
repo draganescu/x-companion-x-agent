@@ -46,10 +46,33 @@ Footer page links (href="/<page_slug>/" only): {{footer_items}}
 Band colours for this part — the resolved slugs to spend, not your own reading of the
 palette: {{band_colors}}
 
+BAND DISCIPLINE (non-negotiable): your root node is ONE core/group with attributes
+{"align": "full", "backgroundColor": "<band background slug>", "textColor":
+"<band text slug>", "layout": {"type": "constrained"}} and vertical padding from the
+spacing presets. Without "align": "full" the root layout clamps the part to the
+theme's contentSize and it ships as a narrow strip in the content column — a real
+header once rendered at 645px of a 1440px viewport this way. The clamp is
+`.is-layout-constrained > *` CSS that nothing in a stylesheet outranks: width lives
+in these attributes, and a gate rejects a root that is not a full band. Inner
+content that must span the whole band (a header row with the brand left and the
+navigation right) carries "align": "wide".
+
+THE SEAM: WordPress inserts a default margin (--wp--style--block-gap, 24px even
+when no theme declares it) between the header part, the page content, and the
+footer part. Your band owns its vertical rhythm through its OWN padding — design
+the part as if it butts flush against the page, and never add margins to
+compensate for a seam that belongs to the theme.
+
 Your block vocabulary (manifest slice, with attribute schemas — use NOTHING outside
 it, and no attributes absent from it): {{manifest_slice}}
 
-Design tokens available — spend ONLY these slugs: {{token_slugs}}
+Design tokens available — spend ONLY these slugs; each palette entry carries its hex
+and tone so colour choices are CHECKED, never guessed from a slug's name (base and
+contrast may be inverted from the WordPress default): {{token_slugs}}
+Any textColor you set must read at 4.5:1 against the background it actually sits on;
+the band pair below is measured and always safe. And never set the flat borderColor
+attribute alongside a per-side style.border — WordPress paints the undeclared sides
+at the browser's 3px default.
 
 Respond with ONLY the TreeIR JSON: {"version": 1, "epoch": "{{epoch}}", "blocks": [ … ]}
-with a single root core/group carrying the part's band.
+with the single full-band root core/group specified above carrying the part.

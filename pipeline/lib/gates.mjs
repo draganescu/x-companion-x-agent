@@ -67,6 +67,35 @@ export function localTreeCheck(tree, { epoch }) {
     return issues;
 }
 
+// S4/S7: the Layout Cascade, mechanized at the band root. WordPress clamps
+// every child of a constrained layout to the theme's contentSize via
+// `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` — a selector no
+// custom CSS outranks, so width lives in the tree's attributes, never in a
+// stylesheet. The recurring failure is a band meant to span the viewport
+// shipping clamped in the narrow content column (a real header once rendered
+// at 645px of a 1440px viewport). The root contract is checkable: ONE
+// core/group, align "full", and a declared inner layout — "constrained" for
+// centered inner content, "default" for edge-to-edge.
+export function screenBandRoot(tree) {
+    const blocks = tree?.blocks ?? [];
+    if (blocks.length !== 1) {
+        return [{ code: 'band_root', path: '/blocks', message: `a band tree is exactly ONE root core/group (got ${blocks.length} roots)` }];
+    }
+    const failures = [];
+    const root = blocks[0];
+    if (root?.name !== 'core/group') {
+        failures.push({ code: 'band_root', path: '/blocks/0/name', message: `the root band is a core/group (got ${root?.name ?? 'nothing'})` });
+    }
+    if (root?.attributes?.align !== 'full') {
+        failures.push({ code: 'band_root', path: '/blocks/0/attributes/align', message: 'the root band carries align "full" — without it the constrained root layout clamps the band to contentSize and it ships as a narrow strip in the content column (width is fixed here, never in CSS)' });
+    }
+    const layoutType = root?.attributes?.layout?.type;
+    if (layoutType !== 'constrained' && layoutType !== 'default') {
+        failures.push({ code: 'band_root', path: '/blocks/0/attributes/layout', message: 'the root band declares its inner layout: {"type": "constrained"} for centered inner content, {"type": "default"} for edge-to-edge' });
+    }
+    return failures;
+}
+
 // S5's file-map contract: {"files": {name: content}} with names from the
 // allowed set only — nothing escapes the scaffold directory. PHP contents get
 // a mechanical screen for the one mistake that poisons a whole site: a
@@ -98,6 +127,15 @@ export function screenFileMap(value, { allowed }) {
 
 // wp_block_build_test reports gate failure as a SUCCESS result ({built:false,
 // failure}) — and a thrown build_failed envelope is also a gate failure.
+//
+// Button anatomy, for when a factory stylesheet ever styles buttons: the
+// button block renders TWO nested elements, and core puts the padding,
+// background, border, and radius on the INNER `.wp-element-button`
+// (`.wp-block-button__link`) — while a custom className lands on the OUTER
+// `.wp-block-button` wrapper. A rule on the wrapper therefore stacks a second
+// padded box on core's (the button doubles in size), and a wrapper :hover adds
+// a second, conflicting hover. Style `.your-class .wp-element-button`, with
+// exactly one hover rule, on the inner element.
 export function blockGate(callResult) {
     const failures = [];
     if (!callResult.ok) {
@@ -183,6 +221,70 @@ export function screenOutline(outline) {
         }
         prev = h.level;
     }
+    return failures;
+}
+
+// S9: the measured width audit — the Layout Cascade checked in the rendered
+// DOM, where S4's markup-level screen cannot see. Whatever the trees declared,
+// a band that ships clamped to contentSize MEASURES narrow, so band roots are
+// found structurally — both template parts, plus every direct child group of
+// post-content — and each must span the viewport (the slack covers scrollbar
+// and rounding). The two parts must also agree with each other: a 645px header
+// over a full-bleed footer is the exact field bug this audit exists to catch.
+// (The vertical seams between these same nodes are different territory: core
+// injects a default --wp--style--block-gap margin between the template's
+// top-level children even when no theme declares it — that rhythm belongs to
+// the bands' own padding and is not audited here.)
+const CLAMP_SLACK = 48;
+
+export function screenBandWidths(boxTree, { viewportWidth } = {}) {
+    const nodes = boxTree ?? [];
+    const last = (n) => n.selector_path.split(' > ').pop() ?? '';
+    const parts = nodes.filter((n) => n.block_name === 'core/template-part' || last(n).includes('.wp-block-template-part'));
+    const postContent = nodes.find((n) => n.block_name === 'core/post-content' || last(n).includes('.wp-block-post-content'));
+    const bands = postContent
+        ? nodes.filter((n) => {
+            if (!(n.block_name === 'core/group' || last(n).includes('.wp-block-group'))) return false;
+            const prefix = `${postContent.selector_path} > `;
+            return n.selector_path.startsWith(prefix) && !n.selector_path.slice(prefix.length).includes(' > ');
+        })
+        : [];
+    const failures = [];
+    if (typeof viewportWidth === 'number' && viewportWidth > 0) {
+        for (const n of [...parts, ...bands]) {
+            if (n.box.w < viewportWidth - CLAMP_SLACK) {
+                failures.push({ code: 'band_width', message: `band clamped to the content column: ${n.selector_path} spans ${Math.round(n.box.w)}px of a ${viewportWidth}px viewport — the root band is missing align "full" (or fighting the constrained-layout clamp with CSS, which loses)` });
+            }
+        }
+    }
+    if (parts.length >= 2) {
+        const widths = parts.map((n) => n.box.w);
+        if (Math.max(...widths) - Math.min(...widths) > 8) {
+            failures.push({ code: 'band_width', message: `the template parts disagree on width (${parts.map((n) => `${last(n)}=${Math.round(n.box.w)}px`).join(', ')}) — header and footer bookend the same design and must span the same row` });
+        }
+    }
+    return failures;
+}
+
+// S4/S7: image-intent geometry. The placeholder minted for an intent is a 1×1
+// pixel; sizeSlug does nothing for an attachment with no real sizes, so an
+// image node that brings no geometry of its own renders at literally one
+// pixel. Geometry is the tree's job — width plus aspectRatio make the slot
+// hold while the pixels stay provisional.
+export function screenImageGeometry(tree) {
+    const failures = [];
+    const walk = (node, path) => {
+        if (!node || typeof node !== 'object') return;
+        if (node.name === 'core/image' && node.attributes?.metadata?.imageIntent) {
+            for (const attr of ['width', 'aspectRatio']) {
+                if (!node.attributes[attr]) {
+                    failures.push({ code: 'image_geometry', path: `${path}/attributes/${attr}`, message: `image-intent node missing ${attr} — the placeholder behind it is a 1×1 pixel, so the node must carry its own geometry (width, usually "100%", plus an aspectRatio)` });
+                }
+            }
+        }
+        (node.innerBlocks ?? []).forEach((child, i) => walk(child, `${path}/innerBlocks/${i}`));
+    };
+    (tree?.blocks ?? []).forEach((node, i) => walk(node, `/blocks/${i}`));
     return failures;
 }
 

@@ -87,6 +87,29 @@ export function contrastRatio(hexA, hexB) {
     return (hi + 0.05) / (lo + 0.05);
 }
 
+// Which ink reads on this colour: 'light' means black ink wins, i.e. the colour
+// itself is light. The tree prompt ships this with every slug — a model that
+// only ever saw slug NAMES guessed lightness from vocabulary ("contrast must
+// be dark") and produced cream-on-cream text on sites whose base is dark.
+export function toneOf(hex) {
+    return contrastRatio(hex, '#000000') >= contrastRatio(hex, '#ffffff') ? 'light' : 'dark';
+}
+
+export function annotatePalette(palette) {
+    return palette.map((p) => ({ slug: p.slug, color: p.color, tone: toneOf(p.color) }));
+}
+
+export function mixHex(hexA, hexB, t) {
+    const parse = (hex) => {
+        const h = hex.replace('#', '');
+        const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+        return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+    };
+    const a = parse(hexA);
+    const b = parse(hexB);
+    return `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
 export function resolveBandColors(band, briefPalette, appliedPalette) {
     const slugs = new Set(appliedPalette.map((p) => p.slug));
     const bySlug = new Map(appliedPalette.map((p) => [p.slug, p.color]));

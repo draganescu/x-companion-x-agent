@@ -2,8 +2,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit } from '../lib/limit.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck } from '../lib/gates.mjs';
-import { resolveBandColors } from '../lib/tokens.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot } from '../lib/gates.mjs';
+import { resolveBandColors, annotatePalette } from '../lib/tokens.mjs';
+import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { sectionImageIntents } from '../budget.mjs';
 
 export const id = 'S4_sections';
@@ -14,7 +15,9 @@ export async function run(ctx) {
     const epoch = ctx.state.fingerprint;
     const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
     const tokenSlugs = {
-        palette: tokens.palette.map((p) => p.slug),
+        // Palette entries carry hex + tone: colour choices are checkable, never
+        // guessed from a slug's name (the cream-on-cream lesson).
+        palette: annotatePalette(tokens.palette),
         spacing: tokens.spacing.steps.map((s) => s.slug),
         font_sizes: tokens.typography.sizes.map((s) => s.slug),
         font_families: tokens.typography.families.map((f) => f.slug),
@@ -40,7 +43,7 @@ export async function run(ctx) {
             imageNote = 'This section carries no generated image; do not add core/image nodes with empty urls.';
         } else {
             const nodes = intents.map((intent) => `{"url": "", "metadata": {"imageIntent": ${JSON.stringify(intent)}}}`).join('\n  ');
-            imageNote = `This section carries ${intents.length} generated image(s) — include EXACTLY one core/image node per intent below, each with these attributes (a placeholder pixel is minted at publish time; the real image is generated from the intent):\n  ${nodes}\n${section.role === 'gallery' ? 'Compose them inside a core/gallery (set columns to fit the count).' : 'Place each image where the layout calls for it.'} Set aspectRatio/scale/sizeSlug per node where the design needs them: geometry is final, pixels are provisional.`;
+            imageNote = `This section carries ${intents.length} generated image(s) — include EXACTLY one core/image node per intent below, each with these attributes (a placeholder pixel is minted at publish time; the real image is generated from the intent):\n  ${nodes}\n${section.role === 'gallery' ? 'Compose them inside a core/gallery (set columns to fit the count).' : 'Place each image where the layout calls for it.'} EVERY intent node MUST carry its own geometry — width (usually "100%" of its column) AND aspectRatio, with scale "cover" — because the minted placeholder is a 1×1 pixel and a node without geometry renders at one pixel (sizeSlug alone does nothing for it). Geometry is final, pixels are provisional.`;
         }
         const isHeroSlot = section.role === 'hero' || section.role === 'header';
         const headingRule = isHeroSlot
@@ -71,7 +74,11 @@ export async function run(ctx) {
                 validate: (v) => {
                     const issues = localTreeCheck(v, { epoch });
                     if (issues.length > 0) return issues;
-                    return screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
+                    const band = screenBandRoot(v);
+                    if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
+                    const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
+                    if (literals.length > 0) return literals;
+                    return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
                 },
             }));
         } catch (e) {
@@ -82,6 +89,7 @@ export async function run(ctx) {
             ctx.log(`section ${s.key}: the model's output never satisfied the contract — the repair stage gets one attempt`);
             return;
         }
+        normalizeTreeBorders(tree);
         const res = await ctx.call('wp_validate', tree);
         if (!res.ok) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for ${s.key}: ${res.data.message}`, res.data.hint ?? '');
@@ -150,6 +158,8 @@ export async function run(ctx) {
                 validate: (v) => {
                     const issues = localTreeCheck(v, { epoch });
                     if (issues.length > 0) return issues;
+                    const band = screenBandRoot(v);
+                    if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
                     return part === 'header' ? headerShape(v) : [];
@@ -161,6 +171,7 @@ export async function run(ctx) {
             ctx.log(`${part} template part: the model's output never satisfied the contract — the deterministic ${part} is the floor`);
             return;
         }
+        normalizeTreeBorders(tree);
         const res = await ctx.call('wp_validate', tree);
         if (!res.ok) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for the ${part} part: ${res.data.message}`, res.data.hint ?? '');

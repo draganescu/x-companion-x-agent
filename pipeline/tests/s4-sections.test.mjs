@@ -28,14 +28,14 @@ const TOKENS = {
 const FURNITURE_TREES = {
     'furniture/header': {
         version: 1, epoch: EPOCH,
-        blocks: [{ name: 'core/group', attributes: {}, innerBlocks: [
+        blocks: [{ name: 'core/group', attributes: { align: 'full', layout: { type: 'constrained' } }, innerBlocks: [
             { name: 'core/site-title', attributes: {}, innerBlocks: [] },
             { name: 'core/navigation', attributes: {}, innerBlocks: [] },
         ] }],
     },
     'furniture/footer': {
         version: 1, epoch: EPOCH,
-        blocks: [{ name: 'core/group', attributes: {}, innerBlocks: [
+        blocks: [{ name: 'core/group', attributes: { align: 'full', layout: { type: 'constrained' } }, innerBlocks: [
             { name: 'core/paragraph', attributes: { content: 'footer' }, innerBlocks: [] },
         ] }],
     },
@@ -45,7 +45,7 @@ function treeFor(label, extra = {}) {
     return {
         version: 1,
         epoch: EPOCH,
-        blocks: [{ name: 'core/group', attributes: { backgroundColor: 'base' }, innerBlocks: [{ name: 'core/heading', attributes: { content: label } }] }],
+        blocks: [{ name: 'core/group', attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } }, innerBlocks: [{ name: 'core/heading', attributes: { content: label } }] }],
         ...extra,
     };
 }
