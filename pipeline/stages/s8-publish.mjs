@@ -52,7 +52,11 @@ export async function run(ctx) {
     const epoch = ctx.state.fingerprint; // 2. the final epoch, stamped into every assembled tree
 
     // 3. Placeholders: mint the pixel that carries each image intent.
-    const accent = brief.palette.find((p) => p.role === 'accent') ?? brief.palette[0];
+    // Tone: in a normal run the pixel is swapped within minutes, and accent
+    // makes the swap easy to spot. Under --no-images it SHIPS — a quiet
+    // surface tone reads as intentional texture, not six alarm-coloured holes.
+    const toneRoles = ctx.state.no_images ? ['surface', 'muted', 'secondary', 'accent'] : ['accent'];
+    const accent = toneRoles.map((r) => brief.palette.find((p) => p.role === r)).find(Boolean) ?? brief.palette[0];
 
     // 4. Assemble, gate, compile, publish each page.
     for (const page of brief.pages) {

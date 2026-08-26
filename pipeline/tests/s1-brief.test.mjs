@@ -98,6 +98,10 @@ test('--brochure: blocks and packages are gated out of the brief, and the prompt
 
     // The model was told the rule, disobeyed once, and the gate burned the retry.
     assert.match(prompts[0], /BROCHURE MODE/);
+    // ...and told the rule constrains vocabulary, never scope: the word
+    // "brochure" alone shrank a 4-page plan to 2 in the field.
+    assert.match(prompts[0], /never how much/);
+    assert.match(prompts[0], /same pages and the\nsame sections/);
     assert.match(prompts[1], /brochure mode: must be an empty array/);
     assert.deepEqual(ctx.ledger.entries.map((e) => e.outcome), ['schema_failed', 'ok']);
     // The accepted plan carries no factory work; the bill shrinks with it:

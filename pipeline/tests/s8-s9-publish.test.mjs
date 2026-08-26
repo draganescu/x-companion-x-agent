@@ -211,3 +211,22 @@ test('S8 with --no-images: placeholders minted, the generation pass never runs, 
     assert.deepEqual(ctx.state.installs.map((i) => i.kind), ['schema', 'block']);
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r === '/wp/v2/pages'));
 });
+
+test('placeholder tone: accent when the pixel will be swapped, surface when it ships (--no-images)', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({ restLog, toolLog });
+    ctx.state.no_images = true;
+    ctx.state.brief.palette.push({ name: 'Parchment', color: '#EFE6D8', role: 'surface' });
+    await s8.run(ctx);
+    const mints = toolLog.filter(([n]) => n === 'wp_placeholder');
+    assert.ok(mints.length > 0);
+    assert.ok(mints.every(([, a]) => a.color === '#EFE6D8'), 'shipping placeholders take the surface tone');
+
+    // without a surface/muted/secondary role the chain falls back to accent
+    const toolLog2 = [];
+    const ctx2 = makeCtx({ restLog: [], toolLog: toolLog2 });
+    ctx2.state.no_images = true;
+    await s8.run(ctx2);
+    assert.ok(toolLog2.filter(([n]) => n === 'wp_placeholder').every(([, a]) => a.color === '#D96C2C'));
+});

@@ -18,7 +18,15 @@ ladder stops at rung 2: express every section through composition of existing bl
 block styles and patterns, and design harder instead of reaching for new vocabulary.
 Anything interactive or data-backed (stored forms, tickers, schedules, bookings) is out
 of scope — a contact section carries the venue's details and links, not a stored-submission
-form.`;
+form.
+
+This constrains only WHAT MAY BE BUILT, never how much. Plan the same pages and the
+same sections you would plan without this note, at the same design ambition — do not
+fold pages away or shrink the plan because the vocabulary is smaller. Content that
+would have been a custom block or a data feature becomes a fully designed static
+section carrying the same information (a beer list is a designed grid with styles and
+prices written in; a schedule is a designed table; a booking is the phone number,
+set beautifully).`;
 
 function brochureChecks(brief) {
     const issues = [];
