@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { sha256 } from '../lib/hash.mjs';
 import { screenTreeDiagnostics } from '../lib/gates.mjs';
 import { mixHex, toneOf } from '../lib/tokens.mjs';
+import { mintSurfaceMarkers, pageSurfaceDict, pageSurfacePlan } from '../lib/surfaces.mjs';
 import { createRest, readConnection } from '../lib/rest.mjs';
 
 export const id = 'S8_publish';
@@ -65,10 +66,15 @@ export async function run(ctx) {
     const toneRoles = ctx.state.no_images ? ['surface', 'muted', 'secondary', 'accent'] : ['accent'];
     const accent = toneRoles.map((r) => brief.palette.find((p) => p.role === r)).find(Boolean) ?? brief.palette[0];
     let paletteBySlug = new Map();
+    let appliedPalette = [];
     try {
         const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
+        appliedPalette = tokens.palette;
         paletteBySlug = new Map(tokens.palette.map((p) => [p.slug, p.color]));
     } catch { /* a run dir without applied tokens — the role fallback covers it */ }
+    // The surface lane's run report: every degrade and refusal screams here,
+    // because the page itself will not — the flat band underneath is coherent.
+    ctx.state.surface_report = ctx.state.surface_report ?? { assets: [], degraded: [], refusals: [] };
     const placeholderTone = (bandSlug) => {
         const bandHex = ctx.state.no_images ? paletteBySlug.get(bandSlug) : undefined;
         if (!bandHex) return accent.color;
@@ -77,9 +83,31 @@ export async function run(ctx) {
 
     // 4. Assemble, gate, compile, publish each page.
     for (const page of brief.pages) {
+        // Surface markers are minted per SECTION FRAGMENT, the way placeholder
+        // pixels are minted: from the brief's own dictionary, before the tree
+        // faces the same gates as everything else. Under --no-images nothing
+        // is minted — both lanes are skipped whole and the published page
+        // stays exactly today's flat output. A dead section keeps its
+        // baseline, unskinned.
+        let surfacesMinted = 0;
+        const surfacePlans = ctx.state.no_images ? null : pageSurfacePlan(brief, page.slug, {
+            groupSupport: ctx.state.surface_support?.group_background !== false,
+        });
+        const noteDegrade = (d) => {
+            ctx.state.surface_report.degraded.push({ page: page.slug, ...d });
+            ctx.log(`surface degraded on /${page.slug}/: ${d.reason}${d.asset_id ? ` (${d.asset_id})` : ''}`);
+        };
+        if (surfacePlans) surfacePlans.degraded.forEach(noteDegrade);
+
         const blocks = [];
         for (const s of ctx.state.sections.filter((x) => x.page === page.slug)) {
             const rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', `${s.key}.json`), 'utf8'));
+            if (surfacePlans?.plans.has(s.id)) {
+                const dead = (ctx.state.artifacts?.trees?.[s.key]?.status ?? 'pass') !== 'pass';
+                const minted = mintSurfaceMarkers({ blocks: rec.tree.blocks }, [{ id: s.id, dead }], surfacePlans.plans);
+                surfacesMinted += minted.minted;
+                minted.degraded.forEach(noteDegrade);
+            }
             blocks.push(...rec.tree.blocks);
         }
         const tree = { version: 1, epoch, blocks };
@@ -133,8 +161,9 @@ export async function run(ctx) {
         const saved = Array.isArray(existing) && existing.length > 0
             ? await rest('POST', `/wp/v2/pages/${existing[0].id}`, { body })
             : await rest('POST', '/wp/v2/pages', { body });
-        ctx.state.published.pages.push({ slug: page.slug, id: saved.id, link: saved.link, front_page: !!page.front_page, has_images: mints.length > 0 });
-        ctx.log(`published ${saved.link}${mints.length > 0 ? ` (${mints.length} image slot(s), real images follow)` : ''}`);
+        ctx.state.published.pages.push({ slug: page.slug, id: saved.id, link: saved.link, front_page: !!page.front_page, has_images: mints.length > 0, has_surfaces: surfacesMinted > 0 });
+        const followers = [mints.length > 0 ? `${mints.length} image slot(s)` : '', surfacesMinted > 0 ? `${surfacesMinted} surface marker(s)` : ''].filter(Boolean).join(', ');
+        ctx.log(`published ${saved.link}${followers ? ` (${followers}, real assets follow)` : ''}`);
     }
 
     // 5-6. Site identity + front page + Sample Page cleanup.
@@ -281,26 +310,47 @@ export async function run(ctx) {
         }
     }
 
-    // 9. The image pass: budget-metered per found intent, then generate + apply.
-    // Under --no-images the pass is skipped whole: the placeholders minted above
-    // stay in place, each carrying its imageIntent for a later fill, and no
-    // image call is spent (S1 already removed I from the ceiling).
+    // 9. The asset pass: ONE conveyor, two lanes. Budget-metered per birth —
+    // content one call per surviving slot, surfaces ONE call per unique
+    // dictionary asset however many bands reference it; applications are free.
+    // Under --no-images the WHOLE pass is skipped, both lanes: the placeholders
+    // minted above stay in place, no surface marker was minted, and the
+    // published page is exactly today's flat output.
     if (ctx.state.no_images) {
-        ctx.log('image generation skipped (--no-images) — the placeholder pixels stay in place');
+        ctx.log('the asset pass skipped whole (--no-images) — placeholder pixels and flat bands stay in place');
         return;
     }
-    for (const page of ctx.state.published.pages.filter((p) => p.has_images)) {
-        const dry = await toolOrThrow(ctx, 'wp_images_generate', { post_id: page.id, dry_run: true }, 'wp_images_generate dry_run');
-        if (dry.found === 0) continue;
-        for (const ref of dry.images) {
-            ctx.budget.spend('image', `${page.slug}${ref.path ?? ''}`);
+    const outDir = join(ctx.runDir, 'images');
+    const born = ctx.state.surface_births ?? (ctx.state.surface_births = []);
+    for (const page of ctx.state.published.pages.filter((p) => p.has_images || p.has_surfaces)) {
+        let pageDict = pageSurfaceDict(brief, page.slug, appliedPalette);
+        if (ctx.state.surface_support?.group_background === false) {
+            // Only the cover mechanism survives a support-less instance; the
+            // rest already degraded to their flat bands at mint time.
+            pageDict = pageDict.filter((d) => d.intensity === 'loud' && (d.class === 'field' || d.class === 'pattern'));
         }
-        ctx.log(`generating ${dry.found} real image(s) for /${page.slug}/ — one image-model call each, then swapped in where the placeholders sit`);
+        const dry = await toolOrThrow(ctx, 'wp_images_generate', { post_id: page.id, dry_run: true, surfaces: pageDict, out_dir: outDir }, 'wp_images_generate dry_run');
+        if (dry.found === 0 && (dry.found_surfaces ?? 0) === 0) continue;
+        // Births are metered BEFORE the buy; replayed assets and slots
+        // (resume: the file already sits in runs/<ts>/images/) spend nothing.
+        const cachedContent = new Set(dry.cached_content ?? []);
+        const cachedAssets = new Set(dry.cached ?? []);
+        for (const ref of dry.images) {
+            if (!cachedContent.has(ref.path)) ctx.budget.spend('image', `${page.slug}${ref.path ?? ''}`);
+        }
+        for (const d of pageDict) {
+            if (!born.includes(d.id) && !cachedAssets.has(d.id)) {
+                ctx.budget.spend('image', d.id);
+                born.push(d.id);
+            }
+        }
+        ctx.log(`asset pass for /${page.slug}/: ${dry.found} content slot(s), ${dry.found_surfaces ?? 0} surface target(s), ${pageDict.length} dictionary asset(s)`);
         const started = Date.now();
         const gen = await toolOrThrow(ctx, 'wp_images_generate', {
             post_id: page.id,
             style: brief.art_direction,
-            out_dir: join(ctx.runDir, 'images'),
+            surfaces: pageDict,
+            out_dir: outDir,
         }, 'wp_images_generate');
         for (const img of gen.images) {
             ctx.ledger.record({
@@ -317,13 +367,88 @@ export async function run(ctx) {
                 ms: img.ms ?? 0,
             });
         }
-        if (gen.generated === 0) {
-            throw new PipelineError('companion_error', `image generation produced nothing for /${page.slug}/`, '', { failures: gen.failures });
+        // Surface births enter the ledger with the DICTIONARY ID as the label:
+        // the manifest is the audit trail for the fan-out to many targets.
+        for (const s of gen.surfaces ?? []) {
+            ctx.ledger.record({
+                task_type: 'image',
+                label: s.asset_id,
+                provider: 'gemini',
+                model: 'wp_images_generate',
+                prompt_hash: sha256(s.asset_id),
+                payload_hash: sha256(s.asset_id),
+                usage: { input_tokens: 0, output_tokens: 0 },
+                attempt: 1,
+                outcome: s.file ? 'ok' : 'error',
+                started_at: started,
+                ms: s.ms ?? 0,
+            });
+            ctx.state.surface_report.assets.push({ asset_id: s.asset_id, class: s.class, post_processing: s.post_processing, paths: s.paths ?? [], page: page.slug });
         }
-        const applied = await toolOrThrow(ctx, 'wp_images_apply', { post_id: page.id, manifest_path: gen.manifest_path }, 'wp_images_apply');
+        for (const err of gen.scan_errors ?? []) {
+            ctx.state.surface_report.degraded.push({ page: page.slug, reason: `scan refused: ${err}` });
+        }
+        if (gen.generated === 0 && cachedContent.size === 0 && cachedAssets.size === 0) {
+            throw new PipelineError('companion_error', `the asset pass produced nothing for /${page.slug}/`, '', { failures: gen.failures });
+        }
+        const applied = await toolOrThrow(ctx, 'wp_images_apply', { post_id: page.id, manifest_path: gen.manifest_path ?? join(outDir, 'images-manifest.json') }, 'wp_images_apply');
         if (applied.all_valid !== true) {
             throw new PipelineError('gate_failed', `wp_images_apply left /${page.slug}/ not all_valid`);
         }
-        ctx.log(`/${page.slug}/: ${gen.generated} image(s) generated and applied`);
+        for (const s of applied.skipped ?? []) {
+            ctx.state.surface_report.refusals.push({ page: page.slug, detail: s });
+            ctx.log(`asset refusal on /${page.slug}/: ${s}`);
+        }
+        ctx.log(`/${page.slug}/: ${gen.generated} asset(s) generated, ${applied.swapped} content swap(s), ${applied.surfaces_applied ?? 0} surface write(s)`);
+    }
+
+    // 10. The page canvas ships with the tokens (x-surfaces M6): the asset was
+    // born at S3 (its luminance constrained every canvas band's ink menus);
+    // here it is uploaded and styles.background rides a token re-apply through
+    // the companion's one sanctioned addition — before S9 verifies the pages.
+    const canvasEntry = (brief.surfaces ?? []).find((s) => s.class === 'canvas');
+    if (canvasEntry) {
+        if (ctx.state.surface_support?.global_styles_background === false) {
+            ctx.state.surface_report.degraded.push({ asset_id: canvasEntry.id, reason: 'this instance has no global-styles background support — the page canvas stays the flat ground' });
+            ctx.log(`surface degraded: the page canvas "${canvasEntry.id}" cannot ship on this instance`);
+            return;
+        }
+        const manifestPath = join(outDir, 'images-manifest.json');
+        let canvasAsset = null;
+        if (existsSync(manifestPath)) {
+            const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+            canvasAsset = (manifest.surfaces ?? []).find((s) => s.asset_id === canvasEntry.id) ?? null;
+        }
+        if (!canvasAsset) {
+            ctx.state.surface_report.degraded.push({ asset_id: canvasEntry.id, reason: 'the canvas asset was never born (S3 birth failed or was skipped) — the page canvas stays the flat ground' });
+            ctx.log(`surface degraded: no canvas asset "${canvasEntry.id}" in the manifest`);
+            return;
+        }
+        if (!canvasAsset.media_url) {
+            const front = ctx.state.published.pages.find((p) => p.front_page);
+            const uploaded = await toolOrThrow(ctx, 'wp_images_apply', { post_id: front.id, manifest_path: manifestPath }, 'wp_images_apply (canvas upload)');
+            const outcome = (uploaded.surfaces ?? []).find((s) => s.asset_id === canvasEntry.id);
+            canvasAsset.media_url = outcome?.media_url;
+            canvasAsset.media_id = outcome?.media_id;
+        }
+        if (!canvasAsset.media_url) {
+            ctx.state.surface_report.degraded.push({ asset_id: canvasEntry.id, reason: 'the canvas asset failed to upload — the page canvas stays the flat ground' });
+            ctx.log(`surface degraded: canvas asset "${canvasEntry.id}" failed to upload`);
+            return;
+        }
+        const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
+        const payload = {
+            ...tokens,
+            styles: {
+                background: {
+                    backgroundImage: { url: canvasAsset.media_url, ...(canvasAsset.media_id ? { id: canvasAsset.media_id } : {}) },
+                    backgroundSize: 'cover',
+                },
+            },
+        };
+        const shipped = await toolOrThrow(ctx, 'wp_tokens_apply', payload, 'wp_tokens_apply (page canvas)');
+        if (shipped.fingerprint) ctx.state.fingerprint = shipped.fingerprint;
+        ctx.state.surface_report.assets.push({ asset_id: canvasEntry.id, class: 'canvas', post_processing: canvasAsset.post_processing, paths: ['styles.background'], page: '(site)' });
+        ctx.log(`page canvas "${canvasEntry.id}" shipped through global styles — admin-undoable in the Styles UI`);
     }
 }

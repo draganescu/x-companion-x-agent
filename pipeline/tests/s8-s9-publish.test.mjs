@@ -125,6 +125,162 @@ test('S8: sequential installs, final epoch stamped, publish + nav + footer + met
     assert.ok(existsSync(join(ctx.runDir, 'pages', 'home.html')));
 });
 
+// ---------------------------------------------------------------- surfaces
+
+const APPLIED_TOKENS = {
+    palette: [
+        { slug: 'base', name: 'Flour', color: '#F6EFE6' },
+        { slug: 'contrast', name: 'Rye', color: '#3B2A1E' },
+        { slug: 'ember', name: 'Ember', color: '#D96C2C' },
+    ],
+};
+
+// A ctx whose image tools speak the asset-pass contract: typed dry_run,
+// dictionary dedup, one transaction per page.
+function surfaceCtx({ surfaces, applySkipped = [], toolLog, restLog }) {
+    const ctx = makeCtx({ restLog, toolLog });
+    ctx.state.brief.surfaces = surfaces;
+    writeFileSync(join(ctx.runDir, 'tokens.json'), JSON.stringify(APPLIED_TOKENS));
+    const inner = ctx.call;
+    ctx.call = async (name, args) => {
+        if (name === 'wp_images_generate') {
+            toolLog.push([name, args]);
+            const dict = args.surfaces ?? [];
+            const base = {
+                post_id: args.post_id,
+                found: 2,
+                found_surfaces: 3,
+                cached: [],
+                cached_content: [],
+                scan_errors: [],
+            };
+            if (args.dry_run) {
+                return { ok: true, data: { ...base, generated: 0, dry_run: true, images: [{ path: '/blocks/0', intent: 'a' }, { path: '/blocks/1', intent: 'b' }], surfaces: dict.map((d) => ({ asset_id: d.id, class: d.class, paths: [] })) } };
+            }
+            return {
+                ok: true,
+                data: {
+                    ...base,
+                    generated: 2 + dict.length,
+                    dry_run: false,
+                    manifest_path: join(ctx.runDir, 'images', 'images-manifest.json'),
+                    images: [
+                        { path: '/blocks/0', intent: 'a', file: '/a.jpg', ms: 5, block_name: 'core/image', aspect_ratio: '16:9' },
+                        { path: '/blocks/1', intent: 'b', file: '/b.jpg', ms: 6, block_name: 'core/image', aspect_ratio: '16:9' },
+                    ],
+                    surfaces: dict.map((d) => ({ asset_id: d.id, class: d.class, file: `/assets/${d.id}.png`, ms: 7, post_processing: 'recompress', paths: ['/blocks/0', '/blocks/1', '/blocks/2'] })),
+                },
+            };
+        }
+        if (name === 'wp_images_apply') {
+            toolLog.push([name, args]);
+            return {
+                ok: true,
+                data: {
+                    post_id: args.post_id,
+                    uploaded: [],
+                    swapped: 2,
+                    surfaces_applied: 3 - applySkipped.length,
+                    skipped: applySkipped,
+                    surfaces: (ctx.state.brief.surfaces ?? []).map((s) => ({ asset_id: s.id, media_id: 501, media_url: `http://x/uploads/asset-${s.id}.png`, applied: 3 - applySkipped.length, refused: applySkipped.length })),
+                    all_valid: true,
+                    link: 'http://x/home/',
+                },
+            };
+        }
+        if (name === 'wp_tokens_apply') {
+            toolLog.push([name, args]);
+            return { ok: true, data: { applied: true, adapters_applied: [], fingerprint: 'f-canvas', background_written: true } };
+        }
+        return inner(name, args);
+    };
+    return ctx;
+}
+
+const SURFACE_FIELD = {
+    id: 'linen-wash',
+    class: 'field',
+    prompt_seed: 'Woven linen texture, warm cream',
+    intensity: 'whisper',
+    attach: ['home/hero', 'home/what-we-bake', 'home/signup'],
+};
+
+test('S8 surfaces: one dictionary asset on 3 bands = ONE metered birth, markers minted, one transaction, refusals recorded', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const refusal = "/blocks/2: surface target no longer empty — an admin's background is never overwritten";
+    const ctx = surfaceCtx({ surfaces: [SURFACE_FIELD], applySkipped: [refusal], toolLog, restLog });
+    await s8.run(ctx);
+
+    // The tree that faced the gates carries one marker per attached band, and
+    // the flat band reservation is what the markers sit next to.
+    const validated = toolLog.find(([n, a]) => n === 'wp_validate' && a.blocks?.length > 1);
+    const markers = [];
+    const walk = (ns) => ns.forEach((n) => { if (n.attributes?.metadata?.surfaceIntent) markers.push(n.attributes.metadata.surfaceIntent); walk(n.innerBlocks ?? []); });
+    walk(validated[1].blocks);
+    assert.deepEqual(markers, ['linen-wash', 'linen-wash', 'linen-wash']);
+
+    // ONE surface birth on the meter and in the ledger, labeled by dictionary id.
+    const imageSpends = ctx.budget.calls.filter((c) => c.task_type === 'image');
+    assert.equal(imageSpends.length, 3); // 2 content + 1 surface
+    assert.equal(imageSpends.filter((c) => c.label === 'linen-wash').length, 1);
+    assert.equal(ctx.ledger.entries.filter((e) => e.task_type === 'image' && e.label === 'linen-wash').length, 1);
+
+    // The generate call carried the dictionary with the exact band hexes.
+    const gen = toolLog.find(([n, a]) => n === 'wp_images_generate' && !a.dry_run);
+    assert.equal(gen[1].surfaces.length, 1);
+    assert.deepEqual(gen[1].surfaces[0].hexes, ['#3B2A1E', '#F6EFE6', '#D96C2C']);
+
+    // The refusal is LOUD in the report state; the run still completed.
+    assert.deepEqual(ctx.state.surface_report.refusals, [{ page: 'home', detail: refusal }]);
+});
+
+test('S8 surfaces under --no-images: no markers, no calls — byte-identical to a surface-free run', async () => {
+    const run = async (surfaces) => {
+        const toolLog = [];
+        const ctx = surfaceCtx({ surfaces, toolLog, restLog: [] });
+        ctx.state.no_images = true;
+        await s8.run(ctx);
+        return { ctx, toolLog };
+    };
+    const withSurfaces = await run([SURFACE_FIELD]);
+    const without = await run([]);
+    assert.ok(!withSurfaces.toolLog.some(([n]) => n.startsWith('wp_images')));
+    const treeOf = ({ ctx }) => readFileSync(join(ctx.runDir, 'trees', 'page--home.json'), 'utf8');
+    assert.equal(treeOf(withSurfaces), treeOf(without));
+});
+
+test('S8 surfaces: a support-less instance degrades every group skin to its flat band, loudly, and buys nothing', async () => {
+    const toolLog = [];
+    const ctx = surfaceCtx({ surfaces: [SURFACE_FIELD], toolLog, restLog: [] });
+    ctx.state.surface_support = { group_background: false, global_styles_background: true };
+    await s8.run(ctx);
+    assert.equal(ctx.state.surface_report.degraded.length, 3);
+    assert.match(ctx.state.surface_report.degraded[0].reason, /no background support/);
+    const gen = toolLog.find(([n, a]) => n === 'wp_images_generate' && !a.dry_run);
+    assert.deepEqual(gen[1].surfaces, []);
+    assert.equal(ctx.budget.calls.filter((c) => c.task_type === 'image').length, 2); // content only
+});
+
+test('S8 canvas: the asset ships with the tokens through styles.background, epoch adopted', async () => {
+    const toolLog = [];
+    const canvas = { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture', intensity: 'whisper', attach: [] };
+    const ctx = surfaceCtx({ surfaces: [canvas], toolLog, restLog: [] });
+    ctx.state.canvas = { asset_id: 'plaster-ground', lum_min: 0.82, lum_max: 0.91 };
+    writeFileSync(join(ctx.runDir, 'images', 'images-manifest.json'), JSON.stringify({
+        schema_version: 2,
+        model: 'fake',
+        content: [],
+        surfaces: [{ kind: 'surface', asset_id: 'plaster-ground', class: 'canvas', file: '/assets/plaster.jpg', prompt: 'p', mime_type: 'image/jpeg', bytes: 1, ms: 1, post_processing: 'recompress', lum_min: 0.82, lum_max: 0.91, targets: [] }],
+    }));
+    await s8.run(ctx);
+    const shipped = toolLog.find(([n]) => n === 'wp_tokens_apply');
+    assert.ok(shipped, 'the canvas rides a token re-apply');
+    assert.equal(shipped[1].styles.background.backgroundImage.url, 'http://x/uploads/asset-plaster-ground.png');
+    assert.equal(ctx.state.fingerprint, 'f-canvas');
+    assert.ok(ctx.state.surface_report.assets.some((a) => a.asset_id === 'plaster-ground' && a.paths.includes('styles.background')));
+});
+
 test('S8: an unresolved deferral at the final epoch is a run failure', async () => {
     const ctx = makeCtx({
         restLog: [], toolLog: [],

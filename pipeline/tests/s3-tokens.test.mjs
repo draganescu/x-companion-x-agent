@@ -80,6 +80,72 @@ test('S3 happy path: dry run first, gate checks, real apply moves the fingerprin
     assert.equal(JSON.parse(readFileSync(join(ctx.runDir, 'instance.json'), 'utf8')).fingerprint, 'f2');
 });
 
+test('S3 canvas birth: the asset is born with the tokens, metered, its luminance recorded for S4', async () => {
+    const ctx = makeCtx({ outputs: [JSON.stringify(goodTokens())] });
+    ctx.state.brief.surfaces = [
+        { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture, near white', intensity: 'whisper', attach: [] },
+    ];
+    ctx.state.brief.pages[0].sections[0].design.band = 'canvas';
+    const generateCalls = [];
+    const inner = ctx.call;
+    ctx.call = async (name, args) => {
+        if (name === 'wp_images_generate') {
+            generateCalls.push(args);
+            return {
+                ok: true,
+                data: {
+                    found: 0, found_surfaces: 0, generated: 1, cached: [], cached_content: [], dry_run: false,
+                    manifest_path: join(ctx.runDir, 'images', 'images-manifest.json'),
+                    images: [],
+                    surfaces: [{ asset_id: 'plaster-ground', class: 'canvas', paths: [], file: '/assets/plaster.jpg', ms: 9, post_processing: 'recompress', lum_min: 0.82, lum_max: 0.91 }],
+                    scan_errors: [],
+                },
+            };
+        }
+        return inner(name, args);
+    };
+    await s3.run(ctx);
+    assert.equal(generateCalls.length, 1);
+    assert.equal(generateCalls[0].assets_only, true);
+    assert.equal(generateCalls[0].surfaces.length, 1);
+    assert.equal(generateCalls[0].surfaces[0].id, 'plaster-ground');
+    assert.ok(generateCalls[0].surfaces[0].hexes.length > 0);
+    assert.deepEqual(ctx.state.canvas, { asset_id: 'plaster-ground', file: '/assets/plaster.jpg', lum_min: 0.82, lum_max: 0.91 });
+    assert.equal(ctx.budget.calls.filter((c) => c.task_type === 'image' && c.label === 'plaster-ground').length, 1);
+    assert.equal(ctx.ledger.entries.filter((e) => e.task_type === 'image' && e.label === 'plaster-ground').length, 1);
+});
+
+test('S3 canvas birth: no canvas asset means no call; --no-images skips the birth whole', async () => {
+    const plain = makeCtx({ outputs: [JSON.stringify(goodTokens())] });
+    await s3.run(plain);
+    assert.ok(plain.calls.every(([name]) => name === 'wp_tokens_apply'));
+
+    const skipped = makeCtx({ outputs: [JSON.stringify(goodTokens())] });
+    skipped.state.no_images = true;
+    skipped.state.brief.surfaces = [
+        { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture, near white', intensity: 'whisper', attach: [] },
+    ];
+    await s3.run(skipped);
+    assert.ok(skipped.calls.every(([name]) => name === 'wp_tokens_apply'));
+    assert.equal(skipped.state.canvas, undefined);
+});
+
+test('S3 canvas birth: a failed birth degrades to the flat ground and the run continues', async () => {
+    const ctx = makeCtx({ outputs: [JSON.stringify(goodTokens())] });
+    ctx.state.brief.surfaces = [
+        { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture, near white', intensity: 'whisper', attach: [] },
+    ];
+    const inner = ctx.call;
+    ctx.call = async (name, args) => {
+        if (name === 'wp_images_generate') return { ok: false, data: { code: 'companion_error', message: 'model down', hint: '' } };
+        return inner(name, args);
+    };
+    await s3.run(ctx);
+    assert.equal(ctx.state.canvas, undefined);
+    assert.ok(ctx.state.surface_report.degraded.some((d) => d.asset_id === 'plaster-ground'));
+    assert.equal(ctx.state.fingerprint, 'f2'); // tokens still applied, the run lives
+});
+
 test('a token set that redesigns spacing burns the schema-retry, then the clean echo passes', async () => {
     const bad = goodTokens();
     bad.spacing = { scale_unit: 'px', steps: [{ slug: '40', size: '99px' }] };
