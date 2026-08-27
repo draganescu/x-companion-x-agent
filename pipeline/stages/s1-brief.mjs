@@ -34,9 +34,15 @@ set beautifully).`;
 // dictionary must realize it — mechanically cross-checked after the call.
 const TEXTURE_NOTE = `THE TEXTURE DECISION rides on the style combo you choose: its texture cue
 ("damask, filigree borders"; "cracked glaze, patina"; "none — pure flat color planes") is
-quantized into the surfaces[] dictionary. A cue that names a material earns 2-4 dictionary
-entries; a cue that says none REQUIRES an empty array — that run is correct and complete,
-flat by design.`;
+quantized into the surfaces[] dictionary. Decoration is SUPPORT, not wallpaper — reach for
+it in this order: (1) divider bands and edge friezes that SEPARATE content, (2) spot
+ornaments that punctuate it, (3) at most one or two full-band skins per page, whisper by
+default. Only a whisper skin may touch a band whose role carries body text (features,
+pricing, faq, content, contact, testimonial) — both bounds are enforced mechanically. A
+big, image-like ground has exactly one legal home: a LOUD surface on a hero or cta, where
+it ships behind a core/cover veil, and it must earn its place in that section's
+design.notes. A cue that says none REQUIRES an empty array — that run is correct and
+complete, flat by design.`;
 
 function brochureChecks(brief) {
     const issues = [];

@@ -10,9 +10,11 @@ describe('buildSurfacePrompt', () => {
     );
     expect(p).toContain('Woven linen, warm cream');
     expect(p).toContain('no focal point');
+    expect(p).toContain('fills the entire frame edge to edge');
+    expect(p).toContain('No objects, no scene, no room');
     expect(p).toContain('Palette: exactly these colors — #f5f0e8, #e8e0d0');
-    expect(p).toContain('Style: Wabi-Sabi quietude');
-    expect(p).toContain('No text, no watermarks');
+    expect(p).toContain('Material style: Wabi-Sabi quietude');
+    expect(p).toContain('no text, no letters, no numerals');
     expect(p).not.toContain('..');
   });
 
@@ -37,9 +39,11 @@ describe('buildSurfacePrompt', () => {
     expect(p).not.toContain('#00b140');
   });
 
-  it('pattern and frieze phrasings demand tileability and continuity', () => {
-    expect(buildSurfacePrompt({ class: 'pattern', prompt_seed: 'Damask motif', hexes: ['#111'] })).toContain('repeating motif tile');
-    expect(buildSurfacePrompt({ class: 'frieze', prompt_seed: 'Botanical band', hexes: ['#111'] })).toContain('continuous left to right');
+  it('pattern and frieze phrasings demand tileability and continuity — and refuse pages and scenes', () => {
+    expect(buildSurfacePrompt({ class: 'pattern', prompt_seed: 'Damask motif', hexes: ['#111'] })).toContain('repeating ornamental motif');
+    const frieze = buildSurfacePrompt({ class: 'frieze', prompt_seed: 'Botanical band', hexes: ['#111'] });
+    expect(frieze).toContain('continuous and uniform left to right');
+    expect(frieze).toContain('no page, no document');
   });
 
   it('intensity shapes the prompt deterministically', () => {

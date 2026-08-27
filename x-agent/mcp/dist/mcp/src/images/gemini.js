@@ -24,19 +24,27 @@ export function buildImagePrompt(intent, style) {
 }
 /** What each asset class must look like, said the same way every run. The
  *  model is never trusted with seamlessness or alpha — these phrasings only
- *  set up the deterministic post-processing that guarantees them. */
+ *  set up the deterministic post-processing that guarantees them. A surface
+ *  is a MATERIAL SAMPLE, never a scene: the anti-scene language is loud on
+ *  purpose (field evidence: a "foxed paper" field came back as a photograph
+ *  of a teacup by a window, and a frieze came back as an entire fake menu
+ *  page with typography). */
+const FLAT_SAMPLE = 'A flat close-up material sample that fills the entire frame edge to edge. No objects, no scene, no room, no furniture, no depth of field, no perspective, no directional lighting, no shadows of things';
 const CLASS_PHRASING = {
-    field: 'Even, uniform surface texture with no focal point and low internal contrast, edge-to-edge',
-    pattern: 'A single repeating motif tile, flat frontal view, evenly lit, no vignette',
-    frieze: 'A horizontally uniform ornamental strip, continuous left to right',
-    spot: 'A single discrete ornament, centered',
-    canvas: 'Even, uniform surface texture with no focal point and low internal contrast, edge-to-edge',
+    field: `${FLAT_SAMPLE}. Even and uniform with no focal point and low internal contrast`,
+    pattern: `${FLAT_SAMPLE}. One repeating ornamental motif, flat frontal view, evenly lit, no vignette`,
+    frieze: 'A single horizontal ornamental border strip on a plain solid background, continuous and uniform left to right. Ornament only: no page, no document, no layout, no photograph, no scene, no objects',
+    spot: 'A single discrete ornament, centered, nothing else in the frame',
+    canvas: `${FLAT_SAMPLE}. Even and uniform with no focal point and low internal contrast`,
 };
 const INTENSITY_PHRASING = {
     whisper: 'Very subtle, faint, low contrast',
     present: '',
     loud: 'Rich and pronounced',
 };
+/** Appended when a birth fails the texture bound and gets its one retry:
+ *  the correction is explicit about WHY the last attempt was rejected. */
+export const SURFACE_RETRY_SUFFIX = 'MATERIAL SAMPLE ONLY — the previous attempt was rejected for depicting a scene, object or document. Render ONLY the flat material surface itself, filling the whole frame, with nothing depicted on it or in front of it.';
 /** Aspect each class is generated at; friezes take the widest the API has. */
 export function aspectForClass(cls) {
     if (cls === 'frieze')
@@ -63,8 +71,10 @@ export function buildSurfacePrompt(entry, style) {
         parts.push(intensity);
     parts.push(`Palette: exactly these colors — ${entry.hexes.join(', ')}`);
     if (style && style.trim())
-        parts.push(`Style: ${style.trim()}`);
-    parts.push('No text, no watermarks, no logos, no borders.');
+        parts.push(`Material style: ${style.trim()}`);
+    // The surface suffix is harder than the content one: letters and numerals
+    // are how a "letterpress" style line leaks typography into a texture.
+    parts.push('Absolutely no text, no letters, no numerals, no typography, no watermarks, no logos.');
     return parts.join('. ').replace(/\.\./g, '.');
 }
 /** Where a replayed image fixture for (prompt, aspect) lives: content-addressed

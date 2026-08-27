@@ -4,7 +4,7 @@ import { PipelineError } from '../lib/errors.mjs';
 import { sha256 } from '../lib/hash.mjs';
 import { screenTreeDiagnostics } from '../lib/gates.mjs';
 import { mixHex, toneOf } from '../lib/tokens.mjs';
-import { mintSurfaceMarkers, pageSurfaceDict, pageSurfacePlan } from '../lib/surfaces.mjs';
+import { mintSurfaceMarkers, pageSurfaceDict, pageSurfacePlan, surfaceStyleLine } from '../lib/surfaces.mjs';
 import { createRest, readConnection } from '../lib/rest.mjs';
 
 export const id = 'S8_publish';
@@ -349,6 +349,11 @@ export async function run(ctx) {
         const gen = await toolOrThrow(ctx, 'wp_images_generate', {
             post_id: page.id,
             style: brief.art_direction,
+            // The surface lane gets the MATERIAL-SAFE half of the combo: the
+            // artistic style plus its texture cue. Scene-flavoured art
+            // direction pulls textures into becoming scenes (field evidence:
+            // a "foxed paper" field came back as a photographed teacup).
+            surface_style: surfaceStyleLine(brief),
             surfaces: pageDict,
             out_dir: outDir,
         }, 'wp_images_generate');
@@ -369,6 +374,8 @@ export async function run(ctx) {
         }
         // Surface births enter the ledger with the DICTIONARY ID as the label:
         // the manifest is the audit trail for the fan-out to many targets.
+        // attempt > 1 records a texture-bound retry (in-tool, like the Gemini
+        // client's transport retries — not a new metered call).
         for (const s of gen.surfaces ?? []) {
             ctx.ledger.record({
                 task_type: 'image',
@@ -378,7 +385,7 @@ export async function run(ctx) {
                 prompt_hash: sha256(s.asset_id),
                 payload_hash: sha256(s.asset_id),
                 usage: { input_tokens: 0, output_tokens: 0 },
-                attempt: 1,
+                attempt: s.attempts ?? 1,
                 outcome: s.file ? 'ok' : 'error',
                 started_at: started,
                 ms: s.ms ?? 0,
@@ -387,6 +394,13 @@ export async function run(ctx) {
         }
         for (const err of gen.scan_errors ?? []) {
             ctx.state.surface_report.degraded.push({ page: page.slug, reason: `scan refused: ${err}` });
+        }
+        // Texture-bound rejects: the asset was bought (its births are in the
+        // ledger) but was not a material; the flat band ships and the report
+        // carries the exact reason.
+        for (const r of gen.rejected ?? []) {
+            ctx.state.surface_report.degraded.push({ page: page.slug, asset_id: r.asset_id, reason: r.reason });
+            ctx.log(`surface rejected on /${page.slug}/: ${r.asset_id} — ${r.reason}`);
         }
         if (gen.generated === 0 && cachedContent.size === 0 && cachedAssets.size === 0) {
             throw new PipelineError('companion_error', `the asset pass produced nothing for /${page.slug}/`, '', { failures: gen.failures });

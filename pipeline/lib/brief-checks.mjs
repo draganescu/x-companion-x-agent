@@ -103,6 +103,28 @@ function surfaceChecks(brief, textures) {
         }
     });
 
+    // Texture is SUPPORT, not wallpaper: decoration lives first in dividers,
+    // edge friezes and spot ornaments; full-band skins are the exception.
+    // Cap them per page, and on text-heavy bands allow only a whisper —
+    // louder material belongs to heroes, ctas, galleries and dividers.
+    const TEXT_HEAVY_ROLES = new Set(['features', 'pricing', 'faq', 'content', 'contact', 'testimonial']);
+    const roleOf = new Map((brief.pages ?? []).flatMap((p) => (p.sections ?? []).map((s) => [`${p.slug}/${s.id}`, s.role])));
+    (brief.pages ?? []).forEach((p, pi) => {
+        const skinnedHere = new Set([...skinned].filter((key) => key.startsWith(`${p.slug}/`)));
+        if (skinnedHere.size > 2) {
+            issues.push({ path: '/surfaces', message: `${skinnedHere.size} skinned bands on page "${p.slug}" — texture is support, not wallpaper: at most 2 full-band skins per page; move the rest of the decoration to dividers, edge friezes and spot ornaments` });
+        }
+    });
+    surfaces.forEach((s, i) => {
+        if (s.class !== 'field' && s.class !== 'pattern') return;
+        if (s.intensity === 'whisper') return;
+        for (const ref of s.attach ?? []) {
+            if (TEXT_HEAVY_ROLES.has(roleOf.get(ref))) {
+                issues.push({ path: `/surfaces/${i}/intensity`, message: `surface "${s.id}" (${s.intensity}) skins "${ref}", a ${roleOf.get(ref)} band that carries body text — only a whisper skin is legal there; lower the intensity to whisper, or attach it to a hero, cta, gallery or divider band` });
+            }
+        }
+    });
+
     const hasCanvasAsset = surfaces.some((s) => s.class === 'canvas');
     (brief.pages ?? []).forEach((p, pi) => {
         (p.sections ?? []).forEach((s, si) => {

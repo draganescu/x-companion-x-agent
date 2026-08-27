@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mintSurfaceMarkers, pageSurfaceDict, pageSurfacePlan, surfaceHexes } from '../lib/surfaces.mjs';
+import { mintSurfaceMarkers, pageSurfaceDict, pageSurfacePlan, surfaceHexes, surfaceStyleLine } from '../lib/surfaces.mjs';
 
 const PALETTE = [
     { slug: 'base', color: '#F6EFE6' },
@@ -94,6 +94,16 @@ test('surfaceHexes: the exact band hexes ride along; hexless is a thrown bug', (
     assert.deepEqual(surfaceHexes(b.surfaces[0], b, PALETTE), ['#3B2A1E', '#F6EFE6']);
     const dangling = { ...FIELD, attach: ['home/no-such'] };
     assert.throws(() => surfaceHexes(dangling, brief([dangling]), PALETTE), (e) => e.code === 'internal');
+});
+
+test('surfaceStyleLine: the material-safe half of the combo — artistic name + texture cue, never the scene-y art direction', () => {
+    const withStyle = { style: { artistic: 'Bauhaus', ui: 'Flat Design', rationale: 'x'.repeat(20) }, art_direction: 'A candlelit salon where waiters glide between marble tables.' };
+    const line = surfaceStyleLine(withStyle);
+    assert.ok(line.includes('Bauhaus'));
+    assert.ok(!line.includes('candlelit'));
+    assert.ok(!line.includes('waiters'));
+    // Pre-style briefs degrade to the art direction rather than an empty line.
+    assert.equal(surfaceStyleLine({ art_direction: 'warm rustic bakery' }), 'warm rustic bakery');
 });
 
 test('pageSurfaceDict: per-page entries with hexes resolved; canvas never rides the page dict', () => {

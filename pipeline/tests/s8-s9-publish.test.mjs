@@ -137,7 +137,7 @@ const APPLIED_TOKENS = {
 
 // A ctx whose image tools speak the asset-pass contract: typed dry_run,
 // dictionary dedup, one transaction per page.
-function surfaceCtx({ surfaces, applySkipped = [], toolLog, restLog }) {
+function surfaceCtx({ surfaces, applySkipped = [], rejectIds = [], toolLog, restLog }) {
     const ctx = makeCtx({ restLog, toolLog });
     ctx.state.brief.surfaces = surfaces;
     writeFileSync(join(ctx.runDir, 'tokens.json'), JSON.stringify(APPLIED_TOKENS));
@@ -157,18 +157,20 @@ function surfaceCtx({ surfaces, applySkipped = [], toolLog, restLog }) {
             if (args.dry_run) {
                 return { ok: true, data: { ...base, generated: 0, dry_run: true, images: [{ path: '/blocks/0', intent: 'a' }, { path: '/blocks/1', intent: 'b' }], surfaces: dict.map((d) => ({ asset_id: d.id, class: d.class, paths: [] })) } };
             }
+            const kept = dict.filter((d) => !rejectIds.includes(d.id));
             return {
                 ok: true,
                 data: {
                     ...base,
-                    generated: 2 + dict.length,
+                    generated: 2 + kept.length,
                     dry_run: false,
                     manifest_path: join(ctx.runDir, 'images', 'images-manifest.json'),
                     images: [
                         { path: '/blocks/0', intent: 'a', file: '/a.jpg', ms: 5, block_name: 'core/image', aspect_ratio: '16:9' },
                         { path: '/blocks/1', intent: 'b', file: '/b.jpg', ms: 6, block_name: 'core/image', aspect_ratio: '16:9' },
                     ],
-                    surfaces: dict.map((d) => ({ asset_id: d.id, class: d.class, file: `/assets/${d.id}.png`, ms: 7, post_processing: 'recompress', paths: ['/blocks/0', '/blocks/1', '/blocks/2'] })),
+                    surfaces: kept.map((d) => ({ asset_id: d.id, class: d.class, file: `/assets/${d.id}.png`, ms: 7, post_processing: 'recompress', paths: ['/blocks/0', '/blocks/1', '/blocks/2'] })),
+                    rejected: rejectIds.map((id) => ({ asset_id: id, reason: `texture bound: the measured luminance range exceeds 0.2 for a whisper field after 2 attempts — not a material, the flat band ships` })),
                 },
             };
         }
@@ -226,13 +228,28 @@ test('S8 surfaces: one dictionary asset on 3 bands = ONE metered birth, markers 
     assert.equal(imageSpends.filter((c) => c.label === 'linen-wash').length, 1);
     assert.equal(ctx.ledger.entries.filter((e) => e.task_type === 'image' && e.label === 'linen-wash').length, 1);
 
-    // The generate call carried the dictionary with the exact band hexes.
+    // The generate call carried the dictionary with the exact band hexes, and
+    // the surface lane got the MATERIAL-SAFE style line (the artistic style,
+    // never the scene-y art direction).
     const gen = toolLog.find(([n, a]) => n === 'wp_images_generate' && !a.dry_run);
     assert.equal(gen[1].surfaces.length, 1);
     assert.deepEqual(gen[1].surfaces[0].hexes, ['#3B2A1E', '#F6EFE6', '#D96C2C']);
+    assert.equal(typeof gen[1].surface_style, 'string');
+    assert.ok(gen[1].surface_style.includes(ctx.state.brief.style.artistic));
+    assert.notEqual(gen[1].surface_style, ctx.state.brief.art_direction);
 
     // The refusal is LOUD in the report state; the run still completed.
     assert.deepEqual(ctx.state.surface_report.refusals, [{ page: 'home', detail: refusal }]);
+});
+
+test('S8 surfaces: a texture-bound reject ships the flat band and screams in the report', async () => {
+    const toolLog = [];
+    const ctx = surfaceCtx({ surfaces: [SURFACE_FIELD], rejectIds: ['linen-wash'], toolLog, restLog: [] });
+    await s8.run(ctx);
+    const degrade = ctx.state.surface_report.degraded.find((d) => d.asset_id === 'linen-wash');
+    assert.ok(degrade, 'the reject landed in the report');
+    assert.match(degrade.reason, /texture bound/);
+    assert.match(degrade.reason, /not a material/);
 });
 
 test('S8 surfaces under --no-images: no markers, no calls — byte-identical to a surface-free run', async () => {

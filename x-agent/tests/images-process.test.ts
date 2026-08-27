@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { chromium, type Browser, type Page } from 'playwright';
-import { computeKeyHex, processAsset, type PageProvider } from '../mcp/src/images/process.js';
+import { computeKeyHex, processAsset, textureBoundFor, veilFor, type PageProvider } from '../mcp/src/images/process.js';
 
 const browser: Browser | null = await chromium.launch().catch(() => null);
 
@@ -126,4 +126,41 @@ describe.skipIf(!browser)('processAsset', () => {
     expect(a.lum_min).toBe(b.lum_min);
     expect(a.lum_max).toBe(b.lum_max);
   }, 30000);
+
+  it('the veil collapses a wild luminance range toward the band hex — a whisper actually whispers', async () => {
+    const input = await makePng('quadrants', null); // high-contrast quadrants
+    const bare = await processAsset(provider(), input, 'image/png', { class: 'field' });
+    const veiled = await processAsset(provider(), input, 'image/png', {
+      class: 'field',
+      veil: { hex: '#F6EFE6', alpha: 0.85 },
+    });
+    expect(bare.lum_max - bare.lum_min).toBeGreaterThan(0.3);
+    expect(veiled.lum_max - veiled.lum_min).toBeLessThan(0.2);
+    expect(veiled.lum_min).toBeGreaterThan(0.4); // pulled toward the light band
+    // Determinism holds through the veil.
+    const again = await processAsset(provider(), input, 'image/png', {
+      class: 'field',
+      veil: { hex: '#F6EFE6', alpha: 0.85 },
+    });
+    expect(veiled.bytes.equals(again.bytes)).toBe(true);
+  }, 30000);
+});
+
+describe('the texture bound and the veil policy (pure)', () => {
+  it('bounds tighten with intensity for grounds; friezes get slack; spots are unbounded', () => {
+    expect(textureBoundFor('field', 'whisper')).toBe(0.2);
+    expect(textureBoundFor('pattern', 'present')).toBe(0.4);
+    expect(textureBoundFor('canvas', 'loud')).toBe(0.6);
+    expect(textureBoundFor('frieze', 'whisper')).toBe(0.7);
+    expect(textureBoundFor('spot', 'present')).toBeNull();
+  });
+
+  it('grounds are veiled with the band hex; edges and ornaments are not', () => {
+    expect(veilFor('field', 'whisper', '#F6EFE6')).toEqual({ hex: '#F6EFE6', alpha: 0.85 });
+    expect(veilFor('pattern', 'present', '#3B2A1E')).toEqual({ hex: '#3B2A1E', alpha: 0.7 });
+    expect(veilFor('canvas', undefined, '#fff')).toEqual({ hex: '#fff', alpha: 0.7 });
+    expect(veilFor('frieze', 'present', '#F6EFE6')).toBeNull();
+    expect(veilFor('spot', 'whisper', '#F6EFE6')).toBeNull();
+    expect(veilFor('field', 'whisper', undefined)).toBeNull();
+  });
 });

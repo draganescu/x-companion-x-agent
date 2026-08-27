@@ -36,6 +36,7 @@ import { ConnectionArgsShape, connectionArgs, defineTool } from './_shared.js';
 import {
   GeminiImages,
   DEFAULT_IMAGE_MODEL,
+  SURFACE_RETRY_SUFFIX,
   aspectForClass,
   buildImagePrompt,
   buildSurfacePrompt,
@@ -55,7 +56,7 @@ import {
   type ManifestV2,
   type SurfaceCallSpec,
 } from '../images/manifest.js';
-import { computeKeyHex, processAsset } from '../images/process.js';
+import { computeKeyHex, processAsset, textureBoundFor, veilFor } from '../images/process.js';
 
 function defaultOutDir(postId: number): string {
   const base = process.env.X_AGENT_DATA_DIR && process.env.X_AGENT_DATA_DIR.trim() !== ''
@@ -90,6 +91,10 @@ const GenerateInput = z.object({
     .string()
     .optional()
     .describe('One art-direction line appended to every prompt so the assets share a look, e.g. "Belle Époque lithograph poster, deep reds and golds".'),
+  surface_style: z
+    .string()
+    .optional()
+    .describe('Material-safe style line for the SURFACE lane (the artistic style plus its texture cue). Scene-flavoured art direction leaks scenes into textures; when omitted, style is used for both lanes.'),
   surfaces: z.array(SurfaceInputSchema).optional().describe('The run’s surface dictionary: generation is keyed by id — one call per unique asset per run.'),
   assets_only: z.boolean().optional().describe('Generate dictionary assets without scanning a post (e.g. the page canvas).'),
   model: z.string().optional().describe('Gemini image model id; defaults to image_model from .x-agent.json.'),
@@ -117,6 +122,7 @@ const GeneratedSurfaceSchema = z.object({
   post_processing: z.string().optional(),
   lum_min: z.number().optional(),
   lum_max: z.number().optional(),
+  attempts: z.number().optional().describe('>1 when the texture bound rejected the first birth and the hardened retry passed.'),
 });
 
 const GenerateOutput = z.object({
@@ -131,6 +137,9 @@ const GenerateOutput = z.object({
   manifest_path: z.string().optional().describe('Feed this to wp_images_apply.'),
   images: z.array(GeneratedImageSchema),
   surfaces: z.array(GeneratedSurfaceSchema),
+  rejected: z
+    .array(z.object({ asset_id: z.string(), reason: z.string() }))
+    .describe('Assets that failed the texture bound after their one hardened retry — the flat band ships and the report carries the reason.'),
   scan_errors: z.array(z.string()).describe('Nodes refused by the scan (e.g. both intent kinds on one cover).'),
 });
 
@@ -234,6 +243,7 @@ export const wpImagesGenerate = defineTool({
         dry_run: true,
         images: contentRefs,
         surfaces: dictionary.map((d) => ({ asset_id: d.id, class: d.class, paths: surfacePathsById.get(d.id) ?? [] })),
+        rejected: [],
         scan_errors: scanErrors,
       };
     }
@@ -252,6 +262,7 @@ export const wpImagesGenerate = defineTool({
         manifest_path: fs.existsSync(manifestPath) ? manifestPath : undefined,
         images: [],
         surfaces: [],
+        rejected: [],
         scan_errors: scanErrors,
       };
     }
@@ -295,8 +306,15 @@ export const wpImagesGenerate = defineTool({
     incoming.content = images;
 
     // Surface lane — one birth per unique dictionary asset, then the
-    // deterministic processing station (mirror-tile, chroma-key, recompress).
+    // deterministic processing station (veil, mirror-tile, chroma-key,
+    // recompress), then the TEXTURE BOUND: the station measures every asset's
+    // luminance range at birth, and an asset whose range exceeds its class-
+    // and-intensity bound is not a material (a "field" that came back as a
+    // photograph of a room reads 0..1). One hardened retry, then the flat
+    // band ships and the report screams.
     const surfacesOut: ManifestSurfaceEntry[] = [];
+    const rejected: { asset_id: string; reason: string }[] = [];
+    const surfaceStyle = args.surface_style ?? args.style;
     for (const spec of surfacePlan.generate) {
       try {
         // A true-alpha spot is generated on a computed chroma key — the
@@ -306,11 +324,30 @@ export const wpImagesGenerate = defineTool({
         if (spec.class === 'spot' && !spec.ground_baked && !spec.key_hex) {
           spec.key_hex = computeKeyHex(spec.hexes);
         }
-        const prompt = buildSurfacePrompt(spec, args.style);
+        const prompt = buildSurfacePrompt(spec, surfaceStyle);
         const aspect = aspectForClass(spec.class);
-        const raw = await birthImage(gemini, prompt, aspect);
         const processClass = spec.class === 'spot' && spec.ground_baked ? 'field' : spec.class;
-        const processed = await processAsset(session, raw.data, raw.mimeType, { class: processClass, key_hex: spec.key_hex });
+        const veil = veilFor(spec.class, spec.intensity, spec.hexes[0]);
+        const bound = textureBoundFor(spec.class, spec.intensity);
+
+        let attempts = 0;
+        let ms = 0;
+        let processed = null as Awaited<ReturnType<typeof processAsset>> | null;
+        for (const attemptPrompt of [prompt, `${prompt} ${SURFACE_RETRY_SUFFIX}`]) {
+          attempts += 1;
+          const raw = await birthImage(gemini, attemptPrompt, aspect);
+          ms += raw.ms;
+          processed = await processAsset(session, raw.data, raw.mimeType, { class: processClass, key_hex: spec.key_hex, veil });
+          if (bound === null || processed.lum_max - processed.lum_min <= bound) break;
+          processed = null;
+        }
+        if (!processed) {
+          rejected.push({
+            asset_id: spec.id,
+            reason: `texture bound: the measured luminance range exceeds ${bound} for a ${spec.intensity ?? 'present'} ${spec.class} after ${attempts} attempts — not a material, the flat band ships`,
+          });
+          continue;
+        }
         const ext = processed.mime_type === 'image/png' ? 'png' : 'jpg';
         const file = path.join(outDir, `asset-${spec.id}.${ext}`);
         fs.writeFileSync(file, processed.bytes);
@@ -322,12 +359,13 @@ export const wpImagesGenerate = defineTool({
           prompt,
           mime_type: processed.mime_type,
           bytes: processed.bytes.length,
-          ms: raw.ms,
-          post_processing: processed.post_processing,
+          ms,
+          post_processing: veil ? `${processed.post_processing}+veil(${veil.hex}@${veil.alpha})` : processed.post_processing,
           lum_min: processed.lum_min,
           lum_max: processed.lum_max,
           targets: [],
         };
+        if (attempts > 1) entry.attempts = attempts;
         if (spec.key_hex) entry.key_hex = spec.key_hex;
         if (spec.position) entry.position = spec.position;
         if (spec.size) entry.size = spec.size;
@@ -387,7 +425,9 @@ export const wpImagesGenerate = defineTool({
         post_processing: s.post_processing,
         lum_min: s.lum_min,
         lum_max: s.lum_max,
+        ...(s.attempts !== undefined ? { attempts: s.attempts } : {}),
       })),
+      rejected,
       scan_errors: scanErrors,
       ...(failures.length ? { failures } : {}),
     };

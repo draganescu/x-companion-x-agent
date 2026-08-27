@@ -58,6 +58,8 @@ export interface ManifestSurfaceEntry {
   intensity?: string;
   position?: string;
   size?: string;
+  /** >1 when the texture bound rejected the first birth and the retry passed. */
+  attempts?: number;
   /** Set on first upload so ONE attachment serves every target and every post. */
   media_id?: number;
   media_url?: string;

@@ -670,28 +670,48 @@ export async function samplePendingGrounds(page: Page, pending: PendingGround[],
     const inkMatch = CSS_RGB.exec(node.color);
     if (!inkMatch) continue;
     const inkLum = relLuminance([Number(inkMatch[1]), Number(inkMatch[2]), Number(inkMatch[3])]);
-    const hidden = await page
+    // The box is RE-MEASURED here, not trusted from extract time: eager-loading
+    // the images changes heights, so coordinates measured before it can point
+    // past the page and Playwright refuses the clip ("Clipped area is either
+    // empty or outside the resulting image" — the Vienna tea-salon field bug,
+    // which killed S9 after publish and let an unreadable site ship unflagged).
+    const hidden = (await page
       .evaluate((sel: string) => {
         const el = document.querySelector(sel) as HTMLElement | null;
-        if (!el) return false;
+        if (!el) return null;
         (el as HTMLElement & { __xPrev?: { color: string; textShadow: string } }).__xPrev = {
           color: el.style.color,
           textShadow: el.style.textShadow,
         };
         el.style.color = 'transparent';
         el.style.textShadow = 'none';
-        return true;
+        const r = el.getBoundingClientRect();
+        const doc = document.documentElement;
+        return {
+          x: r.left + window.scrollX,
+          y: r.top + window.scrollY,
+          w: r.width,
+          h: r.height,
+          page_w: Math.max(doc.scrollWidth, doc.clientWidth),
+          page_h: Math.max(doc.scrollHeight, doc.clientHeight),
+        };
       }, node.selector_path)
-      .catch(() => false);
+      .catch(() => null)) as { x: number; y: number; w: number; h: number; page_w: number; page_h: number } | null;
     if (!hidden) continue;
     try {
-      const clip = {
-        x: Math.max(0, node.box.x),
-        y: Math.max(0, node.box.y),
-        width: Math.max(1, Math.round(node.box.w)),
-        height: Math.max(1, Math.round(node.box.h)),
-      };
-      const png = await page.screenshot({ clip, type: 'png' });
+      const x = Math.min(Math.max(0, hidden.x), Math.max(0, hidden.page_w - 1));
+      const y = Math.min(Math.max(0, hidden.y), Math.max(0, hidden.page_h - 1));
+      const width = Math.round(Math.min(hidden.w, hidden.page_w - x));
+      const height = Math.round(Math.min(hidden.h, hidden.page_h - y));
+      if (width < 2 || height < 2) continue;
+      // One unphotographable node skips its reading; it never kills the run's
+      // whole verification (S9 must always reach a verdict on everything else).
+      let png: Buffer;
+      try {
+        png = await page.screenshot({ clip: { x, y, width, height }, type: 'png' });
+      } catch {
+        continue;
+      }
       const range = (await page.evaluate(async (dataUrl: string) => {
         try {
           const img = new Image();

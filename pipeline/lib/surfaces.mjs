@@ -6,6 +6,21 @@
 // like it finds placeholder urls.
 import { PipelineError } from './errors.mjs';
 import { resolveBandColors } from './tokens.mjs';
+import { loadStyles, textureCueOf } from './styles.mjs';
+
+/**
+ * The MATERIAL-SAFE style line for the surface lane: the artistic style's name
+ * plus its roster texture cue — never the full art direction. Field evidence:
+ * scene-flavoured art direction ("a candlelit salon…") pulls the image model
+ * into rendering scenes and documents instead of materials; the texture cue
+ * ("damask, filigree borders") is the half of the combo a surface may obey.
+ */
+export function surfaceStyleLine(brief, styles = loadStyles()) {
+    const name = brief.style?.artistic;
+    if (!name) return brief.art_direction ?? '';
+    const cue = textureCueOf(name, styles.artistic);
+    return cue ? `${name} — ${cue}` : name;
+}
 
 // What lands on one section, derived from the dictionary. A field/pattern at
 // intensity 'loud' is the loud_band mechanism (core/cover + veil); anything

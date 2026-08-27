@@ -76,6 +76,40 @@ test('flatness honored: a texture-cue-none combo forbids a non-empty dictionary'
     assert.deepEqual(crossChecks(withSurfaces([FIELD]), { textures: textured }).filter((i) => /flatness/.test(i.message)), []);
 });
 
+test('texture is support, not wallpaper: at most 2 full-band skins per page', () => {
+    const three = withSurfaces([
+        { ...FIELD, id: 'wash-one', attach: ['home/hero'] },
+        { ...FIELD, id: 'wash-two', attach: ['home/what-we-bake'] },
+        { ...FIELD, id: 'wash-three', attach: ['home/signup'] },
+    ]);
+    assert.ok(crossChecks(three).some((i) => /at most 2 full-band skins per page/.test(i.message)));
+
+    const two = withSurfaces([
+        { ...FIELD, id: 'wash-one', attach: ['home/hero'] },
+        { ...FIELD, id: 'wash-two', attach: ['home/what-we-bake'] },
+    ]);
+    assert.deepEqual(crossChecks(two).filter((i) => /full-band skins/.test(i.message)), []);
+});
+
+test('text-heavy bands accept only whisper skins — louder material belongs to heroes, ctas and dividers', () => {
+    // brief.m1: home/what-we-bake is role "features" (text-heavy).
+    const loudOnText = withSurfaces([
+        { ...FIELD, intensity: 'present', attach: ['home/what-we-bake'] },
+    ]);
+    assert.ok(crossChecks(loudOnText).some((i) => /only a whisper skin/.test(i.message)));
+
+    const whisperOnText = withSurfaces([
+        { ...FIELD, intensity: 'whisper', attach: ['home/what-we-bake'] },
+    ]);
+    assert.deepEqual(crossChecks(whisperOnText).filter((i) => /whisper skin/.test(i.message)), []);
+
+    // home/hero is role "hero": present is fine there.
+    const presentOnHero = withSurfaces([
+        { ...FIELD, intensity: 'present', attach: ['home/hero'] },
+    ]);
+    assert.deepEqual(crossChecks(presentOnHero).filter((i) => /whisper skin/.test(i.message)), []);
+});
+
 test('texture cue helpers: roster lookup and none detection', () => {
     const styles = loadStyles();
     assert.equal(typeof textureCueOf('Bauhaus', styles.artistic), 'string');

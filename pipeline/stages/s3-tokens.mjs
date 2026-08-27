@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { sha256 } from '../lib/hash.mjs';
 import { deriveThemeSpacing, deriveThemeLayout, tokenChecks } from '../lib/tokens.mjs';
-import { surfaceHexes } from '../lib/surfaces.mjs';
+import { surfaceHexes, surfaceStyleLine } from '../lib/surfaces.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-tokens.schema.json', import.meta.url), 'utf8'));
@@ -141,6 +141,7 @@ The token system is where the combo becomes real: the palette carries the artist
                 hexes: surfaceHexes(canvasEntry, brief, tokens.palette),
             }],
             style: brief.art_direction,
+            surface_style: surfaceStyleLine(brief),
             out_dir: join(ctx.runDir, 'images'),
         });
         const asset = born.ok ? (born.data.surfaces ?? []).find((s) => s.asset_id === canvasEntry.id) : null;

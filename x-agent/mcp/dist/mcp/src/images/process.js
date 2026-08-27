@@ -7,6 +7,40 @@ const JPEG_QUALITY = {
 /** RGB distance under which a spot pixel counts as the key-color ground. */
 const CHROMA_TOLERANCE = 48;
 /**
+ * Intensity is a PIXEL OPERATION, not a vocabulary word: textural classes get
+ * the band hex composited over them at intensity-scaled opacity before they
+ * ship, collapsing the luminance range toward the band so the flat ink menus
+ * nearly hold and a whisper actually whispers. Friezes and spots are
+ * decoration at the edge, not grounds under text — they ship unveiled.
+ */
+export const VEIL_ALPHA = {
+    whisper: 0.85,
+    present: 0.7,
+    loud: 0.5,
+};
+const VEILED_CLASSES = new Set(['field', 'pattern', 'canvas']);
+export function veilFor(cls, intensity, bandHex) {
+    if (!VEILED_CLASSES.has(cls) || !bandHex)
+        return null;
+    const alpha = VEIL_ALPHA[intensity ?? 'present'] ?? VEIL_ALPHA.present;
+    return { hex: bandHex, alpha };
+}
+/**
+ * The texture bound: how wide a processed asset's measured luminance range may
+ * be, per class and intensity. The station MEASURES every asset at birth; this
+ * is where the measurement becomes a gate — a "field" that came back as a
+ * photograph of a room reads 0..1 and is mechanically detectable as not-a-wash.
+ * null = unbounded (spots are chroma-keyed ornaments, not grounds).
+ */
+export function textureBoundFor(cls, intensity) {
+    if (cls === 'spot')
+        return null;
+    if (cls === 'frieze')
+        return 0.7;
+    const bounds = { whisper: 0.2, present: 0.4, loud: 0.6 };
+    return bounds[intensity ?? 'present'] ?? bounds.present;
+}
+/**
  * The chroma key a spot is generated on: the candidate farthest from every
  * palette color, so the knockout can never eat the ornament itself. Pure and
  * stable — the chosen hex is recorded in the manifest.
@@ -43,6 +77,7 @@ export async function processAsset(session, input, inputMime, opts) {
             dataUrl: `data:${inputMime};base64,${input.toString('base64')}`,
             cls: opts.class,
             keyHex: opts.key_hex ?? null,
+            veil: opts.veil ?? null,
             quality: JPEG_QUALITY[opts.class] ?? 0.85,
             tolerance: CHROMA_TOLERANCE,
         };
@@ -102,6 +137,14 @@ export async function processAsset(session, input, inputMime, opts) {
                         }
                         g.putImageData(data, 0, 0);
                     }
+                }
+                if (p.veil) {
+                    // Intensity as pixels: the band hex over the material, deterministic.
+                    const g = canvas.getContext('2d');
+                    g.globalAlpha = p.veil.alpha;
+                    g.fillStyle = p.veil.hex;
+                    g.fillRect(0, 0, canvas.width, canvas.height);
+                    g.globalAlpha = 1;
                 }
                 const final = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
                 const px = final.data;

@@ -145,8 +145,19 @@ Rules:
   style whose texture cue says none (Bauhaus, Flat Design) — flatness honored is the
   correct realization, never a missing feature. One asset, many bands: attach the same
   id wherever the material repeats; repetition is what reads as a designed material
-  system. Classes: field (even wash skin), pattern (repeating motif skin), frieze
-  (ornamental edge strip; set `edge`), spot (discrete ornament; `ground_baked: true`
-  ONLY on bands no field/pattern touches), canvas (the page ground behind `band:
-  "canvas"` sections — attach [] and declare at least one canvas band, or neither).
-  intensity says how loudly the material may speak (whisper / present / loud).
+  system.
+  DECORATION IS SUPPORT, NOT WALLPAPER — spend the dictionary in this order:
+  1. dividers and edge friezes (role "divider" sections, frieze class with `edge`) —
+     ornamental SEPARATION between content is where a decorated style lives first;
+  2. spot ornaments (spot class; `ground_baked: true` ONLY on bands no field/pattern
+     touches) — punctuation, not ground;
+  3. full-band skins (field / pattern) LAST and RARELY: at most 2 per page, whisper by
+     default, and only whisper on any band whose role carries body text (features,
+     pricing, faq, content, contact, testimonial) — both bounds are enforced.
+  A big image-like ground has ONE legal home: a loud field/pattern on a hero or cta —
+  it ships behind a core/cover veil, and its justification goes in that section's
+  design.notes. Everywhere else, splash imagery is content (image_intent), never a
+  surface. canvas class: the page ground behind `band: "canvas"` sections — attach []
+  and declare at least one canvas band, or neither. intensity says how loudly the
+  material may speak (whisper / present / loud) and is enforced in pixels: the band
+  color is composited over skins at intensity strength, so a whisper truly whispers.

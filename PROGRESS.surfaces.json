@@ -102,6 +102,16 @@
       "when": "2026-08-27",
       "what": "The theme.json preview emitter (x-agent/templates/theme-json/emitter.ts) stays settings-only; styles.background is not mirrored into the local preview or the theme_tokens diff.",
       "why": "Its own docblock: it emits exactly what it can vouch for. The background lands in global styles (verified by the companion's response and, live, via manifest.global_styles), not in settings; a preview claim would be a claim about server behavior this side cannot honour."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "FIELD-RUN CORRECTIONS (Vienna tea salon, runs/20260827-092123). (1) Intensity is a PIXEL OPERATION: the station composites the band hex over field/pattern/canvas assets at intensity-scaled opacity (whisper 0.85, present 0.7, loud 0.5) before encoding, collapsing the luminance range toward the band. (2) The measured luminance range becomes a GATE at birth (textureBoundFor: grounds whisper 0.2 / present 0.4 / loud 0.6, friezes 0.7, spots unbounded): outside the bound = one hardened retry (SURFACE_RETRY_SUFFIX), then the flat band ships with the reason in rejected[] and the report. (3) The surface lane's style line is the MATERIAL-SAFE half of the combo (artistic style name + roster texture cue, surfaceStyleLine), never the scene-flavoured art_direction. (4) Distribution bounds at the brief gate: at most 2 full-band skins per page, and only whisper skins on text-heavy roles; the brief prompt now spends decoration dividers/friezes/spots FIRST, with a loud hero/cta cover as the one legal splash. (5) samplePendingGrounds re-measures each box at sample time and clamps to page bounds — extract-time boxes go stale when eager-loading shifts layout, which is what crashed S9 and let the unreadable site ship.",
+      "why": "The run's own artifacts showed the failure chain: a 'field' born as a photographed teacup (lum 0.001-1), a frieze born as a fake letterpress menu with typography leaked from the style note, a full-saturation damask under hero text with no veil, and the one gate built to catch it dying on a stale clip. Owner direction: lean into texture/pattern/decoration as SUPPORT; splashes have a place only in specific, argued cases."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "The texture-bound retry is an in-tool second birth recorded as attempt 2 on the same ledger entry, not a new metered call.",
+      "why": "The budget formula (I = C + U, births metered) has no image-retry headroom, and the pipeline spec's own precedent treats the Gemini client's transport retries as not-new-calls. The manifest and ledger carry attempts for the audit trail; if live runs show bound-retries becoming common, metering them is a one-line change plus a formula amendment for the owner to make."
     }
   ],
   "deviations": [

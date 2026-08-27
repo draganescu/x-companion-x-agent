@@ -127,6 +127,28 @@ describe.skipIf(!browser)('the pixel oracle', () => {
     }
   }, 30000);
 
+  it('stale extract-time boxes never kill the sampler — the Vienna tea-salon regression', async () => {
+    const page = await fixturePage();
+    try {
+      const extracted = await extractLayout(oraclePage(page), {});
+      // Simulate the layout shift eager-loading causes: the handed-in boxes
+      // point far outside the page. The sampler re-measures and clamps, so it
+      // must neither throw nor lose the finding.
+      for (const p of extracted.pending_grounds) {
+        p.box = { x: 40, y: 999999, w: 4000, h: 4000 };
+      }
+      const findings = await samplePendingGrounds(oraclePage(page), extracted.pending_grounds);
+      expect(findings.some((f) => f.sample.includes('dark noise'))).toBe(true);
+      // A selector that matches nothing is skipped, never a throw.
+      const ghost = await samplePendingGrounds(oraclePage(page), [
+        { selector_path: 'div.no-such-thing:nth-child(99)', box: { x: 0, y: 0, w: 10, h: 10 }, color: 'rgb(0, 0, 0)', sample: 'ghost' },
+      ]);
+      expect(ghost).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 30000);
+
   it('probes every rendered background image for presence: 200 ok, 404 is a finding', async () => {
     const page = await fixturePage();
     try {
