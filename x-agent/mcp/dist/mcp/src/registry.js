@@ -141,6 +141,7 @@ const EXTERNAL_TOOLS = [
                     display: z.string(),
                     gap: z.string(),
                     fontSize: z.string(),
+                    fontFamily: z.string(),
                     color: z.string(),
                     background: z.string(),
                 }),

@@ -421,3 +421,34 @@ test('M4: the stacked audits are byte-identical with and without the explicit sk
     );
     assert.deepEqual(screenBandSeams(tree), screenBandSeams(tree, { skeleton: 'stacked' }));
 });
+
+// ---------------------------------------------------------------- theme-factory M5: the rendered promise
+
+const PROMISED = [{ slug: 'display', name: 'Display', fontFamily: '"Playfair Display", Georgia, serif', fontFace: [{ fontFamily: 'Playfair Display', fontStyle: 'normal', fontWeight: '400', src: ['http://x/uploads/fonts/p.woff2'] }] }];
+
+test('M5: a loaded and rendered sourced font passes; silence in either channel fails naming the font', async () => {
+    const { screenFontFamilies } = await import('../lib/gates.mjs');
+    const verifyClean = {
+        box_tree: [{ selector_path: 'h1', box: { x: 0, y: 0, w: 100, h: 10 }, computed: { fontFamily: '"Playfair Display", Georgia, serif' } }],
+        fonts: [{ family: 'Playfair Display', style: 'normal', weight: '400', status: 'loaded' }],
+    };
+    assert.deepEqual(screenFontFamilies(verifyClean, PROMISED), []);
+
+    const unloaded = { ...verifyClean, fonts: [{ family: 'Playfair Display', style: 'normal', weight: '400', status: 'unloaded' }] };
+    assert.ok(screenFontFamilies(unloaded, PROMISED).some((f) => f.code === 'font' && /status "unloaded"/.test(f.message)));
+
+    const neverRendered = {
+        box_tree: [{ selector_path: 'h1', box: { x: 0, y: 0, w: 100, h: 10 }, computed: { fontFamily: 'Georgia, serif' } }],
+        fonts: [{ family: 'Playfair Display', style: 'normal', weight: '400', status: 'loaded' }],
+    };
+    assert.ok(screenFontFamilies(neverRendered, PROMISED).some((f) => /no measured element leads with it/.test(f.message)));
+
+    const absent = { ...verifyClean, fonts: [] };
+    assert.ok(screenFontFamilies(absent, PROMISED).some((f) => /absent from document\.fonts/.test(f.message)));
+});
+
+test('M5: sourceless runs audit nothing — the screen returns [] for families without fontFace', async () => {
+    const { screenFontFamilies } = await import('../lib/gates.mjs');
+    assert.deepEqual(screenFontFamilies({ box_tree: [], fonts: [] }, [{ slug: 'body', name: 'Body', fontFamily: 'Georgia, serif' }]), []);
+    assert.deepEqual(screenFontFamilies(undefined, []), []);
+});

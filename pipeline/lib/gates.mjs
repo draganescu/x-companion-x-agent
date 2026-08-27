@@ -653,3 +653,29 @@ export function screenTreeLiterals(tree) {
     (tree?.blocks ?? []).forEach((node, i) => walk(node, `/blocks/${i}`));
     return failures;
 }
+
+// S9: the rendered-promise audit (theme-factory s9_fonts). A tokens family
+// that carried a source was installed and activated at S3; if the front page
+// neither loads it (document.fonts) nor renders it (some measured node's
+// computed font-family LEADS with it), the promise silently fell back to the
+// stack — and an uninstalled font is an unloaded image: the run fails.
+export function screenFontFamilies({ box_tree, fonts } = {}, families = []) {
+    const failures = [];
+    const promised = families.filter((f) => (f.fontFace ?? []).length > 0);
+    for (const family of promised) {
+        const name = String(family.fontFace[0].fontFamily);
+        const entry = (fonts ?? []).find((f) => String(f.family).toLowerCase() === name.toLowerCase());
+        const loaded = entry?.status === 'loaded';
+        const rendered = (box_tree ?? []).some((n) => {
+            const head = String(n.computed?.fontFamily ?? '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+            return head.toLowerCase() === name.toLowerCase();
+        });
+        if (!loaded || !rendered) {
+            failures.push({
+                code: 'font',
+                message: `sourced font "${name}" never rendered (${loaded ? 'loaded but no measured element leads with it' : entry ? `document.fonts status "${entry.status}"` : 'absent from document.fonts'}) — the promise fell back to the stack; an uninstalled font is an unloaded image`,
+            });
+        }
+    }
+    return failures;
+}

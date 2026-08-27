@@ -1,7 +1,7 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenOutline, screenBandWidths, screenBandSeams, screenTextContrast } from '../lib/gates.mjs';
+import { screenOutline, screenBandWidths, screenBandSeams, screenFontFamilies, screenTextContrast } from '../lib/gates.mjs';
 
 export const id = 'S9_verify';
 export const kind = 'deterministic';
