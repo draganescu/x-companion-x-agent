@@ -104,6 +104,11 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, brochu
             const step = `[${i + 1}/${stages.length}]`;
             if (state.completed.includes(stage.id)) {
                 log(`${step} ${info.title} — already done in this run's artifacts, skipping (resume)`);
+                // --until binds resumed runs too: without this a resume of a
+                // run stopped at --until would sail past it into stages it
+                // never meant to reach (surfaced by the theme-factory M3
+                // accept, where a resumed S1T run wandered into S3).
+                if (until && stage.id === until) break;
                 continue;
             }
             log(`${step} ${info.title}${info.doing ? ` — ${info.doing}` : ''}`);

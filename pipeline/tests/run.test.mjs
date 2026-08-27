@@ -43,3 +43,17 @@ test('a stage failure still flushes ledger and report, and the error surfaces', 
     assert.ok(existsSync(join(dir, 'report.md')));
     assert.match(readFileSync(join(dir, 'report.md'), 'utf8'), /contract_failed/);
 });
+
+test('--until binds a resumed run: completed stages up to it are skipped and it still stops there', async () => {
+    const cwd = setup();
+    const ran = [];
+    const mk = (id) => ({ id, kind: 'deterministic', run: async () => { ran.push(id); } });
+    const stages = [mk('S1_brief'), mk('S1T_theme'), mk('S2_read_instance')];
+
+    const first = await runPipeline({ prompt: 'p', cwd, until: 'S1T_theme', stages, skipToolchain: true });
+    assert.deepEqual(ran, ['S1_brief', 'S1T_theme']);
+
+    ran.length = 0;
+    await runPipeline({ prompt: 'p', cwd, resumeDir: first.runDir, until: 'S1T_theme', stages, skipToolchain: true });
+    assert.deepEqual(ran, [], 'everything up to --until was already done; NOTHING past it may run');
+});

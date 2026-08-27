@@ -12,8 +12,8 @@
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M3_stage_and_budget": {
-            "status": "pending",
-            "evidence": "",
+            "status": "done",
+            "evidence": "tf-m3.sh green (live slot 9492, fake provider): --bespoke without --new-site exits naming the rule; the bespoke fake run prints 'at most 22 calls (T=1, ...)', S1T runs scaffold -> build test -> install in 9s against a real Playground, the ledger holds exactly {brief, theme}, and the instance's manifest serves 'Salon Regale Theme'; --resume replays with ZERO new ledger entries and a stable fingerprint (zero reinstalls); the non-bespoke S1 ledger is byte-identical to the SAME run on a main worktree (started_at/ms stripped). Unit: s1t-theme.test.mjs 6 tests (skip/happy/repair/abort/rail-bump/schema-retry), budget + config + run suites.",
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M4_skeleton_aware_verification": {
@@ -22,8 +22,8 @@
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M5_font_library_lane": {
-            "status": "pending",
-            "evidence": "",
+            "status": "done",
+            "evidence": "tf-m5.sh green (live slot 9493, ZERO model spend): Playfair Display v40 really downloaded from Google (FF39-UA css2, one complete woff2 per weight), cache miss then hit (hit = zero fetches, hash-verified), license ofl recorded with OFL.txt beside the woff2s; both faces uploaded through core wp/v2/font-families + font-faces multipart and served from uploads/fonts; activation rode the ONE wp_tokens_apply (fontFace into user global styles); wp_verify measured the sourced font loaded (document.fonts) AND rendered (computed font-family leads with it); the served page carries ZERO fonts.googleapis/gstatic references and @font-face from uploads/fonts; the activation-strip poison fails S9 NAMING the font. Unit: fonts.test.mjs 6, s3-tokens font-hook 3, gates M5 screens 2; 'the ledger contains no font entries' pinned in s3-tokens.test.",
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M6_end_to_end": {
@@ -33,6 +33,16 @@
         }
     },
     "decisions": [
+        {
+            "when": "2026-08-27",
+            "what": "The M5 accept's poison is 're-apply tokens with the fontFace activation stripped', and both wp_verify calls in the driver are preceded by wp_disconnect (fresh session).",
+            "why": "Deleting the wp_font_family post does not stop rendering — activation lives as embedded src urls in the user global-styles record (decision 14); and a warm session left over from an epoch-moving apply can be dead-but-cached, the recorded S9 discipline — the driver hung 9 minutes on wp_verify before adopting it."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "Fixed en route (surfaced by the M3 accept): --until now binds RESUMED runs — a completed stage that is the --until target breaks the loop instead of continuing past it. Previously a resume of a run stopped at --until sailed into later stages (the M3 resume wandered into S3 and died on a missing fixture).",
+            "why": "The until-check lived after the completed-skip `continue`; nothing before the theme factory ever resumed an --until run, so the latent bug had no witness. Pinned by a run.test.mjs regression."
+        },
         {
             "when": "2026-08-27",
             "what": "Split-frame constants are code's: the frame is one align:full flex row, x-pane-primary fills, x-pane-secondary is fixed at 34%; an undeclared root (an S7 pattern baseline substituted late) lands in primary. Rail seam audits judge the footer against the MAIN ROW, never the column's last band (the flex row's bottom is whichever pane is tallest).",
