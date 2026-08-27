@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { deriveThemeSpacing, deriveThemeLayout, tokenChecks } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
+import { createRest, readConnection } from '../lib/rest.mjs';
+import { enrichFamilies, installFontFamilies } from '../lib/fonts.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-tokens.schema.json', import.meta.url), 'utf8'));
 
@@ -42,16 +44,20 @@ The token system is where the combo becomes real: the palette carries the artist
         task_type: 'tokens',
         label: 'tokens',
         payload,
-        validate: (v) => tokenChecks(v, { theme_spacing, theme_layout, briefPalette: brief.palette }),
+        validate: (v) => tokenChecks(v, { theme_spacing, theme_layout, briefPalette: brief.palette, bespoke: ctx.state.bespoke === true }),
     });
     // wp_tokens_apply's input validation is its own copy of the shape and
     // rejects keys the contract tolerates (a live run died on sizes[].name).
     // Strip to exactly what the tool accepts; tokens.json keeps the strip too —
-    // it is the applied record.
+    // it is the applied record. `source` is the font lane's DOWNLOAD
+    // instruction (agent-side only) and gets the same strip; the lane below
+    // merges the constructed fontFace back in before the real apply.
+    const sourced = (raw.typography?.families ?? []).filter((f) => f.source);
     const tokens = {
         ...raw,
         typography: raw.typography ? {
             ...raw.typography,
+            families: (raw.typography.families ?? []).map(({ source: _source, ...keep }) => keep),
             sizes: (raw.typography.sizes ?? []).map(({ slug, size, fluid }) => ({
                 slug, size, ...(fluid !== undefined ? { fluid } : {}),
             })),
@@ -99,6 +105,26 @@ The token system is where the combo becomes real: the palette carries the artist
     writeFileSync(join(ctx.runDir, 'tokens-dry-run.json'),
         JSON.stringify({ preview: dry.data.theme_json_preview, diff: dry.data.diff_against_instance }, null, 2));
 
+    // The Font Library lane (theme-factory s3_fonts): a family with a source
+    // is a PROMISE. The agent downloads the faces (hash-pinned cache), installs
+    // them through core's own wp/v2/font-families + font-faces REST, and the
+    // constructed fontFace entries ride the ONE real apply below into the user
+    // global styles — which is what makes wp_print_font_faces serve them
+    // (installing alone renders nothing; activation is the tokens write).
+    // Never metered, never in the ledger; the report reads state.fonts.
+    if (sourced.length > 0) {
+        const rest = ctx.rest ?? createRest(readConnection(process.cwd()));
+        const { entries, fontFacesBySlug } = await installFontFamilies({
+            families: sourced,
+            rest,
+            cacheDir: join(process.cwd(), 'tools', '.runtime', 'fonts'),
+            ...(ctx.fetchImpl ? { fetchImpl: ctx.fetchImpl } : {}),
+            log: ctx.log,
+        });
+        tokens.typography.families = enrichFamilies(raw.typography.families, fontFacesBySlug);
+        ctx.state.fonts = entries;
+    }
+
     // Gate, part 2: the real apply. The epoch moves; every later stage uses the new world.
     const applied = await ctx.call('wp_tokens_apply', { ...tokens });
     if (!applied.ok) {
@@ -116,5 +142,8 @@ The token system is where the combo becomes real: the palette carries the artist
     ctx.state.fingerprint = applied.data.fingerprint;
     ctx.state.instance.fingerprint = applied.data.fingerprint;
     writeFileSync(join(ctx.runDir, 'instance.json'), JSON.stringify(ctx.state.instance, null, 2));
-    ctx.log(`design tokens applied to the theme — ${tokens.palette.length} colours, ${tokens.typography.families.length} font families; the site fingerprint moved to ${String(applied.data.fingerprint).slice(0, 8)}…`);
+    const fontNote = (ctx.state.fonts ?? []).length > 0
+        ? `, ${ctx.state.fonts.length} of them installed locally (${ctx.state.fonts.map((f) => `${f.family} ${f.version} ${f.cache}`).join('; ')})`
+        : '';
+    ctx.log(`design tokens applied to the theme — ${tokens.palette.length} colours, ${tokens.typography.families.length} font families${fontNote}; the site fingerprint moved to ${String(applied.data.fingerprint).slice(0, 8)}…`);
 }

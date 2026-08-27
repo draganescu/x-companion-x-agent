@@ -474,6 +474,11 @@ x_test(
 				'site_url'           => 'https://x-companion.test',
 				'posture'            => 'toolchain',
 				'interfaces_version' => '1',
+				'theme'              => array(
+					'slug'    => 'salon-regale',
+					'name'    => 'Salon Regale Theme',
+					'version' => '1.0.0',
+				),
 				'patterns'           => array(
 					array(
 						'name'        => 'core/quote',
@@ -511,6 +516,7 @@ x_test(
 				'site_url',
 				'posture',
 				'interfaces_version',
+				'theme',
 				'blocks',
 				'patterns',
 				'theme_tokens',
@@ -523,6 +529,16 @@ x_test(
 			),
 			array_keys( $manifest ),
 			'top-level keys'
+		);
+
+		x_assert_same(
+			array(
+				'slug'    => 'salon-regale',
+				'name'    => 'Salon Regale Theme',
+				'version' => '1.0.0',
+			),
+			$manifest['theme'],
+			'theme identity rides the manifest — the admin-legible ground'
 		);
 
 		x_assert_same( count( $snapshot ), $manifest['counts']['blocks'], 'counts.blocks' );

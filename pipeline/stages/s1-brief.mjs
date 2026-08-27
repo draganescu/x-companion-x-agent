@@ -77,7 +77,7 @@ export async function run(ctx) {
     writeFileSync(join(ctx.runDir, 'brief.json'), JSON.stringify(brief, null, 2));
     ctx.state.brief = brief;
     if (brief.style) ctx.log(`style combo: ${brief.style.artistic} × ${brief.style.ui} — ${brief.style.rationale}`);
-    const budget = computeBudget(brief);
+    const budget = computeBudget(brief, { bespoke: ctx.state.bespoke === true });
     if (ctx.state.no_images) {
         // --no-images: the placeholder pixels still ship (minted free in S8, each
         // carrying its written imageIntent for a later fill); the metered
@@ -87,6 +87,7 @@ export async function run(ctx) {
     }
     ctx.budget.setCeiling(budget.ceiling); // throws budget_exceeded if > hard cap — before call #2
     ctx.state.budget = budget;
-    const modes = [brochure ? 'brochure mode, composition only' : '', ctx.state.no_images ? 'images skipped, placeholders stay' : ''].filter(Boolean).join('; ');
-    ctx.log(`this brief costs at most ${budget.ceiling} calls (S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I})${modes ? ` — ${modes}` : ''}`);
+    const modes = [ctx.state.bespoke ? 'bespoke ground' : '', brochure ? 'brochure mode, composition only' : '', ctx.state.no_images ? 'images skipped, placeholders stay' : ''].filter(Boolean).join('; ');
+    const terms = `${ctx.state.bespoke ? `T=${budget.T}, ` : ''}S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I}`;
+    ctx.log(`this brief costs at most ${budget.ceiling} calls (${terms})${modes ? ` — ${modes}` : ''}`);
 }

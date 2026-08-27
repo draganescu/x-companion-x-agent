@@ -61,8 +61,18 @@ export interface ComputedBits {
   display: string;
   gap: string;
   fontSize: string;
+  /** The rendered stack — the S9 font audit's promise check reads its head. */
+  fontFamily: string;
   color: string;
   background: string;
+}
+
+/** One entry of document.fonts, as the page reports it after fonts.ready. */
+export interface FontStatusEntry {
+  family: string;
+  style: string;
+  weight: string;
+  status: string;
 }
 
 export interface BoxTreeNode {
@@ -316,6 +326,8 @@ export interface ExtractResult {
   a11y_outline: A11yNode[];
   stats: { candidates: number; named: number; named_ratio: number };
   text_contrast: TextContrastNode[];
+  /** document.fonts after fonts.ready — a sourced family that never loads is an unloaded image. */
+  fonts: FontStatusEntry[];
 }
 
 /**
@@ -337,6 +349,13 @@ export async function installEvalShims(page: Page): Promise<void> {
 
 export async function extractLayout(page: Page, nameByClass: Record<string, string>): Promise<ExtractResult> {
   await installEvalShims(page);
+  // Let webfonts settle before measuring: a @font-face still in flight would
+  // report status 'loading' and measure the fallback's metrics. Bounded, so a
+  // page with a broken face cannot stall the oracle.
+  await page.evaluate(() => {
+    const d = document as unknown as { fonts?: { ready?: Promise<unknown> } };
+    return d.fonts?.ready ? Promise.race([d.fonts.ready, new Promise((r) => setTimeout(r, 3000))]) : null;
+  });
   return page.evaluate((lookup: Record<string, string>) => {
     /* ---------------------------------------------------------- utilities */
     const parsePx = (v: string): number => {
@@ -461,6 +480,7 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
           display: cs.display,
           gap: cs.gap && cs.gap !== 'normal' ? cs.gap : cs.rowGap || 'normal',
           fontSize: cs.fontSize,
+          fontFamily: cs.fontFamily,
           color: cs.color,
           background: bgIsTransparent && cs.backgroundImage !== 'none' ? cs.backgroundImage : cs.backgroundColor,
         },
@@ -600,11 +620,20 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
       }
     }
 
+    const fonts: { family: string; style: string; weight: string; status: string }[] = [];
+    const fontSet = (document as unknown as { fonts?: { forEach(cb: (f: { family: string; style: string; weight: string; status: string }) => void): void } }).fonts;
+    if (fontSet && typeof fontSet.forEach === 'function') {
+      fontSet.forEach((f) => {
+        fonts.push({ family: String(f.family).replace(/^['"]|['"]$/g, ''), style: f.style, weight: f.weight, status: f.status });
+      });
+    }
+
     return {
       nodes,
       a11y_outline: outline,
       stats: { candidates, named, named_ratio: candidates === 0 ? 1 : named / candidates },
       text_contrast: textContrast,
+      fonts,
     };
   }, nameByClass);
 }

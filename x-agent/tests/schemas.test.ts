@@ -5,7 +5,8 @@
  * The JSON-Schema validator below is inline and deliberately tiny — no ajv. It
  * covers exactly the keyword subset the vendored schemas use:
  *   type (incl. type arrays), required, properties, additionalProperties,
- *   items, enum, const, pattern, minimum, exclusiveMinimum, oneOf,
+ *   items, enum, const, pattern, minimum, maximum, exclusiveMinimum,
+ *   minLength, minItems, maxItems, oneOf,
  *   $ref (#/definitions/... and cross-file "x-contract/<file>#/properties/...")
  * Any other keyword encountered makes the test fail loudly rather than silently
  * passing, so a schema change cannot slip past this file.
@@ -46,7 +47,11 @@ const SUPPORTED_KEYWORDS = new Set([
   'const',
   'pattern',
   'minimum',
+  'maximum',
   'exclusiveMinimum',
+  'minLength',
+  'minItems',
+  'maxItems',
   'oneOf',
 ]);
 
@@ -121,11 +126,20 @@ function validate(value: unknown, schema: JsonSchema, root: JsonSchema, at = '')
 
   if (typeof value === 'number') {
     if (schema.minimum !== undefined && value < schema.minimum) errors.push(`${at}: below minimum`);
+    if (schema.maximum !== undefined && value > schema.maximum) errors.push(`${at}: above maximum`);
     if (schema.exclusiveMinimum !== undefined && value <= schema.exclusiveMinimum) errors.push(`${at}: not above exclusiveMinimum`);
   }
 
   if (typeof value === 'string' && typeof schema.pattern === 'string' && !new RegExp(schema.pattern).test(value)) {
     errors.push(`${at}: does not match pattern ${schema.pattern}`);
+  }
+  if (typeof value === 'string' && typeof schema.minLength === 'number' && value.length < schema.minLength) {
+    errors.push(`${at}: shorter than minLength ${schema.minLength}`);
+  }
+
+  if (Array.isArray(value)) {
+    if (typeof schema.minItems === 'number' && value.length < schema.minItems) errors.push(`${at}: fewer than minItems ${schema.minItems}`);
+    if (typeof schema.maxItems === 'number' && value.length > schema.maxItems) errors.push(`${at}: more than maxItems ${schema.maxItems}`);
   }
 
   if (Array.isArray(schema.oneOf)) {
@@ -269,6 +283,14 @@ const CASES: { name: string; jsonSchema: JsonSchema; zod: { safeParse(v: unknown
       { label: 'missing layout', doc: omit(minimalTokens(), 'layout'), expectValid: false },
       { label: 'extra top-level key', doc: { ...minimalTokens(), shadows: [] }, expectValid: false },
       { label: 'family missing fontFamily', doc: tokensWith({ typography: { families: [{ slug: 'b', name: 'B' }], sizes: [] } }), expectValid: false },
+      {
+        label: 'sourced family with pipeline fontFace (theme-factory font lane)',
+        doc: tokensWith({ typography: { families: [{ slug: 'display', name: 'Display', fontFamily: '"Playfair Display", Georgia, serif', source: { provider: 'google', family: 'Playfair Display', weights: [400, 700] }, fontFace: [{ fontFamily: 'Playfair Display', fontStyle: 'normal', fontWeight: '400', src: ['http://x/wp-content/uploads/fonts/p.woff2'] }] }], sizes: [] } }),
+        expectValid: true,
+      },
+      { label: 'source with an unknown provider', doc: tokensWith({ typography: { families: [{ slug: 'd', name: 'D', fontFamily: 'serif', source: { provider: 'adobe', family: 'X', weights: [400] } }], sizes: [] } }), expectValid: false },
+      { label: 'source weight out of range', doc: tokensWith({ typography: { families: [{ slug: 'd', name: 'D', fontFamily: 'serif', source: { provider: 'google', family: 'X', weights: [950] } }], sizes: [] } }), expectValid: false },
+      { label: 'fontFace src as a bare string', doc: tokensWith({ typography: { families: [{ slug: 'd', name: 'D', fontFamily: 'serif', fontFace: [{ fontFamily: 'X', fontStyle: 'normal', fontWeight: '400', src: 'http://x/p.woff2' }] }], sizes: [] } }), expectValid: false },
     ],
   },
   {

@@ -77,6 +77,7 @@ final class X_Companion_Rest {
 		'patterns_save',
 		'schema_install',
 		'schema_installed',
+		'themes_install',
 	);
 
 	/**
@@ -447,6 +448,7 @@ final class X_Companion_Rest {
 		);
 
 		self::register_schema_routes();
+		self::register_theme_routes();
 	}
 
 	/**
@@ -481,6 +483,38 @@ final class X_Companion_Rest {
 				'permission_callback' => $ext,
 			)
 		);
+	}
+
+	/**
+	 * Register the theme-factory route (specs/theme-factory.spec.json — the
+	 * ONE surface that spec knowingly adds; core REST cannot upload themes).
+	 *
+	 * @return void
+	 */
+	private static function register_theme_routes(): void {
+		$ns  = self::REST_NAMESPACE;
+		$ext = array( __CLASS__, 'permission_extend' );
+
+		// 18. POST /themes/install  -> dispatched (X_Companion_Theme_Library)
+		register_rest_route(
+			$ns,
+			'/themes/install',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'route_themes_install' ),
+				'permission_callback' => $ext,
+			)
+		);
+	}
+
+	/**
+	 * POST /themes/install -> dispatched.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return mixed|WP_Error
+	 */
+	public static function route_themes_install( WP_REST_Request $request ) {
+		return self::dispatch( 'themes_install', $request );
 	}
 
 	/**

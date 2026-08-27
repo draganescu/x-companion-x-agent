@@ -21,7 +21,7 @@ function sectionTree(key, extraBlocks = []) {
     };
 }
 
-function makeCtx({ restLog, toolLog, validateResult }) {
+function makeCtx({ restLog, toolLog, validateResult, theme, furniture, sectionPanes = {} }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s8-'));
     for (const d of ['trees', 'pages', 'images']) mkdirSync(join(runDir, d), { recursive: true });
     const sections = [];
@@ -31,7 +31,9 @@ function makeCtx({ restLog, toolLog, validateResult }) {
             const extra = section.image_intent
                 ? [{ name: 'core/image', attributes: { url: '', metadata: { imageIntent: section.image_intent } }, innerBlocks: [] }]
                 : [];
-            writeFileSync(join(runDir, 'trees', `${key}.json`), JSON.stringify(sectionTree(key, extra)));
+            const st = sectionTree(key, extra);
+            if (sectionPanes[key]) st.tree.blocks[0].attributes.metadata = { pane: sectionPanes[key] };
+            writeFileSync(join(runDir, 'trees', `${key}.json`), JSON.stringify(st));
             sections.push({ key, page: page.slug, id: section.id, file: join('sections', `${key}.json`) });
         }
     }
@@ -50,7 +52,9 @@ function makeCtx({ restLog, toolLog, validateResult }) {
                 trees: {},
                 blocks: { 'signup-banner': { status: 'pass', zip_path: '/z/block.zip' } },
                 packages: { newsletter: { status: 'pass', zip_path: '/z/schema.zip' } },
+                ...(furniture ? { furniture } : {}),
             },
+            ...(theme ? { theme } : {}),
         },
         log: () => {},
         call: async (name, args) => {
@@ -78,7 +82,7 @@ function makeCtx({ restLog, toolLog, validateResult }) {
             if (method === 'DELETE' && route.startsWith('/wp/v2/pages/')) return {};
             if (method === 'GET' && route === '/wp/v2/navigation') return [{ id: 9 }];
             if (method === 'POST' && route === '/wp/v2/navigation/9') return { id: 9 };
-            if (method === 'GET' && route === '/wp/v2/template-parts') return [{ id: 'theme//header', area: 'header' }, { id: 'theme//footer', area: 'footer' }];
+            if (method === 'GET' && route === '/wp/v2/template-parts') return [{ id: 'theme//header', area: 'header' }, { id: 'theme//footer', area: 'footer' }, { id: 'theme//rail', area: 'rail' }];
             if (method === 'POST' && route.startsWith('/wp/v2/template-parts/')) return {};
             throw new Error(`unexpected rest ${method} ${route}`);
         },
@@ -381,4 +385,123 @@ test('S8 furniture fallback: failed parts degrade to the nav post and the determ
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//footer')}`));
     assert.ok(!restLog.some(([m, r]) => r.includes('theme%2F%2Fheader')), 'theme header untouched');
+});
+
+test('assembleSplitPage: panes routed by declaration, order preserved, one full frame', async () => {
+    const { assembleSplitPage, SPLIT_SECONDARY_SIZE } = await import('../lib/skeleton.mjs');
+    const block = (id, pane) => ({ name: 'core/group', attributes: { ...(pane ? { metadata: { pane } } : {}) }, innerBlocks: [{ name: 'core/heading', attributes: { content: id } }] });
+    const out = assembleSplitPage([block('a', 'primary'), block('b', 'secondary'), block('c', 'primary'), block('d')]);
+    assert.equal(out.length, 1);
+    const frame = out[0];
+    assert.equal(frame.attributes.align, 'full');
+    assert.equal(frame.attributes.className, 'x-split-frame');
+    const [primary, secondary] = frame.innerBlocks;
+    assert.equal(primary.attributes.className, 'x-pane-primary');
+    assert.equal(secondary.attributes.className, 'x-pane-secondary');
+    assert.equal(secondary.attributes.style.layout.flexSize, SPLIT_SECONDARY_SIZE);
+    // a, c, and undeclared d in primary (brief order); b in secondary
+    assert.deepEqual(primary.innerBlocks.map((b) => b.innerBlocks[0].attributes.content), ['a', 'c', 'd']);
+    assert.deepEqual(secondary.innerBlocks.map((b) => b.innerBlocks[0].attributes.content), ['b']);
+});
+
+test('S8 split skeleton: the published page tree is ONE two-pane frame (theme-factory M4)', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({ restLog, toolLog, theme: { skeleton: 'split' } });
+    // Real S4 trees are ONE root per section (the band-root gate); rewrite the
+    // mold's synthetic multi-root fixtures into that shape, panes declared.
+    const paneTree = (key, pane) => ({
+        tree: { version: 1, epoch: 'old', blocks: [{ name: 'core/group', attributes: { metadata: { pane } }, innerBlocks: [{ name: 'core/heading', attributes: { content: key } }] }] },
+        gate: { status: 'pass' },
+    });
+    writeFileSync(join(ctx.runDir, 'trees', 'home--hero.json'), JSON.stringify(paneTree('home--hero', 'primary')));
+    writeFileSync(join(ctx.runDir, 'trees', 'home--what-we-bake.json'), JSON.stringify(paneTree('home--what-we-bake', 'secondary')));
+    writeFileSync(join(ctx.runDir, 'trees', 'home--signup.json'), JSON.stringify(paneTree('home--signup', 'primary')));
+    await s8.run(ctx);
+    const validated = toolLog.find(([n, a]) => n === 'wp_validate' && a.blocks?.[0]?.attributes?.className === 'x-split-frame');
+    assert.ok(validated, 'the assembled page tree is the split frame');
+    const frame = validated[1].blocks[0];
+    assert.equal(validated[1].blocks.length, 1);
+    const [primary, secondary] = frame.innerBlocks;
+    assert.equal(primary.innerBlocks.length, 2);
+    assert.equal(secondary.innerBlocks.length, 1);
+});
+
+test('S8 rail skeleton: the designed rail part ships with area "rail" (theme-factory M4)', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({
+        restLog, toolLog,
+        theme: { skeleton: 'rail' },
+        furniture: { rail: { status: 'pass' } },
+    });
+    writeFileSync(join(ctx.runDir, 'trees', 'furniture--rail.json'), JSON.stringify({
+        tree: { version: 1, epoch: 'old', blocks: [{ name: 'core/group', attributes: { layout: { type: 'default' } }, innerBlocks: [{ name: 'core/site-title', attributes: {}, innerBlocks: [] }] }] },
+        gate: { status: 'pass' },
+    }));
+    await s8.run(ctx);
+    const railWrite = restLog.find(([m, r, o]) => m === 'POST' && r.startsWith('/wp/v2/template-parts/') && o?.body?.area === 'rail');
+    assert.ok(railWrite, 'the rail part was written with its area');
+    assert.match(railWrite[1], /rail/);
+});
+
+test('S9 WIRING: the skeleton and rail width actually reach the audits (theme-factory M4)', async () => {
+    // A rail page: bands span the 1048px content column, the rail is 320px.
+    // Under the stacked audit this geometry FAILS; the wiring of
+    // state.theme.skeleton/rail_width into the screens is what passes it —
+    // the exact wiring a silent no-op edit once dropped (code-review catch).
+    const railVerify = () => {
+        const pc = 'body:nth-child(2) > main.wp-block-group:nth-child(2) > div.wp-block-group:nth-child(1) > div.wp-block-post-content:nth-child(1)';
+        return {
+            pass: true,
+            measured: { viewport: { width: 1440, height: 900 } },
+            box_tree: [
+                { selector_path: 'body:nth-child(2) > header.wp-block-template-part:nth-child(1)', block_name: 'core/template-part', box: { x: 0, y: 0, w: 1440, h: 80 } },
+                { selector_path: 'body:nth-child(2) > main.wp-block-group:nth-child(2)', block_name: 'core/group', box: { x: 0, y: 80, w: 1440, h: 920 } },
+                { selector_path: pc, block_name: 'core/post-content', box: { x: 0, y: 80, w: 1048, h: 900 } },
+                { selector_path: `${pc} > div.wp-block-group:nth-child(1)`, block_name: 'core/group', box: { x: 0, y: 80, w: 1048, h: 900 } },
+                { selector_path: 'body:nth-child(2) > main.wp-block-group:nth-child(2) > aside.wp-block-template-part:nth-child(2)', block_name: 'core/template-part', box: { x: 1120, y: 80, w: 320, h: 600 } },
+                { selector_path: 'body:nth-child(2) > footer.wp-block-template-part:nth-child(3)', block_name: 'core/template-part', box: { x: 0, y: 1000, w: 1440, h: 80 } },
+            ],
+            a11y_outline: [{ role: 'heading', name: 'H', level: 1 }],
+            images: [],
+        };
+    };
+    const mk = (theme) => ({
+        runDir: mkdtempSync(join(tmpdir(), 'x-pipeline-s9-rail-')),
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] }, ...(theme ? { theme } : {}) },
+        log: () => {},
+        call: async function (name) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: railVerify() };
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    });
+
+    // With the bespoke rail theme in state, the audits obey the skeleton: pass.
+    await s9.run(mk({ skeleton: 'rail', rail_width: '20rem' }));
+    // Without it (the stacked default), the same geometry fails — proving the
+    // options were genuinely passed through, not defaulted.
+    await assert.rejects(s9.run(mk(undefined)), (e) => e.code === 'gate_failed');
+});
+
+test('S9 WIRING: a sourced font that fell back to the stack fails the run (theme-factory M5)', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-font-'));
+    writeFileSync(join(runDir, 'tokens.json'), JSON.stringify({
+        typography: { families: [{ slug: 'display', name: 'Display', fontFamily: '"Playfair Display", serif', fontFace: [{ fontFamily: 'Playfair Display', fontStyle: 'normal', fontWeight: '400', src: ['http://x/uploads/fonts/p.woff2'] }] }] },
+    }));
+    const ctx = {
+        runDir,
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        log: () => {},
+        call: async (name) => {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') {
+                return { ok: true, data: { pass: true, box_tree: [], fonts: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [] } };
+            }
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed' && /Playfair Display.*fell back to the stack/.test(e.message));
 });

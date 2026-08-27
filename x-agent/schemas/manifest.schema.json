@@ -40,6 +40,27 @@
     "interfaces_version": {
       "type": "string"
     },
+    "theme": {
+      "type": "object",
+      "description": "Active theme identity - what the admin sees. Optional: absent on companions older than the theme factory.",
+      "required": [
+        "slug",
+        "name",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
     "blocks": {
       "type": "object",
       "additionalProperties": {

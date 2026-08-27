@@ -1,5 +1,5 @@
 import { PipelineError } from '../lib/errors.mjs';
-import { TASK_TYPES } from '../lib/config.mjs';
+import { OPTIONAL_TASK_TYPES, TASK_TYPES } from '../lib/config.mjs';
 
 const KEY_FOR = { anthropic: 'anthropic_api_key', openai: 'openai_api_key', cerebras: 'cerebras_api_key', gemini: 'gemini_api_key' };
 
@@ -9,9 +9,9 @@ const KEY_FOR = { anthropic: 'anthropic_api_key', openai: 'openai_api_key', cere
 export async function createProviders({ config, keys }) {
     const routed = new Map();
     const instances = new Map();
-    for (const task of TASK_TYPES) {
+    for (const task of [...TASK_TYPES, ...OPTIONAL_TASK_TYPES]) {
         const entry = config.tasks[task];
-        if (!entry) continue; // loadPipelineConfig already enforces completeness for full runs
+        if (!entry) continue; // loadPipelineConfig already enforces completeness for full runs; optional tasks may be absent
         const { provider: id, model, temperature, effort, max_tokens, speed, options } = entry;
         if (!instances.has(id)) {
             const keyName = KEY_FOR[id];

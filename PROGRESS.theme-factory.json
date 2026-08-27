@@ -1,0 +1,97 @@
+{
+    "spec": "specs/theme-factory.spec.json",
+    "milestones": {
+        "M1_spec_and_scaffolder": {
+            "status": "done",
+            "evidence": "x-agent/tests/theme-factory.test.ts green (19 tests): fixture ThemeSpec scaffolds byte-identically twice with the exact stacked file roster; rail emits parts/rail.html + functions.php (the default_wp_template_part_areas registration) and stacked does not; unknown skeleton fails both the zod mirror and the JSON contract naming the enum (pipeline/tests/theme-spec.test.mjs, 7 tests); poisoned-spec grep proves model strings surface ONLY in style.css + theme.json (slug-as-textdomain in rail functions.php the single recorded exception). Contract byte-identity pinned between contract/ and x-agent/schemas.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M2_build_test_and_install": {
+            "status": "done",
+            "evidence": "Live (x-agent/tests/live/theme-factory.test.ts, X_AGENT_THEME_LIVE=1, 3 tests, 22s, throwaway Playgrounds on 9480-9489): built:true with measured physics — root seams 0px, --wp--style--global--content-size pass-through byte-equal, measure clamps at declared px, full band = viewport, rail renders at its declared 320px with the rail area registered; page-no-title poison fails NAMING the template. Route live (x-companion/tests/test-themes.php vs a dedicated slot on 9490, 24/24): install+activate moves the steady-state epoch (stable across requests), replaced_previous on re-install, 422 policy reasons named, 401 anon; wp_manifest afterwards serves theme{slug,name} = the bespoke identity and the bespoke measure. wp_theme_install via callTool against mock-companion: posture_forbidden before any wire byte, local policy refusal, steady-state fingerprint from the manifest refresh.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M3_stage_and_budget": {
+            "status": "done",
+            "evidence": "tf-m3.sh green (live slot 9492, fake provider): --bespoke without --new-site exits naming the rule; the bespoke fake run prints 'at most 22 calls (T=1, ...)', S1T runs scaffold -> build test -> install in 9s against a real Playground, the ledger holds exactly {brief, theme}, and the instance's manifest serves 'Salon Regale Theme'; --resume replays with ZERO new ledger entries and a stable fingerprint (zero reinstalls); the non-bespoke S1 ledger is byte-identical to the SAME run on a main worktree (started_at/ms stripped). Unit: s1t-theme.test.mjs 6 tests (skip/happy/repair/abort/rail-bump/schema-retry), budget + config + run suites.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M4_skeleton_aware_verification": {
+            "status": "done",
+            "evidence": "Fixture-level per the milestone's own 'asserted by fixture' clauses. S4 (s4-sections.test.mjs 9 tests): every payload carries the skeleton, split roots must declare metadata.pane (a missing pane burns the schema retry and the correction ships), rail adds the furniture/rail call + artifact with its own railShape gate (no align:full — a rail never fights its pane). S8 (s8-s9-publish tests): split pages assemble into ONE deterministic two-pane frame (x-pane-primary fill / x-pane-secondary 34%), the rail part ships with area 'rail', stacked rest-call sequence unchanged. S9 (gates.test.mjs M4 block): split bands audited against their pane's measured box — the stacked audit is provably BLIND inside panes, so pane-awareness is added coverage, not relabeling; per-pane seam chains return clean on the side-by-side trap fixture a naive y-sort would fail; the rail is audited against its declared width (rem resolved mechanically) and exempted from the header/footer width pairing; stacked outputs byte-identical with and without the skeleton option.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M5_font_library_lane": {
+            "status": "done",
+            "evidence": "tf-m5.sh green (live slot 9493, ZERO model spend): Playfair Display v40 really downloaded from Google (FF39-UA css2, one complete woff2 per weight), cache miss then hit (hit = zero fetches, hash-verified), license ofl recorded with OFL.txt beside the woff2s; both faces uploaded through core wp/v2/font-families + font-faces multipart and served from uploads/fonts; activation rode the ONE wp_tokens_apply (fontFace into user global styles); wp_verify measured the sourced font loaded (document.fonts) AND rendered (computed font-family leads with it); the served page carries ZERO fonts.googleapis/gstatic references and @font-face from uploads/fonts; the activation-strip poison fails S9 NAMING the font. Unit: fonts.test.mjs 6, s3-tokens font-hook 3, gates M5 screens 2; 'the ledger contains no font entries' pinned in s3-tokens.test.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M6_end_to_end": {
+            "status": "done",
+            "evidence": "tf-m6.sh ACCEPTED (real provider anthropic/claude-opus-5, dedicated slots 9494/9495, --no-images): ONE prompt + --new-site --bespoke produced 'Salon Regale Theme' (stacked, 1040px/1440px — the luxury measure the brief argued), REAL typography (Cormorant Garamond v21 headings + Archivo v25 body, both ofl-recorded cache-miss downloads, both LOADED in document.fonts and rendered — zero font ledger entries), S1_brief -> S1T_theme -> ... -> S9_verify all complete, wp_manifest serving the bespoke name and measure, wp_snapshot carrying theme/<slug>. The SAME prompt without --bespoke: stock ground, no state.theme, ZERO theme calls in the ledger, and the build still verifies. Three earlier attempts were field evidence, each converted to a fix: bare-0/3-hex contract widening; the typography SLOTS (a sourced font nobody wires stays unloaded); the face-by-face loaded screen (an unused 300 weight failed a healthy page). One attempt died on an Anthropic 'Overloaded' (infrastructure).",
+            "updated_at": "2026-08-27T00:00:00Z"
+        }
+    },
+    "decisions": [
+        {
+            "when": "2026-08-27",
+            "what": "The bespoke theme wires TYPOGRAPHY SLOTS: styles.typography.fontFamily -> var(--wp--preset--font-family--body) and elements.heading -> --heading; on bespoke runs tokenChecks requires families with slugs 'body' and 'heading' (the base/contrast convention, typographic); tokens.md teaches the slugs. The theme still declares ZERO fonts — only where the token vocabulary lands. And the S9 font screen judges a family loaded when ANY of its faces loaded.",
+            "why": "Measured across three real M6 attempts: (1) sourced fonts installed + activated but document.fonts 'unloaded' — nothing RENDERED them, because the ground wired no base typography to the token families; (2) after the slots landed, a healthy page still failed because the screen judged the FIRST matching face and the model had requested a 300 weight no element spends. Both are the exact class the rendered-promise audit exists for — pointed at the pipeline itself."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "First-live-contact field-fix batch for the theme contract: rootPadding sides and blockGap accept a bare '0' beside united lengths; duotone colors accept 3-hex beside 6-hex; theme.md gains the mechanical spelling rules (units-or-0, hex duotones, identity is EXACTLY {name, slug, description}). All copies + the zod mirror moved together, pinned by the widened tests.",
+            "why": "The first real theme call spelled zero paddings '0' and was refused; its retry then tripped over an identity key and a duotone spelling — two attempts burned on syntax a wider contract reads fine. Same class as the recorded letterspacing-literal fix: when a NATURAL spelling costs a metered retry, the contract was wrong, not the model."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The M5 accept's poison is 're-apply tokens with the fontFace activation stripped', and both wp_verify calls in the driver are preceded by wp_disconnect (fresh session).",
+            "why": "Deleting the wp_font_family post does not stop rendering — activation lives as embedded src urls in the user global-styles record (decision 14); and a warm session left over from an epoch-moving apply can be dead-but-cached, the recorded S9 discipline — the driver hung 9 minutes on wp_verify before adopting it."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "Fixed en route (surfaced by the M3 accept): --until now binds RESUMED runs — a completed stage that is the --until target breaks the loop instead of continuing past it. Previously a resume of a run stopped at --until sailed into later stages (the M3 resume wandered into S3 and died on a missing fixture).",
+            "why": "The until-check lived after the completed-skip `continue`; nothing before the theme factory ever resumed an --until run, so the latent bug had no witness. Pinned by a run.test.mjs regression."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "Split-frame constants are code's: the frame is one align:full flex row, x-pane-primary fills, x-pane-secondary is fixed at 34%; an undeclared root (an S7 pattern baseline substituted late) lands in primary. Rail seam audits judge the footer against the MAIN ROW, never the column's last band (the flex row's bottom is whichever pane is tallest).",
+            "why": "Pane widths and fallbacks are assembly, not authorship — same altitude as the rail width constant; and a rail taller or shorter than its column must not fake a footer seam."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "Two M4 fixture clauses were reworded to what the geometry actually proves: pane bands are GRANDCHILDREN of post-content, so the stacked audit does not reject them — it cannot see them. The load-bearing property of the pane-aware audit is COVERAGE (a band clamped inside its pane, a seam inside a pane column — both invisible to the stacked audit, both caught by the split one), plus the arithmetic fact that a viewport expectation would reject every healthy pane-width band.",
+            "why": "The spec imagined 'a viewport-width assertion would fail' the split fixture; structurally the old audit passes it blind. Asserting blindness + added coverage is the honest form of the same protection."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The themes/install route's returned fingerprint is BEST EFFORT and says so: a theme's init-time contributions (block style variations from theme.json partials and friends) only register on the NEXT request, and no cache bust re-runs init — measured live as a deterministic one-request epoch drift. The authoritative epoch is the post-install manifest refresh wp_theme_install performs; the live suite asserts the steady-state epoch moved and is stable, never in-request exactness.",
+            "why": "The block installer could reregister() its ONE block in-request; a theme's init surface is unbounded, and simulating core's init would be a version-coupled lie. Two real cache bugs (WP_Theme cache serving a replaced copy's version; the per-theme global-styles resolver memo) were fixed on the way and are load-bearing."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The bespoke theme owns flush bands structurally: S3's SEAM_RESET selectors ride into theme.json styles.css byte-for-byte, so root block-gap seams measure zero at the build gate while blockGap stays declared for inner layout rhythm. S3's stage-authored reset remains as belt.",
+            "why": "The spec's physics line: 'blockGap (declared, owned — the seam-reset apparatus becomes belt, not load-bearing)'. Zeroing global blockGap instead would collapse rhythm inside every layout; leaving the root gap live would fail the build gate's 'root block-gap seams zero'."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The build gate's wide-band expectation is pane-aware from birth: expected = min(declared wideSize, the content column's CONTENT box). Verified live — under the rail skeleton a wide band correctly clamps to the column (1048px of a 1440px viewport), and a border-box comparison was wrong by exactly the root padding.",
+            "why": "'Full means the pane the skeleton assigns, not the viewport' applies inside the sandbox too; the first live rail run failed on a viewport-shaped expectation, which is the same bug S9's pane-aware audit exists to prevent."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "ThemeSpec.physics carries only what varies (blockGap, rootPadding); useRootPaddingAwareAlignments, appearanceTools and fluid typography are scaffolder constants, always on.",
+            "why": "The theme carries only what a call cannot decide — a constant is code's to decide, and a model asked to author a constant is a model invited to vary it."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The measure sanity gate compares contentSize < wideSize only when the units match; mismatched units fail with 'use the same unit for both'.",
+            "why": "px, ch and rem are not mechanically commensurable without a rendering context; a gate that guesses a conversion is a gate that lies."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "theme-spec.schema.json is written strictly inside pipeline/lib/schema.mjs's draft-07 keyword subset, and the theme-spec test walks the schema refusing any unsupported keyword.",
+            "why": "The subset validator silently ignores unknown keywords — a contract leaning on $ref or anyOf would be decorative, and a decorative gate is worse than none."
+        }
+    ]
+}

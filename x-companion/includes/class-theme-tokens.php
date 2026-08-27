@@ -284,11 +284,53 @@ final class X_Companion_Theme_Tokens {
 				continue;
 			}
 
-			$families[] = array(
+			$entry = array(
 				'fontFamily' => (string) $family['fontFamily'],
 				'slug'       => (string) $family['slug'],
 				'name'       => (string) ( $family['name'] ?? $family['slug'] ),
 			);
+
+			// The widened tokens contract (theme-factory font lane): fontFace
+			// is the Font Library ACTIVATION payload — sanitized srcs pointing
+			// at files core REST already placed under uploads/fonts. Writing it
+			// into the user global styles is what makes wp_print_font_faces
+			// emit @font-face; a family without it stays a stack, exactly as
+			// before. `source` (the agent-side download instruction) is
+			// deliberately ignored here — the instance never calls out.
+			if ( isset( $family['fontFace'] ) && is_array( $family['fontFace'] ) ) {
+				$faces = array();
+
+				foreach ( $family['fontFace'] as $face ) {
+					if ( ! is_array( $face ) || empty( $face['fontFamily'] ) || empty( $face['src'] ) ) {
+						continue;
+					}
+
+					$src = array();
+					foreach ( (array) $face['src'] as $url ) {
+						$clean = esc_url_raw( (string) $url );
+						if ( '' !== $clean ) {
+							$src[] = $clean;
+						}
+					}
+
+					if ( empty( $src ) ) {
+						continue;
+					}
+
+					$faces[] = array(
+						'fontFamily' => (string) $face['fontFamily'],
+						'fontStyle'  => (string) ( $face['fontStyle'] ?? 'normal' ),
+						'fontWeight' => (string) ( $face['fontWeight'] ?? '400' ),
+						'src'        => $src,
+					);
+				}
+
+				if ( ! empty( $faces ) ) {
+					$entry['fontFace'] = $faces;
+				}
+			}
+
+			$families[] = $entry;
 		}
 
 		if ( ! empty( $font_sizes ) || ! empty( $families ) ) {

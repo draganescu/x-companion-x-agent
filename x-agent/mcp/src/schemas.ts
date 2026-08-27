@@ -139,6 +139,8 @@ export const ManifestSchema = z.object({
   site_url: z.string(),
   posture: z.enum(['toolchain', 'production']),
   interfaces_version: z.string(),
+  /** Active theme identity; absent on companions older than the theme factory. */
+  theme: z.object({ slug: z.string(), name: z.string(), version: z.string() }).strict().optional(),
   blocks: z.record(z.string(), ManifestBlockSchema),
   patterns: z.array(ManifestPatternSchema),
   theme_tokens: z.object({
@@ -193,7 +195,23 @@ export const SpacingSchema = z
 export const TypographySchema = z
   .object({
     families: z.array(
-      z.object({ slug: z.string().regex(SLUG), name: z.string(), fontFamily: z.string() }).strict(),
+      z
+        .object({
+          slug: z.string().regex(SLUG),
+          name: z.string(),
+          fontFamily: z.string(),
+          /** Agent-side download instruction (theme-factory font lane); the companion ignores it. */
+          source: z
+            .object({ provider: z.literal('google'), family: z.string().min(1), weights: z.array(z.number().int().min(100).max(900)).min(1).max(6) })
+            .strict()
+            .optional(),
+          /** Pipeline-constructed activation data: uploaded font-face srcs that ride into global styles. */
+          fontFace: z
+            .array(z.object({ fontFamily: z.string(), fontStyle: z.string(), fontWeight: z.string(), src: z.array(z.string()).min(1) }).strict())
+            .min(1)
+            .optional(),
+        })
+        .strict(),
     ),
     sizes: z.array(
       z

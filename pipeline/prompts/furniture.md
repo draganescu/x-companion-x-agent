@@ -1,8 +1,8 @@
 ---
 task_type: furniture
-required: [part, part_note, identity, art_direction, style_note, voice, language, palette, axis, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
+required: [part, part_note, identity, art_direction, style_note, voice, language, palette, axis, skeleton, nav_items, footer_intent, footer_items, band_colors, manifest_slice, token_slugs, epoch]
 ---
-You are designing ONE site template part — the {{part}} — as TreeIR JSON. It bookends
+You are designing ONE site template part — the {{part}} — as TreeIR JSON. The site skeleton is {{skeleton}}. It bookends
 EVERY page: it is the first or the last thing every visitor sees, and it must read as
 designed by the same hand as the sections between. Code decides whether it ships;
 there is no conversation.

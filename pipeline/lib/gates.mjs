@@ -304,9 +304,94 @@ function bandStructures(boxTree) {
     return { parts, bands, last };
 }
 
-export function screenBandWidths(boxTree, { viewportWidth } = {}) {
+// Direct children of one measured container node.
+function directChildren(boxTree, container) {
+    const prefix = `${container.selector_path} > `;
+    return (boxTree ?? []).filter((n) => n.selector_path.startsWith(prefix) && !n.selector_path.slice(prefix.length).includes(' > '));
+}
+
+// The declared rail width, resolved mechanically (px or rem at the 16px root).
+function railWidthPx(declared) {
+    const m = /^([0-9]+(?:\.[0-9]+)?)(px|rem)$/.exec(String(declared ?? ''));
+    if (!m) return null;
+    return m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1]);
+}
+
+const isRailPart = (last, n) => last(n).startsWith('aside');
+
+// The width audit is SKELETON-AWARE (theme-factory spec): 'full' means the
+// pane the skeleton assigns, not the viewport. The stacked branch is today's
+// audit, byte for byte; split audits bands against their pane's measured box;
+// rail audits the content-column bands against the column and the rail against
+// its declared width. Header and footer must always agree with each other —
+// the rail, narrower by design, is exempt from that pairing.
+export function screenBandWidths(boxTree, { viewportWidth, skeleton = 'stacked', railWidth } = {}) {
     const { parts, bands, last } = bandStructures(boxTree);
     const failures = [];
+
+    if (skeleton === 'split') {
+        const panes = (boxTree ?? []).filter((n) => /(^|\.)x-pane-(primary|secondary)/.test(last(n)));
+        for (const pane of panes) {
+            for (const n of directChildren(boxTree, pane)) {
+                if (n.box.w < pane.box.w - 8) {
+                    failures.push({ code: 'band_width', message: `band clamped inside its pane: ${n.selector_path} spans ${Math.round(n.box.w)}px of its ${Math.round(pane.box.w)}px pane — full means the pane the skeleton assigns` });
+                }
+            }
+        }
+        if (typeof viewportWidth === 'number' && viewportWidth > 0) {
+            // The split frame (a direct post-content child) and the parts still
+            // span the viewport row.
+            for (const n of [...parts, ...bands]) {
+                if (n.box.w < viewportWidth - CLAMP_SLACK) {
+                    failures.push({ code: 'band_width', message: `band clamped to the content column: ${n.selector_path} spans ${Math.round(n.box.w)}px of a ${viewportWidth}px viewport — the root band is missing align "full" (or fighting the constrained-layout clamp with CSS, which loses)` });
+                }
+            }
+        }
+        if (parts.length >= 2) {
+            const widths = parts.map((n) => n.box.w);
+            if (Math.max(...widths) - Math.min(...widths) > 8) {
+                failures.push({ code: 'band_width', message: `the template parts disagree on width (${parts.map((n) => `${last(n)}=${Math.round(n.box.w)}px`).join(', ')}) — header and footer bookend the same design and must span the same row` });
+            }
+        }
+        return failures;
+    }
+
+    if (skeleton === 'rail') {
+        const rails = parts.filter((n) => isRailPart(last, n));
+        const bookends = parts.filter((n) => !isRailPart(last, n));
+        if (typeof viewportWidth === 'number' && viewportWidth > 0) {
+            for (const n of bookends) {
+                if (n.box.w < viewportWidth - CLAMP_SLACK) {
+                    failures.push({ code: 'band_width', message: `band clamped to the content column: ${n.selector_path} spans ${Math.round(n.box.w)}px of a ${viewportWidth}px viewport — the root band is missing align "full" (or fighting the constrained-layout clamp with CSS, which loses)` });
+                }
+            }
+        }
+        if (bookends.length >= 2) {
+            const widths = bookends.map((n) => n.box.w);
+            if (Math.max(...widths) - Math.min(...widths) > 8) {
+                failures.push({ code: 'band_width', message: `the template parts disagree on width (${bookends.map((n) => `${last(n)}=${Math.round(n.box.w)}px`).join(', ')}) — header and footer bookend the same design and must span the same row` });
+            }
+        }
+        const declared = railWidthPx(railWidth);
+        if (declared !== null) {
+            for (const r of rails) {
+                if (Math.abs(r.box.w - declared) > 8) {
+                    failures.push({ code: 'band_width', message: `the rail renders at ${Math.round(r.box.w)}px, its declared width is ${Math.round(declared)}px — the rail is audited against its own declared width, never the viewport` });
+                }
+            }
+        }
+        const nodes = boxTree ?? [];
+        const postContent = nodes.find((n) => n.block_name === 'core/post-content' || last(n).includes('.wp-block-post-content'));
+        if (postContent) {
+            for (const n of bands) {
+                if (n.box.w < postContent.box.w - CLAMP_SLACK) {
+                    failures.push({ code: 'band_width', message: `band clamped inside its column: ${n.selector_path} spans ${Math.round(n.box.w)}px of its ${Math.round(postContent.box.w)}px content column — full means the pane the skeleton assigns` });
+                }
+            }
+        }
+        return failures;
+    }
+
     if (typeof viewportWidth === 'number' && viewportWidth > 0) {
         for (const n of [...parts, ...bands]) {
             if (n.box.w < viewportWidth - CLAMP_SLACK) {
@@ -334,20 +419,49 @@ export function screenBandWidths(boxTree, { viewportWidth } = {}) {
 // not adjacent to each other.
 const SEAM_TOLERANCE = 4;
 
-export function screenBandSeams(boxTree) {
-    const { parts, bands } = bandStructures(boxTree);
-    if (bands.length === 0) return [];
-    const rows = [...parts, ...bands].sort((a, b) => a.box.y - b.box.y);
+function seamChain(rows) {
+    const sorted = [...rows].sort((a, b) => a.box.y - b.box.y);
     const failures = [];
-    for (let i = 1; i < rows.length; i += 1) {
-        const prev = rows[i - 1];
-        const next = rows[i];
+    for (let i = 1; i < sorted.length; i += 1) {
+        const prev = sorted[i - 1];
+        const next = sorted[i];
         const gap = next.box.y - (prev.box.y + prev.box.h);
         if (gap > SEAM_TOLERANCE) {
             failures.push({ code: 'band_seam', message: `${Math.round(gap)}px of page background between bands (${prev.selector_path} -> ${next.selector_path}) — the block-gap seam is back; bands butt flush and carry their spacing as their own padding` });
         }
     }
     return failures;
+}
+
+// Seams are seams in any skeleton — but the CHAIN is the skeleton's: stacked
+// y-sorts everything (today's audit, byte for byte); split audits the outer
+// row (parts + the frame) plus each pane's own column, because y-sorting two
+// side-by-side panes would fake seams between neighbors that never touch;
+// rail audits the bookends against the main row plus the content column's own
+// bands (the rail may be shorter or taller than the column — the flex row's
+// bottom is whichever pane is tallest, so the footer seam is judged against
+// the row, never against the column's last band).
+export function screenBandSeams(boxTree, { skeleton = 'stacked' } = {}) {
+    const { parts, bands, last } = bandStructures(boxTree);
+    if (skeleton === 'split') {
+        const failures = seamChain([...parts, ...bands]); // bands = the frame(s), direct post-content children
+        const panes = (boxTree ?? []).filter((n) => /(^|\.)x-pane-(primary|secondary)/.test(last(n)));
+        for (const pane of panes) {
+            failures.push(...seamChain(directChildren(boxTree, pane)));
+        }
+        return failures;
+    }
+    if (skeleton === 'rail') {
+        const failures = [];
+        const bookends = parts.filter((n) => !isRailPart(last, n));
+        const nodes = boxTree ?? [];
+        const mainRow = nodes.find((n) => last(n).startsWith('main'));
+        if (mainRow) failures.push(...seamChain([...bookends, mainRow]));
+        failures.push(...seamChain(bands));
+        return failures;
+    }
+    if (bands.length === 0) return [];
+    return seamChain([...parts, ...bands]);
 }
 
 // S9: the measured ink audit. The oracle rates every element carrying its own
@@ -537,5 +651,38 @@ export function screenTreeLiterals(tree) {
         (node.innerBlocks ?? []).forEach((child, i) => walk(child, `${path}/innerBlocks/${i}`));
     };
     (tree?.blocks ?? []).forEach((node, i) => walk(node, `/blocks/${i}`));
+    return failures;
+}
+
+// S9: the rendered-promise audit (theme-factory s9_fonts). A tokens family
+// that carried a source was installed and activated at S3; if the front page
+// neither loads it (document.fonts) nor renders it (some measured node's
+// computed font-family LEADS with it), the promise silently fell back to the
+// stack — and an uninstalled font is an unloaded image: the run fails.
+export function screenFontFamilies({ box_tree, fonts } = {}, families = []) {
+    const failures = [];
+    const promised = families.filter((f) => (f.fontFace ?? []).length > 0);
+    const judged = new Set(); // two token slugs may lead with one face; judge each face once
+    for (const family of promised) {
+        const name = String(family.fontFace[0].fontFamily);
+        if (judged.has(name.toLowerCase())) continue;
+        judged.add(name.toLowerCase());
+        // A family loads FACE BY FACE and a page rarely spends every weight:
+        // an installed-but-unused 300 sits "unloaded" forever while 400 serves
+        // the whole page (measured live — the .find()-first-face version of
+        // this screen failed a healthy site on exactly that).
+        const entries = (fonts ?? []).filter((f) => String(f.family).toLowerCase() === name.toLowerCase());
+        const loaded = entries.some((f) => f.status === 'loaded');
+        const rendered = (box_tree ?? []).some((n) => {
+            const head = String(n.computed?.fontFamily ?? '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+            return head.toLowerCase() === name.toLowerCase();
+        });
+        if (!loaded || !rendered) {
+            failures.push({
+                code: 'font',
+                message: `sourced font "${name}" never rendered (${loaded ? 'loaded but no measured element leads with it' : entries.length > 0 ? `no face of it loaded (statuses: ${entries.map((f) => f.status).join(', ')})` : 'absent from document.fonts'}) — the promise fell back to the stack; an uninstalled font is an unloaded image`,
+            });
+        }
+    }
     return failures;
 }

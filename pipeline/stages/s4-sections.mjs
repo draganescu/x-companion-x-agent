@@ -7,6 +7,7 @@ import { resolveBandColors, annotatePalette, resolveInkMenus } from '../lib/toke
 import { renderStyleNote } from '../lib/styles.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { sectionImageIntents } from '../budget.mjs';
+import { screenPaneDeclaration } from '../lib/skeleton.mjs';
 
 export const id = 'S4_sections';
 export const kind = 'generative';
@@ -29,6 +30,14 @@ export async function run(ctx) {
     // section onto the opposite anchor. A run dir from before the axis field
     // falls back to the editorial default instead of crashing a --resume.
     const axis = brief.axis ?? { anchor: 'left', argument: '' };
+    // The skeleton (theme-factory spec): dictated once by the bespoke
+    // ThemeSpec, obeyed everywhere — the axis precedent. A run without a
+    // bespoke theme (every connected-site run, every pre-spec run dir) is
+    // 'stacked', which is exactly today's behavior.
+    const skeleton = ctx.state.theme?.skeleton ?? 'stacked';
+    const paneNote = skeleton === 'split'
+        ? 'THE SKELETON IS SPLIT: the page body is two persistent panes side by side. Declare which pane this section lives in on the ROOT group: attributes.metadata.pane = "primary" (the main flow) or "secondary" (the supporting column). Full-bleed means the full PANE, not the viewport.'
+        : '';
     // One language for all content (§2): the brief detects the request's
     // dominant language; every writing call obeys it. The fallback sentence
     // keeps pre-language run dirs resumable and still instructs correctly.
@@ -94,6 +103,8 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                 is_break: section.design?.axis_break === true,
                 argument: axis.argument,
             },
+            skeleton,
+            pane_note: paneNote,
             band_colors: bandColors(design.band),
             manifest_slice: entry.manifest_slice,
             pattern_tree: entry.pattern?.parsed_tree ?? null,
@@ -117,6 +128,10 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                     if (literals.length > 0) return literals;
                     const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
                     if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
+                    if (skeleton === 'split') {
+                        const pane = screenPaneDeclaration(v);
+                        if (pane.length > 0) return pane;
+                    }
                     return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
                 },
             }));
@@ -176,6 +191,26 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
     const PART_NOTES = {
         header: 'You are designing the site HEADER template part: one core/group band containing the brand (core/site-title; optionally core/site-tagline or an uppercase letterspaced kicker paragraph) and EXACTLY ONE core/navigation node carrying attributes only — NO innerBlocks and NO ref: the links are injected at publish; your job is the navigation\'s placement and styling. NO heading blocks in the header (the site title is not a heading). One viewport-wide band that belongs to the same design as the hero under it.',
         footer: 'You are designing the site FOOTER template part. The brief wrote its design intent below — follow it as a section call follows its section brief. Link to pages ONLY through the footer items listed. Headings inside the footer are level 2, or styled paragraphs; never an h1. This part ends EVERY page: give it the same design attention as a section.',
+        rail: 'You are designing the site RAIL template part — a persistent side rail beside the content column (this bespoke theme\'s skeleton declares it, sized by the theme; never set your own width). Compact vertical furniture: brand echo or kicker, a short link list or contact block, small print. NO h1, no full-bleed bands, no core/navigation (the header owns the nav); one core/group root with a vertical stack inside. It rides EVERY page like the header and footer.',
+    };
+    // The rail is a COLUMN in a template slot the theme sizes — one root
+    // group with a declared vertical layout, never a full-bleed band (the
+    // band-root gate's align:full demand is stacked-band physics and would
+    // force the rail to fight its own pane).
+    const railShape = (tree) => {
+        const issues = [];
+        const root = (tree.blocks ?? [])[0];
+        if ((tree.blocks ?? []).length !== 1 || root?.name !== 'core/group') {
+            issues.push({ path: '/blocks', message: 'the rail is ONE root core/group carrying a declared layout' });
+            return issues;
+        }
+        if (root.attributes?.align === 'full' || root.attributes?.align === 'wide') {
+            issues.push({ path: '/blocks/0/attributes/align', message: 'the rail never declares align — the theme sizes its column; a full/wide band would fight its own pane' });
+        }
+        if (!root.attributes?.layout?.type) {
+            issues.push({ path: '/blocks/0/attributes/layout', message: 'the rail root declares its inner layout explicitly (usually {"type":"default"} or a vertical flex)' });
+        }
+        return issues;
     };
     const headerShape = (tree) => {
         const issues = [];
@@ -199,6 +234,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             language,
             palette: brief.palette,
             axis: { anchor: axis.anchor, argument: axis.argument },
+            skeleton,
             nav_items: brief.navigation.items,
             footer_intent: brief.footer.intent,
             footer_items: brief.footer.items,
@@ -217,8 +253,8 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                 validate: (v) => {
                     const issues = localTreeCheck(v, { epoch });
                     if (issues.length > 0) return issues;
-                    const band = screenBandRoot(v);
-                    if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
+                    const band = part === 'rail' ? railShape(v) : screenBandRoot(v);
+                    if (band.length > 0) return band.map((f) => ({ path: f.path ?? '/blocks', message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
                     const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
@@ -257,14 +293,14 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
     };
 
     const limiter = pLimit(ctx.config.concurrency);
-    ctx.log(`writing ${ctx.state.sections.length} sections + the header and footer parts, up to ${ctx.config.concurrency} at a time`);
+    const parts = skeleton === 'rail' ? ['header', 'footer', 'rail'] : ['header', 'footer'];
+    ctx.log(`writing ${ctx.state.sections.length} sections + the ${parts.join(', ')} parts, up to ${ctx.config.concurrency} at a time`);
     // settleAll, not Promise.all: a tool error in one lane is fatal to the
     // RUN, but the other lanes finish first — their artifacts and ledger
     // entries land, and no orphan outlives the run's dispose (the zombie bug).
     await settleAll([
         ...ctx.state.sections.map((s) => limiter(() => runSection(s))),
-        limiter(() => runFurniture('header')),
-        limiter(() => runFurniture('footer')),
+        ...parts.map((part) => limiter(() => runFurniture(part))),
     ]);
     const outcomes = Object.values(ctx.state.artifacts.trees);
     ctx.log(`sections written: ${outcomes.filter((o) => o.status === 'pass').length} of ${outcomes.length} passed validation`);

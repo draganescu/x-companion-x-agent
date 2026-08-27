@@ -119,6 +119,66 @@
               },
               "fontFamily": {
                 "type": "string"
+              },
+              "source": {
+                "type": "object",
+                "required": [
+                  "provider",
+                  "family",
+                  "weights"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "const": "google"
+                  },
+                  "family": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "weights": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 900
+                    }
+                  }
+                }
+              },
+              "fontFace": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "fontFamily",
+                    "fontStyle",
+                    "fontWeight",
+                    "src"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "fontFamily": {
+                      "type": "string"
+                    },
+                    "fontStyle": {
+                      "type": "string"
+                    },
+                    "fontWeight": {
+                      "type": "string"
+                    },
+                    "src": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
               }
             }
           }

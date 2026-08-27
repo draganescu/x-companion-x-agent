@@ -26,11 +26,14 @@ export function emitThemeJsonSettings(tokens) {
                     entry.fluid = s.fluid;
                 return entry;
             }),
-            fontFamilies: tokens.typography.families.map((f) => ({
-                slug: f.slug,
-                name: f.name,
-                fontFamily: f.fontFamily,
-            })),
+            fontFamilies: tokens.typography.families.map((f) => {
+                const entry = { slug: f.slug, name: f.name, fontFamily: f.fontFamily };
+                // `source` is an AGENT-side download instruction and never reaches
+                // theme.json; `fontFace` is the activation payload and does.
+                if (f.fontFace !== undefined)
+                    entry.fontFace = f.fontFace;
+                return entry;
+            }),
         },
         layout: {
             contentSize: tokens.layout.contentSize,

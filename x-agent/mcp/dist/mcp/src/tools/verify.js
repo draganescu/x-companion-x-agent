@@ -50,11 +50,13 @@ const OutputSchema = z.object({
             display: z.string(),
             gap: z.string(),
             fontSize: z.string(),
+            fontFamily: z.string(),
             color: z.string(),
             background: z.string(),
         }),
     })),
     a11y_outline: z.array(z.object({ role: z.string(), name: z.string(), level: z.number().optional() })),
+    fonts: z.array(z.object({ family: z.string(), style: z.string(), weight: z.string(), status: z.string() })),
     text_contrast: z
         .array(z.object({
         selector_path: z.string(),
@@ -153,6 +155,7 @@ export const wpVerify = defineTool({
             return {
                 box_tree: toBoxTree(extracted.nodes),
                 a11y_outline: extracted.a11y_outline,
+                fonts: extracted.fonts,
                 text_contrast: extracted.text_contrast,
                 images,
                 diffs,

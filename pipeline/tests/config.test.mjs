@@ -56,3 +56,26 @@ test('an invalid speed fails preflight naming task and the valid levels', () => 
     const ok = { ...fullTasks, brief: { provider: 'fake', model: 'fixtures', speed: 'fast' } };
     loadPipelineConfig(writeConfig('speed-ok.json', { tasks: ok }));
 });
+
+test('theme is an OPTIONAL task: absent loads fine, malformed fails naming task and field', async () => {
+    const { loadPipelineConfig, OPTIONAL_TASK_TYPES, TASK_TYPES } = await import('../lib/config.mjs');
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = mkdtempSync(join(tmpdir(), 'x-pipeline-config-'));
+
+    assert.deepEqual(OPTIONAL_TASK_TYPES, ['theme']);
+    const tasks = Object.fromEntries(TASK_TYPES.map((t) => [t, { provider: 'fake', model: 'm' }]));
+
+    const without = join(dir, 'without-theme.json');
+    writeFileSync(without, JSON.stringify({ tasks }));
+    assert.equal(loadPipelineConfig(without).tasks.theme, undefined);
+
+    const malformed = join(dir, 'malformed-theme.json');
+    writeFileSync(malformed, JSON.stringify({ tasks: { ...tasks, theme: { provider: 'fake' } } }));
+    assert.throws(() => loadPipelineConfig(malformed), (e) => e.code === 'preflight_failed' && /"theme".*"model"/.test(e.message));
+
+    const good = join(dir, 'with-theme.json');
+    writeFileSync(good, JSON.stringify({ tasks: { ...tasks, theme: { provider: 'fake', model: 'm', effort: 'high' } } }));
+    assert.equal(loadPipelineConfig(good).tasks.theme.effort, 'high');
+});

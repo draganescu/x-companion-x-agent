@@ -28,7 +28,7 @@ export function deriveThemeLayout(themeTokens) {
     return { contentSize: String(themeTokens?.layout?.contentSize ?? ''), wideSize: String(themeTokens?.layout?.wideSize ?? '') };
 }
 
-export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette }) {
+export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette, bespoke = false }) {
     const issues = validateSchema(contract, tokens);
     if (issues.length > 0) return issues; // contract first; the rest assumes shape
 
@@ -62,6 +62,29 @@ export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette 
                 path: '/palette',
                 message: `contrast ${bySlug.contrast} on base ${bySlug.base} reads at ${ratio.toFixed(2)}:1 — body text needs at least 4.5:1. "contrast" means the ink colour against the ground, not a high-contrast-looking dark; on a dark base it must be LIGHT`,
             });
+        }
+    }
+    // The bespoke ground wires body text and headings to the token family
+    // slugs 'body' and 'heading' (the base/contrast convention, typographic):
+    // a bespoke run whose tokens skip those slugs would render browser
+    // defaults and any sourced face would sit unloaded forever.
+    if (bespoke) {
+        const familySlugs = new Set((tokens.typography?.families ?? []).map((f) => f.slug));
+        for (const required of ['body', 'heading']) {
+            if (!familySlugs.has(required)) {
+                issues.push({ path: '/typography/families', message: `this is a BESPOKE-ground run: the theme wires ${required === 'body' ? 'body text' : 'headings'} to the family slug "${required}" — a family with that slug must exist (it may also carry a source)` });
+            }
+        }
+    }
+    // The font lane (theme-factory): a family MAY declare `source` (the agent
+    // downloads and installs it); `fontFace` is PIPELINE-CONSTRUCTED from the
+    // uploaded files and never the model's to write.
+    for (const [i, family] of (tokens.typography?.families ?? []).entries()) {
+        if (family.fontFace !== undefined) {
+            issues.push({ path: `/typography/families/${i}/fontFace`, message: 'fontFace is pipeline-owned — declare source: {provider:"google", family, weights} and the font lane constructs fontFace from the uploaded files' });
+        }
+        if (family.source && !family.fontFamily.toLowerCase().includes(family.source.family.toLowerCase().split(' ')[0])) {
+            issues.push({ path: `/typography/families/${i}/fontFamily`, message: `fontFamily must LEAD with the sourced family — "${family.source.family}" first, then the fallback stack (it is both the rendered promise and the fallback)` });
         }
     }
     return issues;

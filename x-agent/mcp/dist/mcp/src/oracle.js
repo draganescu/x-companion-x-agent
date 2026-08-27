@@ -221,6 +221,13 @@ export async function installEvalShims(page) {
 }
 export async function extractLayout(page, nameByClass) {
     await installEvalShims(page);
+    // Let webfonts settle before measuring: a @font-face still in flight would
+    // report status 'loading' and measure the fallback's metrics. Bounded, so a
+    // page with a broken face cannot stall the oracle.
+    await page.evaluate(() => {
+        const d = document;
+        return d.fonts?.ready ? Promise.race([d.fonts.ready, new Promise((r) => setTimeout(r, 3000))]) : null;
+    });
     return page.evaluate((lookup) => {
         /* ---------------------------------------------------------- utilities */
         const parsePx = (v) => {
@@ -350,6 +357,7 @@ export async function extractLayout(page, nameByClass) {
                     display: cs.display,
                     gap: cs.gap && cs.gap !== 'normal' ? cs.gap : cs.rowGap || 'normal',
                     fontSize: cs.fontSize,
+                    fontFamily: cs.fontFamily,
                     color: cs.color,
                     background: bgIsTransparent && cs.backgroundImage !== 'none' ? cs.backgroundImage : cs.backgroundColor,
                 },
@@ -505,11 +513,19 @@ export async function extractLayout(page, nameByClass) {
                 });
             }
         }
+        const fonts = [];
+        const fontSet = document.fonts;
+        if (fontSet && typeof fontSet.forEach === 'function') {
+            fontSet.forEach((f) => {
+                fonts.push({ family: String(f.family).replace(/^['"]|['"]$/g, ''), style: f.style, weight: f.weight, status: f.status });
+            });
+        }
         return {
             nodes,
             a11y_outline: outline,
             stats: { candidates, named, named_ratio: candidates === 0 ? 1 : named / candidates },
             text_contrast: textContrast,
+            fonts,
         };
     }, nameByClass);
 }

@@ -33,6 +33,9 @@ export interface ThemeJsonFontFamily {
   slug: string;
   name: string;
   fontFamily: string;
+  /** Font Library activation data (theme-factory font lane): rides into the
+   * user global styles so wp_print_font_faces emits @font-face for it. */
+  fontFace?: Array<{ fontFamily: string; fontStyle: string; fontWeight: string; src: string[] }>;
 }
 
 export interface ThemeJsonSettings {
@@ -76,11 +79,13 @@ export function emitThemeJsonSettings(tokens: DesignTokens): ThemeJsonSettings {
         if (s.fluid !== undefined) entry.fluid = s.fluid;
         return entry;
       }),
-      fontFamilies: tokens.typography.families.map((f) => ({
-        slug: f.slug,
-        name: f.name,
-        fontFamily: f.fontFamily,
-      })),
+      fontFamilies: tokens.typography.families.map((f) => {
+        const entry: ThemeJsonFontFamily = { slug: f.slug, name: f.name, fontFamily: f.fontFamily };
+        // `source` is an AGENT-side download instruction and never reaches
+        // theme.json; `fontFace` is the activation payload and does.
+        if (f.fontFace !== undefined) entry.fontFace = f.fontFace;
+        return entry;
+      }),
     },
     layout: {
       contentSize: tokens.layout.contentSize,

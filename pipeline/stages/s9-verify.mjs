@@ -1,7 +1,7 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenOutline, screenBandWidths, screenBandSeams, screenTextContrast } from '../lib/gates.mjs';
+import { screenOutline, screenBandWidths, screenBandSeams, screenFontFamilies, screenTextContrast } from '../lib/gates.mjs';
 
 export const id = 'S9_verify';
 export const kind = 'deterministic';
@@ -44,12 +44,31 @@ export async function run(ctx) {
     if (verify.pass === false) failures.push({ code: 'verify', message: 'wp_verify pass=false' });
     failures.push(...screenOutline(verify.a11y_outline));
     // The width audit: every top-level band — section roots and both template
-    // parts — spans the viewport, and header agrees with footer. This is the
-    // Layout Cascade measured in the rendered DOM, where a clamped band shows
-    // as a number no markup-level screen can produce.
-    failures.push(...screenBandWidths(verify.box_tree, { viewportWidth: verify.measured?.viewport?.width }));
-    // …and no daylight between them: the S3 seam reset holds, or the run fails.
-    failures.push(...screenBandSeams(verify.box_tree));
+    // parts — spans the pane the SKELETON assigns it (the full viewport under
+    // 'stacked' — today's audit byte for byte — its pane under 'split', the
+    // content column beside the rail under 'rail', the rail against its own
+    // declared width). This is the Layout Cascade measured in the rendered
+    // DOM, where a clamped band shows as a number no markup-level screen can
+    // produce.
+    const skeleton = ctx.state.theme?.skeleton ?? 'stacked';
+    failures.push(...screenBandWidths(verify.box_tree, {
+        viewportWidth: verify.measured?.viewport?.width,
+        skeleton,
+        ...(ctx.state.theme?.rail_width ? { railWidth: ctx.state.theme.rail_width } : {}),
+    }));
+    // …and no daylight between them: the S3 seam reset holds, or the run
+    // fails. Seams are seams in any skeleton; the CHAIN is the skeleton's.
+    failures.push(...screenBandSeams(verify.box_tree, { skeleton }));
+    // The rendered promise: every sourced family S3 installed must actually
+    // serve. tokens.json is the applied record; families with fontFace are the
+    // promises — a silent fallback to the stack fails the run (an uninstalled
+    // font is an unloaded image). Old run dirs without tokens.json audit
+    // nothing here.
+    let appliedFamilies = [];
+    try {
+        appliedFamilies = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8')).typography?.families ?? [];
+    } catch { /* a pre-tokens run dir */ }
+    failures.push(...screenFontFamilies(verify, appliedFamilies));
     // The measured ink audit: unreadable text (under 3:1 against its actual
     // ground) fails the run whatever layer painted it; the 3–4.5:1 band is
     // logged as advisory, not fatal.
