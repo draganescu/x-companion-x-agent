@@ -38,6 +38,7 @@
             "role": "primary"
         }
     ],
+    "surfaces": [],
     "pages": [
         {
             "slug": "home",

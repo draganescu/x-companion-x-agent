@@ -13,6 +13,7 @@
         "axis",
         "language",
         "palette",
+        "surfaces",
         "pages",
         "custom_blocks",
         "schema_packages",
@@ -140,6 +141,73 @@
                 }
             }
         },
+        "surfaces": {
+            "type": "array",
+            "maxItems": 4,
+            "description": "The surface dictionary: the site's few texture/decoration assets, fixed BEFORE section trees are authored. 2-4 entries for a textured site; EMPTY when the chosen style's texture cue says none — flatness honored is a feature outcome. One asset, many bands: reuse is what reads as a designed material system.",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "class",
+                    "prompt_seed",
+                    "intensity",
+                    "attach"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9-]+$"
+                    },
+                    "class": {
+                        "enum": [
+                            "field",
+                            "pattern",
+                            "frieze",
+                            "spot",
+                            "canvas"
+                        ],
+                        "description": "field: even non-repeating wash (skin). pattern: repeating motif, mirror-tiled seamless (skin). frieze: horizontal ornamental strip, repeat-x at an edge. spot: discrete ornament, chroma-keyed to alpha. canvas: the page-scale ground behind canvas bands."
+                    },
+                    "prompt_seed": {
+                        "type": "string",
+                        "minLength": 10,
+                        "description": "What the material IS — 'aged damask, thread-level detail', 'cracked celadon glaze'. The band hexes and the style line are appended mechanically; never restate them."
+                    },
+                    "intensity": {
+                        "enum": [
+                            "whisper",
+                            "present",
+                            "loud"
+                        ]
+                    },
+                    "attach": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9-]+/[a-z0-9-]+$"
+                        },
+                        "description": "page_slug/section_id refs the asset lands on. EMPTY only for class canvas (it is site-wide, behind every canvas band)."
+                    },
+                    "ground_baked": {
+                        "type": "boolean",
+                        "description": "Spot only: bake the band hex into a JPEG ground instead of chroma-keying to alpha. Legal ONLY on skin-less flat bands — the sequencing rule exists for this."
+                    },
+                    "position": {
+                        "type": "string",
+                        "description": "backgroundPosition for frieze/spot application, e.g. 'bottom' or 'top right'."
+                    },
+                    "edge": {
+                        "enum": [
+                            "top",
+                            "bottom"
+                        ],
+                        "description": "Frieze only: which edge of the band the strip rides."
+                    }
+                }
+            }
+        },
         "pages": {
             "type": "array",
             "minItems": 1,
@@ -193,7 +261,8 @@
                                         "contact",
                                         "content",
                                         "footer",
-                                        "section"
+                                        "section",
+                                        "divider"
                                     ]
                                 },
                                 "copy_notes": {
@@ -214,9 +283,10 @@
                                                 "base",
                                                 "surface",
                                                 "contrast",
-                                                "accent"
+                                                "accent",
+                                                "canvas"
                                             ],
-                                            "description": "The ground this section sits on. Bands alternate down the page; AT MOST ONE accent band per page \u2014 the one bright moment."
+                                            "description": "The ground this section sits on. Bands alternate down the page; AT MOST ONE accent band per page \u2014 the one bright moment. 'canvas' is a root group with NO backgroundColor sitting directly on the page canvas \u2014 legal only when surfaces[] declares a canvas asset."
                                         },
                                         "layout": {
                                             "enum": [
