@@ -205,6 +205,10 @@ X_RUNTIME_CORE_ONLY="$HARNESS_CORE_ONLY" \
 X_RUNTIME_CORE_PLUS_SUITE="$HARNESS_SUITE" \
 	run_suite "harness (core-only + core-plus-suite)" node --test x-companion/tests/harness.spec.ts
 
+# LAST on its instance by design: installing a theme switches the active theme,
+# and every earlier suite assumes the boot profile's theme.
+run_suite "themes/install (core-only)" php x-companion/tests/test-themes.php --runtime "$CORE_ONLY_RUNTIME"
+
 echo
 echo "${BOLD}========================================${RESET}"
 

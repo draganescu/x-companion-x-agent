@@ -11,6 +11,11 @@
     "decisions": [
         {
             "when": "2026-08-27",
+            "what": "The themes/install route's returned fingerprint is BEST EFFORT and says so: a theme's init-time contributions (block style variations from theme.json partials and friends) only register on the NEXT request, and no cache bust re-runs init — measured live as a deterministic one-request epoch drift. The authoritative epoch is the post-install manifest refresh wp_theme_install performs; the live suite asserts the steady-state epoch moved and is stable, never in-request exactness.",
+            "why": "The block installer could reregister() its ONE block in-request; a theme's init surface is unbounded, and simulating core's init would be a version-coupled lie. Two real cache bugs (WP_Theme cache serving a replaced copy's version; the per-theme global-styles resolver memo) were fixed on the way and are load-bearing."
+        },
+        {
+            "when": "2026-08-27",
             "what": "The bespoke theme owns flush bands structurally: S3's SEAM_RESET selectors ride into theme.json styles.css byte-for-byte, so root block-gap seams measure zero at the build gate while blockGap stays declared for inner layout rhythm. S3's stage-authored reset remains as belt.",
             "why": "The spec's physics line: 'blockGap (declared, owned — the seam-reset apparatus becomes belt, not load-bearing)'. Zeroing global blockGap instead would collapse rhythm inside every layout; leaving the root gap live would fail the build gate's 'root block-gap seams zero'."
         },
