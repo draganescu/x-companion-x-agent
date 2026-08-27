@@ -54,7 +54,7 @@ export async function run(ctx) {
     // ground) fails the run whatever layer painted it; the 3–4.5:1 band is
     // logged as advisory, not fatal.
     failures.push(...screenTextContrast(verify.text_contrast));
-    const muddy = (verify.text_contrast ?? []).filter((f) => f.ratio >= 3);
+    const muddy = (verify.text_contrast ?? []).filter((f) => f.ratio >= 3 && (f.font_px ?? 0) >= 18);
     if (muddy.length > 0) {
         ctx.log(`advisory: ${muddy.length} text element(s) read between 3:1 and 4.5:1 — legible but muddy (details in verify.json)`);
     }

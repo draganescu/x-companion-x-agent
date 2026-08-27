@@ -73,6 +73,7 @@ function surfaceChecks(brief, textures) {
     const issues = [];
     const surfaces = brief.surfaces ?? [];
     const sectionKeys = new Set((brief.pages ?? []).flatMap((p) => (p.sections ?? []).map((s) => `${p.slug}/${s.id}`)));
+    const roleByKey = new Map((brief.pages ?? []).flatMap((p) => (p.sections ?? []).map((s) => [`${p.slug}/${s.id}`, s.role])));
     const attachedBy = (predicate) => {
         const keys = new Set();
         for (const s of surfaces) {
@@ -98,6 +99,17 @@ function surfaceChecks(brief, textures) {
             for (const ref of s.attach ?? []) {
                 if (skinned.has(ref)) {
                     issues.push({ path: `/surfaces/${i}/ground_baked`, message: `spot "${s.id}" is ground-baked onto "${ref}", which carries a skin — ground-baked decor is only legal on skin-less flat bands; drop ground_baked (true-alpha spot) or attach it to an unskinned band` });
+                }
+            }
+        }
+        // A frieze is ornamental SEPARATION: it lives on dividers (and hero/cta
+        // edges), never behind a content band's copy — the Vienna strapline
+        // shipped small caps over the frieze and read as nothing at all.
+        if (s.class === 'frieze') {
+            for (const ref of s.attach ?? []) {
+                const role = roleByKey.get(ref);
+                if (role !== undefined && role !== 'divider' && role !== 'hero' && role !== 'cta') {
+                    issues.push({ path: `/surfaces/${i}/attach`, message: `frieze "${s.id}" attaches to "${ref}" (role ${role}) — a frieze is ornamental separation and lives on a divider band (or a hero/cta edge); declare a role "divider" section for it, or attach it there` });
                 }
             }
         }

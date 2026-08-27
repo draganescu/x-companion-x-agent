@@ -506,6 +506,7 @@ export async function extractLayout(page, nameByClass) {
                         },
                         color: cs.color,
                         sample: own.slice(0, 80),
+                        font_px: Math.round(parsePx(cs.fontSize)),
                     });
                 }
                 continue;
@@ -520,6 +521,7 @@ export async function extractLayout(page, nameByClass) {
                     color: cs.color,
                     background: `rgb(${ground[0]}, ${ground[1]}, ${ground[2]})`,
                     sample: own.slice(0, 80),
+                    font_px: Math.round(parsePx(cs.fontSize)),
                 });
             }
         }
@@ -653,6 +655,7 @@ export async function samplePendingGrounds(page, pending, cap = 40) {
                     color: node.color,
                     background: `sampled(${range.min}..${range.max})`,
                     sample: node.sample,
+                    ...(node.font_px !== undefined ? { font_px: node.font_px } : {}),
                     sampled: true,
                     ground_min: range.min,
                     ground_max: range.max,

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sectionGrammar, widthRecipe } from '../lib/grammar.mjs';
-import { screenTreeType, screenTreeWidths } from '../lib/gates.mjs';
+import { sectionGrammar, sizePxMap, widthRecipe } from '../lib/grammar.mjs';
+import { screenTreeType, screenTreeWidths, screenTreeKit, screenTreeAxis, screenTreeInk } from '../lib/gates.mjs';
 import { stripUnknownAttrs } from '../lib/normalize.mjs';
 
 const TYPOGRAPHY = {
@@ -73,6 +73,69 @@ test('screenTreeWidths: random narrow/wide alternation dies — none wide for st
     // …but a loud cover is the ground, and the recipe applies INSIDE it.
     const cover = { name: 'core/cover', attributes: { align: 'full', overlayColor: 'contrast', dimRatio: 80 }, innerBlocks: [plain, wideGroup] };
     assert.deepEqual(screenTreeWidths(band([cover]), { layout: 'grid' }), []);
+});
+
+test('screenTreeKit: glyph ornaments, typed leader dots, off-kit separators and divider copy all die', () => {
+    const fleuron = { name: 'core/paragraph', attributes: { content: '❧' } };
+    const leaders = { name: 'core/paragraph', attributes: { content: 'Souchong Impérial · · · · · € 9' } };
+    const straySep = { name: 'core/separator', attributes: { align: 'wide' } };
+    const kitSep = { name: 'core/separator', attributes: { align: 'center' } };
+    const prose = { name: 'core/paragraph', attributes: { content: 'Tea has been poured in this room since 1887.' } };
+
+    const failures = screenTreeKit(band([fleuron, leaders, straySep, kitSep, prose]), { role: 'content', separator: { align: 'center' } });
+    assert.equal(failures.filter((f) => f.code === 'ornament_glyph').length, 1);
+    assert.equal(failures.filter((f) => f.code === 'leader_dots').length, 1);
+    assert.equal(failures.filter((f) => f.code === 'separator_kit').length, 1);
+    assert.equal(failures.length, 3);
+
+    // A divider's only job is its skin: any copy at all is a violation.
+    const divider = screenTreeKit(band([prose]), { role: 'divider', separator: {} });
+    assert.equal(divider.filter((f) => f.code === 'divider_copy').length, 1);
+});
+
+test('screenTreeAxis: a section privately re-deciding the site axis dies; column cells own their alignment', () => {
+    const off = { name: 'core/heading', attributes: { level: 2, style: { typography: { textAlign: 'left' } } } };
+    const on = { name: 'core/heading', attributes: { level: 2, style: { typography: { textAlign: 'center' } } } };
+    const silent = { name: 'core/heading', attributes: { level: 2 } };
+    const priceCell = { name: 'core/columns', attributes: {}, innerBlocks: [{ name: 'core/column', attributes: {}, innerBlocks: [{ name: 'core/heading', attributes: { level: 3, style: { typography: { textAlign: 'right' } } } }] }] };
+
+    assert.equal(screenTreeAxis(band([off]), { anchor: 'center' }).length, 1);
+    assert.equal(screenTreeAxis(band([on]), { anchor: 'center' }).length, 0);
+    // Undeclared renders left: fatal on a centered axis, fine on a left one.
+    assert.equal(screenTreeAxis(band([silent]), { anchor: 'center' }).length, 1);
+    assert.equal(screenTreeAxis(band([silent]), { anchor: 'left' }).length, 0);
+    // Inside columns, cells align their own content (a right-aligned price).
+    assert.equal(screenTreeAxis(band([priceCell]), { anchor: 'center' }).length, 0);
+    // Kickers (uppercase + letterspaced) are held to the axis too.
+    const kicker = { name: 'core/paragraph', attributes: { content: 'THE TARIFF', style: { typography: { textTransform: 'uppercase', letterSpacing: '0.22em', textAlign: 'left' } } } };
+    assert.equal(screenTreeAxis(band([kicker]), { anchor: 'center' }).length, 1);
+});
+
+test('size-aware tree ink: 3.4:1 small caps fail, the same pair at display scale is only advisory', () => {
+    // #767E85 on #121619 measures ~3.63:1 — muddy display ink, unreadable body ink.
+    const PALETTE = [
+        { slug: 'ink', color: '#121619' },
+        { slug: 'steel', color: '#767E85' },
+    ];
+    const sizes = sizePxMap({ sizes: [{ slug: 'display', size: '4rem' }, { slug: 'folio', size: '0.75rem' }] });
+    const node = (fontSize) => band([{ name: 'core/paragraph', attributes: { content: 'Established 1887', textColor: 'steel', ...(fontSize ? { fontSize } : {}) } }]);
+    const bandOf = (tree) => { tree.blocks[0].attributes.backgroundColor = 'ink'; return tree; };
+
+    const small = screenTreeInk(bandOf(node('folio')), { palette: PALETTE, sizes });
+    assert.equal(small.failures.length, 1);
+    assert.match(small.failures[0].message, /4.5:1 floor for body-scale/);
+
+    const display = screenTreeInk(bandOf(node('display')), { palette: PALETTE, sizes });
+    assert.equal(display.failures.length, 0);
+    assert.equal(display.advisories.length, 1);
+
+    // Undeclared size renders at body scale: strict by default.
+    const undeclared = screenTreeInk(bandOf(node(null)), { palette: PALETTE, sizes });
+    assert.equal(undeclared.failures.length, 1);
+
+    // Legacy callers without a size map keep the flat 3:1 semantics.
+    const legacy = screenTreeInk(bandOf(node('folio')), { palette: PALETTE });
+    assert.equal(legacy.failures.length, 0);
 });
 
 test('stripUnknownAttrs: exactly the flagged attributes come off, nothing else — the footer textAlign bug', () => {

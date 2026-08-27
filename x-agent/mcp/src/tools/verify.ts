@@ -82,6 +82,7 @@ const OutputSchema = z.object({
         color: z.string(),
         background: z.string(),
         sample: z.string(),
+        font_px: z.number().optional(),
         sampled: z.boolean().optional(),
         ground_min: z.number().optional(),
         ground_max: z.number().optional(),

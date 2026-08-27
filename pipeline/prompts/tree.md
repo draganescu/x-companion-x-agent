@@ -105,6 +105,21 @@ tree ships, exactly like an off-menu ink): {{grammar}}
   container (the core/columns or grid core/group that carries the
   composition), everything else unaligned. align "full" on content children
   is never legal — full-bleed belongs to the band root (and a loud cover).
+- AXIS ALIGNMENT (enforced): every heading and every kicker carries
+  style.typography.textAlign set EXPLICITLY to grammar.axis_align. Columns
+  cells may align their own content (a right-aligned price is layout), but a
+  heading or kicker off the axis is one section privately re-deciding the
+  site — rejected.
+- ORNAMENT (enforced): decoration comes from the SURFACE system — never type
+  ornament characters (❧ ✦ ❀ …) into content, and never type leader dots
+  ("· · · ·"). Every core/separator on the site carries exactly
+  grammar.separator — one separator treatment, used site-wide or not at all.
+- PRICING ROWS: a priced item is ONE core/columns row — name and description
+  in the left column, the price alone in a narrow right column aligned right.
+  Never run name-dots-price into one wrapping line.
+- DISPLAY NUMERALS (phone numbers, prices as heroes): one core/paragraph, ONE
+  line — if it would wrap at the display size, use the next size down instead
+  of letting it break ragged.
 
 THE SURFACE DISCIPLINE: design.skinned tells you whether this band will wear a
 generated texture skin (applied mechanically at publish — you never reference

@@ -2,11 +2,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit, settleAll } from '../lib/limit.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity, screenTreeType, screenTreeWidths } from '../lib/gates.mjs';
-import { sectionGrammar } from '../lib/grammar.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity, screenTreeType, screenTreeWidths, screenTreeKit, screenTreeAxis } from '../lib/gates.mjs';
+import { sectionGrammar, sizePxMap } from '../lib/grammar.mjs';
 import { resolveBandColors, annotatePalette, resolveInkMenus, resolveInkMenusFromLuminance } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
-import { normalizeTreeBorders } from '../lib/normalize.mjs';
+import { normalizeTreeBorders, stripUnknownAttrs } from '../lib/normalize.mjs';
 import { sectionImageIntents } from '../budget.mjs';
 
 export const id = 'S4_sections';
@@ -66,6 +66,9 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
     // every call, derived from the applied type scale — the shared discipline
     // that makes independent section calls read as one site.
     const grammar = sectionGrammar(tokens.typography);
+    const sizes = sizePxMap(tokens.typography);
+    // One separator treatment for the whole site, aligned on the site axis.
+    const separatorKit = { ...(axis.anchor === 'center' ? { align: 'center' } : {}) };
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -140,7 +143,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             epoch,
             image_note: imageNote,
             heading_rule: headingRule,
-            grammar: grammar ?? { note: 'no parseable type scale — set heading sizes from token_slugs.font_sizes, largest for h1, consistently' },
+            grammar: { ...(grammar ?? { note: 'no parseable type scale — set heading sizes from token_slugs.font_sizes, largest for h1, consistently' }), separator: separatorKit, axis_align: sectionAnchor(section) },
         };
         let tree;
         try {
@@ -155,12 +158,16 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                     if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
-                    const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
+                    const ink = screenTreeInk(v, { palette: tokens.palette, sizes }).failures;
                     if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
                     const type = screenTreeType(v, { grammar });
                     if (type.length > 0) return type.map((f) => ({ path: f.path, message: f.message }));
                     const widths = screenTreeWidths(v, { layout: design.layout });
                     if (widths.length > 0) return widths.map((f) => ({ path: f.path ?? '/blocks/0', message: f.message }));
+                    const kit = screenTreeKit(v, { role: section.role, separator: separatorKit });
+                    if (kit.length > 0) return kit.map((f) => ({ path: f.path, message: f.message }));
+                    const axisIssues = screenTreeAxis(v, { anchor: sectionAnchor(section) });
+                    if (axisIssues.length > 0) return axisIssues.map((f) => ({ path: f.path, message: f.message }));
                     return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
                 },
             }));
@@ -195,7 +202,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
         screen.status = screen.failures.length === 0 ? 'pass' : 'fail';
         // Muddy-but-legal pairs (3–4.5:1) ride into the record like S5's style
         // advisories: visible in the report, never fatal (S9 mirrors this).
-        const inkAdvisories = screenTreeInk(tree, { palette: tokens.palette }).advisories;
+        const inkAdvisories = screenTreeInk(tree, { palette: tokens.palette, sizes }).advisories;
         if (inkAdvisories.length > 0) {
             ctx.log(`section ${s.key}: ${inkAdvisories.length} ink pair(s) between 3:1 and 4.5:1 — legible but muddy, kept as advisory`);
         }
@@ -265,7 +272,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                     if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
-                    const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
+                    const ink = screenTreeInk(v, { palette: tokens.palette, sizes }).failures;
                     if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
                     return part === 'header' ? headerShape(v) : [];
                 },
@@ -277,11 +284,26 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             return;
         }
         normalizeTreeBorders(tree);
-        const res = await ctx.call('wp_validate', tree);
+        let res = await ctx.call('wp_validate', tree);
         if (!res.ok) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for the ${part} part: ${res.data.message}`, res.data.hint ?? '');
         }
-        const screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+        let screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+        // One deterministic rescue before the floor (the Vienna footer bug:
+        // BOTH parts died on a stray textAlign): when every failure is an
+        // unknown attribute, strip exactly those and re-gate whole.
+        if (screen.failures.length > 0 && screen.failures.every((f) => f.code === 'W_ATTR_UNKNOWN')) {
+            const removed = stripUnknownAttrs(tree, res.data.diagnostics ?? []);
+            if (removed.length > 0) {
+                res = await ctx.call('wp_validate', tree);
+                if (res.ok) {
+                    screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+                    if (screen.failures.length === 0) {
+                        ctx.log(`${part} template part: stripped ${removed.length} unknown attribute(s) (${removed.join(', ')}) — the designed ${part} ships without them`);
+                    }
+                }
+            }
+        }
         // The same compile-parity gate the sections pass: a footer quote with
         // its text in a dead sourced attribute must degrade to the
         // deterministic floor, never ship an empty blockquote on every page.

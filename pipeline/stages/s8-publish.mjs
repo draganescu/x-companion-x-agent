@@ -280,6 +280,39 @@ export async function run(ctx) {
         if (headerShipped) ctx.log('header template part shipped from the design lane, nav links injected');
         else ctx.log('designed header could not ship — keeping the theme header and the nav post');
     }
+    // The header FLOOR is a band too (the field bug: theme-default header over
+    // a designed footer floor read as two different sites). Site title + nav
+    // on the base ground, same discipline as the footer floor below; the nav
+    // post stays the ultra-floor when this theme has no header part at all.
+    if (!headerShipped && navLinks.length > 0) {
+        const headerPair = appliedPalette.length > 0 ? resolveBandColors('base', brief.palette, appliedPalette) : null;
+        const headerPad = appliedSpacing[Math.max(0, appliedSpacing.length - 3)]?.slug;
+        const headerFloor = {
+            version: 1,
+            epoch,
+            blocks: [{
+                name: 'core/group',
+                attributes: {
+                    align: 'full',
+                    layout: { type: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' },
+                    ...(headerPair ? { backgroundColor: headerPair.background, textColor: headerPair.text } : {}),
+                    style: { spacing: { padding: {
+                        top: `var:preset|spacing|${headerPad ?? '40'}`,
+                        bottom: `var:preset|spacing|${headerPad ?? '40'}`,
+                    } } },
+                },
+                innerBlocks: [
+                    { name: 'core/site-title', attributes: {}, innerBlocks: [] },
+                    { name: 'core/navigation', attributes: {}, innerBlocks: navLinks },
+                ],
+            }],
+        };
+        const headerCompiled = await ctx.call('wp_compile', headerFloor);
+        if (headerCompiled.ok && headerCompiled.data.all_valid === true) {
+            headerShipped = await writePart('header', headerCompiled.data.markup);
+            if (headerShipped) ctx.log('header floor shipped as a band — site title + navigation on the base ground');
+        }
+    }
     if (!headerShipped && navLinks.length > 0) {
         const navTree = { version: 1, epoch, blocks: [{ name: 'core/navigation', attributes: {}, innerBlocks: navLinks }] };
         await toolOrThrow(ctx, 'wp_validate', navTree, 'wp_validate navigation');

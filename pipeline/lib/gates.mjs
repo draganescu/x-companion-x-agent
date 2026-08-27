@@ -398,15 +398,32 @@ function walkInk(tree, palette, visit) {
 
 const INK_HARD_FLOOR = 3;
 const INK_SAFE = 4.5;
+// Under this rendered size, the 3:1 display floor is a lie: small letterspaced
+// caps at 3.4:1 are unreadable (the Vienna strapline bug). WCAG's own line.
+const SMALL_TEXT_PX = 18;
 
-export function screenTreeInk(tree, { palette } = {}) {
+// The size-aware floor: display-scale text may spend the 3:1 menu; anything
+// smaller — including text with NO declared size, which renders at body scale —
+// must clear 4.5:1. sizes (slug -> px, from grammar.sizePxMap) is optional so
+// legacy callers keep the flat 3:1 semantics; the pipeline always passes it.
+const floorFor = (node, sizes) => {
+    if (!sizes) return INK_HARD_FLOOR;
+    const px = sizes.get(node?.attributes?.fontSize);
+    return (px ?? 0) >= SMALL_TEXT_PX ? INK_HARD_FLOOR : INK_SAFE;
+};
+
+export function screenTreeInk(tree, { palette, sizes } = {}) {
     const failures = [];
     const advisories = [];
     if (!Array.isArray(palette) || palette.length === 0) return { failures, advisories };
-    walkInk(tree, palette, ({ path, bg, ink, ratio }) => {
+    walkInk(tree, palette, ({ node, path, bg, ink, ratio }) => {
         const r = Math.round(ratio * 100) / 100;
-        if (ratio < INK_HARD_FLOOR) {
-            failures.push({ code: 'ink_contrast', path, message: `textColor "${ink}" reads ${r}:1 on its actual ground "${bg}" — under the 3:1 floor; spend a slug from this band's safe ink menu, or move the element to a band this colour clears` });
+        const floor = floorFor(node, sizes);
+        if (ratio < floor) {
+            const why = floor === INK_SAFE
+                ? `under the 4.5:1 floor for body-scale text (only display sizes may spend the 3:1 menu)`
+                : `under the 3:1 floor`;
+            failures.push({ code: 'ink_contrast', path, message: `textColor "${ink}" reads ${r}:1 on its actual ground "${bg}" — ${why}; spend a slug from this band's safe ink menu, or move the element to a band this colour clears` });
         } else if (ratio < INK_SAFE) {
             advisories.push({ path, message: `textColor "${ink}" reads ${r}:1 on "${bg}" — legible but muddy; display-scale text only` });
         }
@@ -422,7 +439,7 @@ export function screenTreeInk(tree, { palette } = {}) {
 // stock pattern. Inherited inks are left alone (they are the measured band
 // pair's business); mutation is in place, pre-order, so descendants inherit
 // the corrected colour.
-export function substituteInk(tree, palette) {
+export function substituteInk(tree, palette, { sizes } = {}) {
     const bySlug = new Map(palette.map((p) => [p.slug, p.color]));
     const rgb = (hex) => {
         const h = hex.replace('#', '');
@@ -432,7 +449,7 @@ export function substituteInk(tree, palette) {
     const dist = (a, b) => rgb(a).reduce((s, v, i) => s + (v - rgb(b)[i]) ** 2, 0);
     const changes = [];
     walkInk(tree, palette, ({ node, path, bg, ink, ratio }) => {
-        if (ratio >= INK_HARD_FLOOR) return;
+        if (ratio >= floorFor(node, sizes)) return;
         if (node.attributes?.textColor === undefined) return;
         const bgHex = bySlug.get(bg);
         const rated = palette.filter((p) => p.slug !== bg)
@@ -449,10 +466,85 @@ export function substituteInk(tree, palette) {
 
 const INK_FLOOR = 3;
 
+// Size-aware, like the tree-time screen: measured small text (or text whose
+// rendered size the oracle did not report — treat as small) must clear 4.5:1;
+// only display-scale text may ride the 3–4.5 band as advisory.
 export function screenTextContrast(findings) {
     return (findings ?? [])
-        .filter((f) => f.ratio < INK_FLOOR)
-        .map((f) => ({ code: 'ink_contrast', message: `unreadable text (${f.ratio}:1, ${f.color} on ${f.background}): "${f.sample}" at ${f.selector_path}` }));
+        .filter((f) => f.ratio < INK_FLOOR || ((f.font_px ?? 0) < 18 && f.ratio < 4.5))
+        .map((f) => ({ code: 'ink_contrast', message: `unreadable text (${f.ratio}:1${(f.font_px ?? 0) > 0 ? ` at ${f.font_px}px` : ''}, ${f.color} on ${f.background}): "${f.sample}" at ${f.selector_path}` }));
+}
+
+// The section KIT: the shared vocabulary that makes independently-written
+// sections read as one site. Ornament comes from the SURFACE system — never
+// from stray glyph characters; dotted leaders are layout, not characters; and
+// every core/separator on the site carries the same treatment. role
+// "divider" bands are pure separation and carry no copy at all.
+export function screenTreeKit(tree, { role, separator } = {}) {
+    const failures = [];
+    const glyphRun = /[☙❦❧✻✦✧✼✽✾✿❀❁❃❋❖❑◆◇★☆♦⁂]/u;
+    const leaderDots = /(?:[·.]\s+){3,}[·.]/;
+    const walk = (nodes, prefix) => {
+        (nodes ?? []).forEach((node, i) => {
+            const path = `${prefix}/${i}`;
+            const raw = typeof node.attributes?.content === 'string' ? node.attributes.content : '';
+            const text = raw.replace(/<[^>]*>/g, '').trim();
+            if (text) {
+                const bare = text.replace(/[\s·. ]/g, '');
+                if (bare.length > 0 && bare.length <= 3 && glyphRun.test(bare)) {
+                    failures.push({ code: 'ornament_glyph', path, message: `a bare ornament glyph ("${text.slice(0, 12)}") at ${path} — decoration comes from the surface dictionary (friezes, spots, dividers), never from typed characters; remove the node` });
+                }
+                if (leaderDots.test(text)) {
+                    failures.push({ code: 'leader_dots', path, message: `typed leader dots at ${path} — dotted leaders are layout, not characters; use the pricing recipe (a two-column row: item left, price right)` });
+                }
+                if (role === 'divider') {
+                    failures.push({ code: 'divider_copy', path, message: `a divider band carries no copy — its only job is its skin; move "${text.slice(0, 40)}" to a neighbouring section` });
+                }
+            }
+            if (node.name === 'core/separator' && separator) {
+                const a = node.attributes ?? {};
+                const wantAlign = separator.align ?? undefined;
+                if (a.align !== wantAlign || (a.className ?? undefined) !== (separator.className ?? undefined)) {
+                    failures.push({ code: 'separator_kit', path, message: `core/separator at ${path} strays from the site's one separator treatment (${JSON.stringify(separator)}) — every separator on the site is the same separator` });
+                }
+            }
+            walk(node.innerBlocks, `${path}/innerBlocks`);
+        });
+    };
+    walk(tree?.blocks ?? [], '/blocks');
+    return failures;
+}
+
+// The axis, enforced instead of hoped: headings and kicker-styled paragraphs
+// (uppercase + letterspaced) must declare their alignment and it must be the
+// section's effective anchor — the "neither centered nor left" drift is one
+// section privately re-deciding the site axis.
+export function screenTreeAxis(tree, { anchor } = {}) {
+    if (anchor !== 'left' && anchor !== 'center') return [];
+    const failures = [];
+    const walk = (nodes, prefix, insideColumns) => {
+        (nodes ?? []).forEach((node, i) => {
+            const path = `${prefix}/${i}`;
+            const a = node.attributes ?? {};
+            const typo = a.style?.typography ?? {};
+            const declared = typo.textAlign ?? a.textAlign;
+            const isKicker = node.name === 'core/paragraph' && typo.textTransform === 'uppercase' && typo.letterSpacing !== undefined;
+            // Inside a columns composition, cells own their local alignment
+            // (a right-aligned price cell is layout, not an axis break).
+            if (!insideColumns && (node.name === 'core/heading' || isKicker)) {
+                // No declaration renders at the theme default (left): fine on a
+                // left axis, a silent drift on a centered one.
+                if (declared === undefined && anchor === 'center') {
+                    failures.push({ code: 'axis', path, message: `${node.name === 'core/heading' ? 'heading' : 'kicker'} at ${path} declares no textAlign — the site axis is "center"; set style.typography.textAlign to "center" explicitly (undeclared renders left)` });
+                } else if (declared !== undefined && declared !== anchor) {
+                    failures.push({ code: 'axis', path, message: `${node.name === 'core/heading' ? 'heading' : 'kicker'} at ${path} is aligned "${declared}" against the section's "${anchor}" anchor — the axis is one site-wide decision; align it "${anchor}"` });
+                }
+            }
+            walk(node.innerBlocks, `${path}/innerBlocks`, insideColumns || node.name === 'core/columns');
+        });
+    };
+    walk(tree?.blocks ?? [], '/blocks', false);
+    return failures;
 }
 
 // S4: the type-scale screen — the ink-menu pattern applied to type. Every

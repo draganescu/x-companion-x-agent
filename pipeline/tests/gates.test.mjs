@@ -242,13 +242,18 @@ test('screenBlockCss: a bare-root repaint fails; element-level colour moments an
     assert.deepEqual(screenBlockCss({ files: { 'render.php': '.x{color:#fff}' } }), []);
 });
 
-test('screenTextContrast: unreadable fails, muddy passes to advisory, empty is clean', () => {
-    const invisible = { selector_path: 'p:nth-child(1)', ratio: 1, color: 'rgb(21, 25, 29)', background: 'rgb(21, 25, 29)', sample: 'NIGHT DISPATCH' };
-    const muddy = { selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours' };
-    const failures = screenTextContrast([invisible, muddy]);
-    assert.equal(failures.length, 1);
+test('screenTextContrast: size-aware — unreadable fails, muddy is advisory ONLY at display scale', () => {
+    const invisible = { selector_path: 'p:nth-child(1)', ratio: 1, color: 'rgb(21, 25, 29)', background: 'rgb(21, 25, 29)', sample: 'NIGHT DISPATCH', font_px: 40 };
+    const muddyDisplay = { selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours', font_px: 40 };
+    const muddySmall = { selector_path: 'p:nth-child(3)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Established 1887', font_px: 12 };
+    const failures = screenTextContrast([invisible, muddyDisplay, muddySmall]);
+    assert.equal(failures.length, 2);
     assert.match(failures[0].message, /1:1.*NIGHT DISPATCH/);
-    assert.deepEqual(screenTextContrast([muddy]), []);
+    // The Vienna strapline bug: 3.63:1 letterspaced caps at 12px is NOT legible.
+    assert.match(failures[1].message, /12px.*Established 1887/);
+    assert.deepEqual(screenTextContrast([muddyDisplay]), []);
+    // No measured size = treated as small: the strict reading is the default.
+    assert.equal(screenTextContrast([{ ...muddySmall, font_px: undefined }]).length, 1);
     assert.deepEqual(screenTextContrast(undefined), []);
 });
 

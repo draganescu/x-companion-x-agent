@@ -309,6 +309,8 @@ export interface TextContrastNode {
   color: string;
   background: string;
   sample: string;
+  /** Rendered font size in px — the caller's floor is size-aware (small text needs 4.5:1). */
+  font_px?: number;
   /** true when the ground was rated from rendered pixels (text over imagery). */
   sampled?: boolean;
   ground_min?: number;
@@ -322,6 +324,7 @@ export interface PendingGround {
   box: { x: number; y: number; w: number; h: number };
   color: string;
   sample: string;
+  font_px?: number;
 }
 
 export interface ExtractResult {
@@ -572,8 +575,8 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
       const lo = Math.min(la, lb);
       return (hi + 0.05) / (lo + 0.05);
     };
-    const textContrast: { selector_path: string; ratio: number; color: string; background: string; sample: string }[] = [];
-    const pendingGrounds: { selector_path: string; box: { x: number; y: number; w: number; h: number }; color: string; sample: string }[] = [];
+    const textContrast: { selector_path: string; ratio: number; color: string; background: string; sample: string; font_px: number }[] = [];
+    const pendingGrounds: { selector_path: string; box: { x: number; y: number; w: number; h: number }; color: string; sample: string; font_px: number }[] = [];
     for (const el of Array.from(document.querySelectorAll('body *'))) {
       if (textContrast.length >= 100) break;
       const own = Array.from(el.childNodes)
@@ -615,6 +618,7 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
             },
             color: cs.color,
             sample: own.slice(0, 80),
+            font_px: Math.round(parsePx(cs.fontSize)),
           });
         }
         continue;
@@ -628,6 +632,7 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
           color: cs.color,
           background: `rgb(${ground[0]}, ${ground[1]}, ${ground[2]})`,
           sample: own.slice(0, 80),
+          font_px: Math.round(parsePx(cs.fontSize)),
         });
       }
     }
@@ -756,6 +761,7 @@ export async function samplePendingGrounds(page: Page, pending: PendingGround[],
           color: node.color,
           background: `sampled(${range.min}..${range.max})`,
           sample: node.sample,
+          ...(node.font_px !== undefined ? { font_px: node.font_px } : {}),
           sampled: true,
           ground_min: range.min,
           ground_max: range.max,

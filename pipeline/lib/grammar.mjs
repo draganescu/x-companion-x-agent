@@ -39,6 +39,18 @@ export function sectionGrammar(typography) {
     };
 }
 
+/** slug -> rendered px for the applied scale — the ink gates use this to hold
+ *  SMALL text to the 4.5:1 floor (a 3.4:1 letterspaced caps line is "legal"
+ *  display ink and completely unreadable at 12px — the Vienna strapline bug). */
+export function sizePxMap(typography) {
+    const map = new Map();
+    for (const s of typography?.sizes ?? []) {
+        const px = sizeToPx(s);
+        if (typeof s.slug === 'string' && Number.isFinite(px)) map.set(s.slug, px);
+    }
+    return map;
+}
+
 /** The width recipe per brief layout value: which align a section's content
  *  containers may carry. stack reads at content width; the composed layouts
  *  get EXACTLY ONE alignwide container. Full-bleed belongs to the band root

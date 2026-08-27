@@ -112,9 +112,10 @@ test('S8: sequential installs, final epoch stamped, publish + nav + footer + met
     assert.ok(restLog.some(([m, r, o]) => m === 'POST' && r === '/wp/v2/settings' && o.body.page_on_front === 8));
     assert.ok(restLog.some(([m, r]) => m === 'DELETE' && r === '/wp/v2/pages/2'));
 
-    // nav wrapper stripped by LINE slice: only the inner line posted
-    const navPost = restLog.find(([m, r]) => m === 'POST' && r === '/wp/v2/navigation/9');
-    assert.equal(navPost[2].body.content, '<!-- wp:navigation-link /-->');
+    // The header floor ships as a BAND part (site title + nav links inline);
+    // the nav post is now the ultra-floor for themes with no header part.
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//header')}`));
+    assert.ok(!restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
 
     // footer part replaced
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/template-parts/')));
@@ -417,7 +418,7 @@ test('S9: measured unreadable text fails the run; muddy text is advisory only', 
     await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /unreadable text/.test(e.message));
 
     // 3–4.5:1 is muddy, not fatal: the run completes and says so
-    const muddy = mk([{ selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours' }]);
+    const muddy = mk([{ selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours', font_px: 40 }]);
     await s9.run(muddy);
     assert.ok(muddy.logs.some((l) => /advisory: 1 text element/.test(l)));
 });
@@ -713,14 +714,19 @@ test('S8 furniture path: designed header ships with injected nav links, nav post
     assert.equal(ctx.state.published.header_part, 'theme//header');
 });
 
-test('S8 furniture fallback: failed parts degrade to the nav post and the deterministic footer', async () => {
+test('S8 furniture fallback: failed parts degrade to STYLED floors — a band header and a band footer', async () => {
     const restLog = [];
     const toolLog = [];
     const ctx = makeCtx({ restLog, toolLog });
     ctx.state.artifacts.furniture = { header: { status: 'fail' }, footer: { status: 'fail' } };
     await s8.run(ctx);
-    // exactly the pre-furniture behavior: nav post written, hardcoded footer compiled
-    assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
+    // Both floors ship as template-part bands from the same design system —
+    // never a theme-default header over a designed footer.
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//header')}`));
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//footer')}`));
-    assert.ok(!restLog.some(([m, r]) => r.includes('theme%2F%2Fheader')), 'theme header untouched');
+    // The header floor tree that compiled is a full band: site-title + nav with links.
+    const headerCompile = toolLog.find(([n, t]) => n === 'wp_compile' && JSON.stringify(t).includes('core/site-title') && JSON.stringify(t).includes('core/navigation'));
+    assert.ok(headerCompile, 'the header floor is a band carrying site-title + navigation');
+    assert.equal(headerCompile[1].blocks[0].attributes.align, 'full');
+    assert.ok(!restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')), 'nav post is the ultra-floor only');
 });

@@ -44,8 +44,18 @@ const FURNITURE_TREES = {
 function treeFor(label, extra = {}) {
     // Grammar-compliant model output: explicit level + the mapped fontSize
     // (the test scale has one size, so every level maps to 'display'), and
-    // grid sections carry their EXACTLY ONE alignwide container.
-    const heading = { name: 'core/heading', attributes: { content: label, level: 2, fontSize: 'display' } };
+    // grid sections carry their EXACTLY ONE alignwide container. The signup
+    // section breaks the axis (fixture axis_break), so its heading declares
+    // the flipped anchor the axis gate demands.
+    const heading = {
+        name: 'core/heading',
+        attributes: {
+            content: label,
+            level: 2,
+            fontSize: 'display',
+            ...(label.includes('signup') ? { style: { typography: { textAlign: 'center' } } } : {}),
+        },
+    };
     const inner = label.includes('what-we-bake')
         ? [{ name: 'core/group', attributes: { align: 'wide' }, innerBlocks: [heading] }]
         : [heading];

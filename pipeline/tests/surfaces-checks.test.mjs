@@ -14,6 +14,7 @@ function withSurfaces(surfaces, mutate = () => {}) {
 }
 
 const FIELD = { id: 'linen-wash', class: 'field', prompt_seed: 'Woven linen texture, warm cream', intensity: 'whisper', attach: ['home/hero'] };
+const FRIEZE = { id: 'gilt-frieze', class: 'frieze', prompt_seed: 'Engraved gilt border strip', intensity: 'present', edge: 'bottom', attach: ['home/hero'] };
 const CANVAS = { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture, near white', intensity: 'whisper', attach: [] };
 
 test('a clean dictionary and a clean empty dictionary are both silent', () => {
@@ -108,6 +109,19 @@ test('text-heavy bands accept only whisper skins — louder material belongs to 
         { ...FIELD, intensity: 'present', attach: ['home/hero'] },
     ]);
     assert.deepEqual(crossChecks(presentOnHero).filter((i) => /whisper skin/.test(i.message)), []);
+});
+
+test('a frieze is ornamental separation — it lives on dividers and hero/cta edges, never behind content copy', () => {
+    const onContent = withSurfaces([{ ...FRIEZE, attach: ['home/what-we-bake'] }]);
+    assert.ok(crossChecks(onContent).some((i) => /ornamental separation and lives on a divider/.test(i.message)));
+
+    const onHero = withSurfaces([{ ...FRIEZE, attach: ['home/hero'] }]);
+    assert.deepEqual(crossChecks(onHero).filter((i) => /ornamental separation/.test(i.message)), []);
+
+    const onDivider = withSurfaces([{ ...FRIEZE, attach: ['home/what-we-bake'] }], (b) => {
+        b.pages[0].sections[1].role = 'divider';
+    });
+    assert.deepEqual(crossChecks(onDivider).filter((i) => /ornamental separation/.test(i.message)), []);
 });
 
 test('texture cue helpers: roster lookup and none detection', () => {
