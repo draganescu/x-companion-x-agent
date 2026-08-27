@@ -229,6 +229,20 @@ export async function startMockCompanion(opts: MockCompanionOptions = {}): Promi
         ctx,
       );
     }
+    if (method === 'POST' && route === '/themes/install') {
+      state.fingerprint = bump(state.fingerprint);
+      return sendJson(
+        res,
+        200,
+        {
+          installed: { slug: 'salon-regale', name: 'Salon Regale Theme', version: '1.0.0' },
+          fingerprint: state.fingerprint,
+          replaced_previous: false,
+          previous_theme: 'twentytwentyfive',
+        },
+        ctx,
+      );
+    }
     if (method === 'GET' && route === '/blocks/library') {
       return sendJson(
         res,
@@ -407,6 +421,7 @@ export async function startMockCompanion(opts: MockCompanionOptions = {}): Promi
       site_url: baseUrl(),
       posture: state.posture,
       interfaces_version: INTERFACES_VERSION,
+      theme: { slug: 'twentytwentyfive', name: 'Twenty Twenty-Five', version: '1.0' },
       blocks: Object.fromEntries(names.map((n) => [n, blocks[n]!])),
       patterns: MOCK_PATTERNS.map((p) => ({
         name: p.name,

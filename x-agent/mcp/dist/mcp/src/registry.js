@@ -78,6 +78,7 @@ import { tools as schemaBuildTestTools } from './tools/schemaBuildTest.js';
 import { tools as schemaInstallTools } from './tools/schemaInstall.js';
 import { tools as themeScaffoldTools } from './tools/themeScaffold.js';
 import { tools as themeBuildTestTools } from './tools/themeBuildTest.js';
+import { tools as themeInstallTools } from './tools/themeInstall.js';
 import { tools as imagesTools } from './tools/images.js';
 /* -------------------------- externally implemented (session/oracle/factory) */
 const ConnArgs = {
@@ -276,6 +277,7 @@ export const TOOLS = [
     ...schemaInstallTools,
     ...themeScaffoldTools,
     ...themeBuildTestTools,
+    ...themeInstallTools,
     ...imagesTools,
     ...EXTERNAL_TOOLS.map(placeholder),
 ];

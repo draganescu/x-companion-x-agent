@@ -7,7 +7,7 @@
  * ever surface where the ThemeSpec legitimately carries it (style.css and
  * theme.json), never in a template, part, or PHP file.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +27,11 @@ import {
   type ThemeSpec,
 } from '../mcp/src/themeFactory.js';
 import { loadAdmZip } from '../mcp/src/factory.js';
+import { startMockCompanion, type MockCompanion } from './mock-companion/index.js';
+import { Runtime } from '../mcp/src/context.js';
+import { callTool } from '../mcp/src/server.js';
+import { loadExternalHandlers } from '../mcp/src/registry.js';
+import { clearSecrets } from '../mcp/src/errors.js';
 import { isXError, type XError } from '../mcp/src/errors.js';
 
 let WS: string;
@@ -277,6 +282,87 @@ describe('the sandbox runner and probes', () => {
     expect(php).toContain('get_allowed_block_template_part_areas');
     expect(php).toContain("'rail'");
     expect(themeProbePhp('salon-regale', false)).not.toContain("'rail'");
+  });
+});
+
+describe('wp_theme_install through the real MCP call path, against the mock companion', () => {
+  let mock: MockCompanion;
+  let runtime: Runtime;
+  let cwd: string;
+
+  beforeAll(async () => {
+    await loadExternalHandlers();
+  });
+
+  const USER = 'agent';
+  const PW = 'aaaa bbbb cccc dddd eeee ffff';
+  const FP_A = 'a'.repeat(64);
+
+  const startAgainst = async (posture: 'toolchain' | 'production'): Promise<void> => {
+    mock = await startMockCompanion({ fingerprint: FP_A, user: USER, password: PW, posture });
+    cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'x-agent-theme-tool-'));
+    runtime = new Runtime({ cwd, env: { X_WP_URL: mock.url, X_WP_USER: USER, X_WP_APP_PASSWORD: PW } });
+  };
+
+  afterEach(async () => {
+    await runtime.disconnect();
+    await mock.close();
+    fs.rmSync(cwd, { recursive: true, force: true });
+    clearSecrets();
+  });
+
+  const call = async (name: string, args: unknown = {}): Promise<{ ok: boolean; data: any }> => {
+    const res = await callTool(name, args, runtime);
+    return { ok: !res.isError, data: JSON.parse(res.content[0]!.text) };
+  };
+
+  it('installs a valid zip, refreshes the manifest, and returns the steady-state epoch', async () => {
+    await startAgainst('toolchain');
+    const r = scaffoldTheme(spec(), { dir: path.join(WS, 'tool-install'), force: true });
+    const zip = packageTheme(r.dir, path.join(WS, 'tool-install.zip'));
+
+    const out = await call('wp_theme_install', { zip_path: zip });
+    expect(out.ok, JSON.stringify(out.data)).toBe(true);
+    expect(out.data.installed.slug).toBe('salon-regale');
+    expect(out.data.fingerprint).not.toBe(FP_A);
+    expect(out.data.manifest_refreshed).toBe(true);
+    expect(out.data.previous_fingerprint).toBe(FP_A);
+    expect(out.data.previous_theme).toBe('twentytwentyfive');
+  });
+
+  it('refuses on production posture before sending anything', async () => {
+    await startAgainst('production');
+    const r = scaffoldTheme(spec(), { dir: path.join(WS, 'tool-posture'), force: true });
+    const zip = packageTheme(r.dir, path.join(WS, 'tool-posture.zip'));
+
+    const before = mock.countHits('/themes/install');
+    const out = await call('wp_theme_install', { zip_path: zip });
+    expect(out.ok).toBe(false);
+    expect(out.data.code).toBe('posture_forbidden');
+    expect(mock.countHits('/themes/install')).toBe(before);
+  });
+
+  it('refuses a policy-violating zip locally with named reasons', async () => {
+    await startAgainst('toolchain');
+    const Zip = loadAdmZip();
+    const bad = new Zip();
+    bad.addFile('salon-regale/style.css', Buffer.from('/*\nTheme Name: X\n*/\n'));
+    const badPath = path.join(WS, 'tool-bad.zip');
+    bad.writeZip(badPath);
+
+    const before = mock.countHits('/themes/install');
+    const out = await call('wp_theme_install', { zip_path: badPath });
+    expect(out.ok).toBe(false);
+    expect(out.data.code).toBe('invalid_input');
+    expect(String(out.data.message)).toContain('templates/index.html');
+    expect(mock.countHits('/themes/install')).toBe(before);
+  });
+
+  it('wp_manifest carries the active theme identity', async () => {
+    await startAgainst('toolchain');
+    const out = await call('wp_manifest', { summary: true });
+    expect(out.ok).toBe(true);
+    expect(out.data.theme).toEqual({ slug: 'twentytwentyfive', name: 'Twenty Twenty-Five', version: '1.0' });
   });
 });
 

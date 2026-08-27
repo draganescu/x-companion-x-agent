@@ -262,6 +262,11 @@ x_test(
 		}
 
 		x_assert_same( 'salon-regale', $active['stylesheet'] ?? null, 'the theme is the ACTIVE theme' );
+
+		$manifest = x_call( 'GET', '/x-companion/v1/manifest' );
+		x_assert_same( 'salon-regale', $manifest['json']['theme']['slug'] ?? null, 'the manifest serves the bespoke slug' );
+		x_assert_same( 'Salon Regale Theme', $manifest['json']['theme']['name'] ?? null, 'the manifest serves the theme NAME (M2)' );
+		x_assert_same( '680px', $manifest['json']['theme_tokens']['layout']['contentSize'] ?? null, 'the manifest serves the bespoke measure (M2)' );
 	}
 );
 

@@ -53,6 +53,7 @@ const EXPECTED_TOOLS = [
   'wp_schema_install',
   'wp_theme_scaffold',
   'wp_theme_build_test',
+  'wp_theme_install',
   'wp_images_generate',
   'wp_images_apply',
 ];
@@ -91,7 +92,7 @@ async function call(name: string, args: unknown = {}): Promise<{ ok: boolean; da
 /* ------------------------------------------------------------ M1: registry */
 
 describe('registry / tools list', () => {
-  it('declares exactly the 25 tools, with schemas, regardless of which handlers exist', () => {
+  it('declares exactly the 26 tools, with schemas, regardless of which handlers exist', () => {
     expect(TOOLS.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
     for (const t of TOOLS) {
       const described = describeTool(t);

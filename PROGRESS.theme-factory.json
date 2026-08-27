@@ -1,12 +1,36 @@
 {
     "spec": "specs/theme-factory.spec.json",
     "milestones": {
-        "M1_spec_and_scaffolder": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
-        "M2_build_test_and_install": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
-        "M3_stage_and_budget": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
-        "M4_skeleton_aware_verification": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
-        "M5_font_library_lane": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
-        "M6_end_to_end": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" }
+        "M1_spec_and_scaffolder": {
+            "status": "done",
+            "evidence": "x-agent/tests/theme-factory.test.ts green (19 tests): fixture ThemeSpec scaffolds byte-identically twice with the exact stacked file roster; rail emits parts/rail.html + functions.php (the default_wp_template_part_areas registration) and stacked does not; unknown skeleton fails both the zod mirror and the JSON contract naming the enum (pipeline/tests/theme-spec.test.mjs, 7 tests); poisoned-spec grep proves model strings surface ONLY in style.css + theme.json (slug-as-textdomain in rail functions.php the single recorded exception). Contract byte-identity pinned between contract/ and x-agent/schemas.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M2_build_test_and_install": {
+            "status": "done",
+            "evidence": "Live (x-agent/tests/live/theme-factory.test.ts, X_AGENT_THEME_LIVE=1, 3 tests, 22s, throwaway Playgrounds on 9480-9489): built:true with measured physics — root seams 0px, --wp--style--global--content-size pass-through byte-equal, measure clamps at declared px, full band = viewport, rail renders at its declared 320px with the rail area registered; page-no-title poison fails NAMING the template. Route live (x-companion/tests/test-themes.php vs a dedicated slot on 9490, 24/24): install+activate moves the steady-state epoch (stable across requests), replaced_previous on re-install, 422 policy reasons named, 401 anon; wp_manifest afterwards serves theme{slug,name} = the bespoke identity and the bespoke measure. wp_theme_install via callTool against mock-companion: posture_forbidden before any wire byte, local policy refusal, steady-state fingerprint from the manifest refresh.",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M3_stage_and_budget": {
+            "status": "pending",
+            "evidence": "",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M4_skeleton_aware_verification": {
+            "status": "pending",
+            "evidence": "",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M5_font_library_lane": {
+            "status": "pending",
+            "evidence": "",
+            "updated_at": "2026-08-27T00:00:00Z"
+        },
+        "M6_end_to_end": {
+            "status": "pending",
+            "evidence": "",
+            "updated_at": "2026-08-27T00:00:00Z"
+        }
     },
     "decisions": [
         {

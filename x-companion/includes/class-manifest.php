@@ -185,6 +185,7 @@ final class X_Companion_Manifest {
 				'site_url'           => (string) get_site_url(),
 				'posture'            => x_companion_posture(),
 				'interfaces_version' => X_COMPANION_INTERFACES_VERSION,
+				'theme'              => self::theme_identity(),
 				'patterns'           => self::patterns_summary(),
 				'theme_tokens'       => self::theme_tokens(),
 				'suites'             => self::suites( self::active_plugins() ),
@@ -565,6 +566,11 @@ final class X_Companion_Manifest {
 			'site_url'           => (string) ( $context['site_url'] ?? '' ),
 			'posture'            => 'toolchain' === ( $context['posture'] ?? '' ) ? 'toolchain' : 'production',
 			'interfaces_version' => (string) ( $context['interfaces_version'] ?? '1' ),
+			'theme'              => array(
+				'slug'    => (string) ( $context['theme']['slug'] ?? '' ),
+				'name'    => (string) ( $context['theme']['name'] ?? '' ),
+				'version' => (string) ( $context['theme']['version'] ?? '' ),
+			),
 			'blocks'             => $blocks,
 			'patterns'           => $patterns,
 			'theme_tokens'       => self::normalize_theme_tokens( (array) ( $context['theme_tokens'] ?? array() ) ),
@@ -720,6 +726,33 @@ final class X_Companion_Manifest {
 		self::$snapshot = $snapshot;
 
 		return $snapshot;
+	}
+
+	/**
+	 * Active theme identity for the manifest: what the admin sees.
+	 *
+	 * The theme-factory spec's M2 acceptance reads the bespoke theme's NAME
+	 * back through wp_manifest; slug and version were always fingerprint
+	 * inputs, the display name is what makes the ground admin-legible.
+	 *
+	 * @return array { slug, name, version }
+	 */
+	public static function theme_identity(): array {
+		if ( ! function_exists( 'wp_get_theme' ) ) {
+			return array(
+				'slug'    => '',
+				'name'    => '',
+				'version' => '',
+			);
+		}
+
+		$theme = wp_get_theme();
+
+		return array(
+			'slug'    => (string) $theme->get_stylesheet(),
+			'name'    => (string) $theme->get( 'Name' ),
+			'version' => (string) $theme->get( 'Version' ),
+		);
 	}
 
 	/**

@@ -111,6 +111,8 @@ export const ManifestSchema = z.object({
     site_url: z.string(),
     posture: z.enum(['toolchain', 'production']),
     interfaces_version: z.string(),
+    /** Active theme identity; absent on companions older than the theme factory. */
+    theme: z.object({ slug: z.string(), name: z.string(), version: z.string() }).strict().optional(),
     blocks: z.record(z.string(), ManifestBlockSchema),
     patterns: z.array(ManifestPatternSchema),
     theme_tokens: z.object({

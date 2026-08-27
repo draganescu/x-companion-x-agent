@@ -435,32 +435,38 @@ export class CompanionClient {
         }
         return this.installBlockBytes(path.basename(zipPath), bytes);
     }
-    /** `POST /blocks/install` — raw multipart POST from an in-memory buffer. */
-    async installBlockBytes(filename, bytes) {
-        this.assertToolchain('/blocks/install');
+    /**
+     * One multipart package POST for all three install routes (blocks, schema,
+     * themes) — field `package`, zip bytes, `{..., fingerprint}` back. The third
+     * copy of this wire code was the moment it stopped being duplicated.
+     */
+    async postPackage(route, filename, bytes, hint) {
+        this.assertToolchain(route);
         const boundary = `----xagent${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
         const head = Buffer.from(`--${boundary}\r\n` +
             `Content-Disposition: form-data; name="package"; filename="${filename.replace(/"/g, '')}"\r\n` +
             `Content-Type: application/zip\r\n\r\n`, 'utf8');
         const tail = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
         const body = Buffer.concat([head, Buffer.from(bytes), tail]);
-        const res = await this.request('POST', '/blocks/install', {
+        const res = await this.request('POST', route, {
             body: new Uint8Array(body),
             headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': String(body.length) },
         });
         const parsed = res.json;
         if (!parsed || typeof parsed.fingerprint !== 'string') {
-            throw new XError('companion_error', 'POST /blocks/install did not return {installed, fingerprint, replaced_previous}.', 'Check the companion version.', {
-                route: '/blocks/install',
-            });
+            throw new XError('companion_error', `POST ${route} did not return {installed, fingerprint, replaced_previous}.`, hint, { route });
         }
+        return parsed;
+    }
+    /** `POST /blocks/install` — raw multipart POST from an in-memory buffer. */
+    async installBlockBytes(filename, bytes) {
+        const parsed = await this.postPackage('/blocks/install', filename, bytes, 'Check the companion version.');
         this._fingerprint = parsed.fingerprint;
         this._manifest = undefined;
         return parsed;
     }
     /** `POST /schema/install` — a schema-package zip from disk. */
     async installSchemaFromFile(zipPath) {
-        this.assertToolchain('/schema/install');
         let bytes;
         try {
             bytes = fs.readFileSync(zipPath);
@@ -468,23 +474,32 @@ export class CompanionClient {
         catch (e) {
             throw new XError('invalid_input', `Cannot read package zip at ${zipPath}: ${e.message}`, 'Pass a path produced by wp_schema_build_test.');
         }
-        const boundary = `----xagent${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
-        const head = Buffer.from(`--${boundary}\r\n` +
-            `Content-Disposition: form-data; name="package"; filename="${path.basename(zipPath).replace(/"/g, '')}"\r\n` +
-            `Content-Type: application/zip\r\n\r\n`, 'utf8');
-        const tail = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
-        const body = Buffer.concat([head, bytes, tail]);
-        const res = await this.request('POST', '/schema/install', {
-            body: new Uint8Array(body),
-            headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': String(body.length) },
-        });
-        const parsed = res.json;
-        if (!parsed || typeof parsed.fingerprint !== 'string') {
-            throw new XError('companion_error', 'POST /schema/install did not return {installed, fingerprint, replaced_previous}.', 'Check the companion version — /schema/install is interfaces v2.', {
-                route: '/schema/install',
-            });
-        }
+        const parsed = await this.postPackage('/schema/install', path.basename(zipPath), bytes, 'Check the companion version — /schema/install is interfaces v2.');
         this._fingerprint = parsed.fingerprint;
+        this._manifest = undefined;
+        return parsed;
+    }
+    /**
+     * `POST /themes/install` — a theme zip from disk (specs/theme-factory.spec.json,
+     * the one companion surface that spec adds).
+     *
+     * Unlike blocks and schema, the response fingerprint is BEST EFFORT by the
+     * route's own contract (a theme's init-time registrations only exist from
+     * the next request), so it is deliberately NOT adopted here: the cached
+     * fingerprint and manifest are dropped instead, and the caller's manifest
+     * refresh reads the steady-state epoch — the one every subsequent tree
+     * must carry.
+     */
+    async installThemeFromFile(zipPath) {
+        let bytes;
+        try {
+            bytes = fs.readFileSync(zipPath);
+        }
+        catch (e) {
+            throw new XError('invalid_input', `Cannot read theme zip at ${zipPath}: ${e.message}`, 'Pass a path produced by wp_theme_build_test.');
+        }
+        const parsed = await this.postPackage('/themes/install', path.basename(zipPath), bytes, 'Check the companion version — /themes/install is the theme-factory surface.');
+        this._fingerprint = undefined;
         this._manifest = undefined;
         return parsed;
     }
