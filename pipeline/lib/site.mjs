@@ -177,6 +177,20 @@ export function stopSite({ slot = DEFAULT_SLOT, port } = {}) {
 }
 
 /** Every runtime descriptor with a live holder — for `site status`. */
+/**
+ * May `--new-site` replace the current connection? Yes when there is none, and
+ * yes when it points at a KNOWN slot — the descriptor in tools/.runtime keeps
+ * that site reachable (`site use --slot X` re-wires it), so nothing is lost by
+ * pointing .x-agent.json somewhere new. Only an EXTERNALLY connected site
+ * (hand-entered credentials, no descriptor) still refuses: overwriting would
+ * discard something the runtime cannot restore.
+ */
+export function newSiteGuard(currentUrl, sites) {
+    if (!currentUrl) return { allow: true, previous: null };
+    const previous = sites.find((s) => s.url === currentUrl) ?? null;
+    return { allow: Boolean(previous), previous };
+}
+
 export function listSites() {
     let files = [];
     try {

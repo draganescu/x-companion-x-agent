@@ -22,7 +22,7 @@ import { PipelineError } from './lib/errors.mjs';
 import { loadPipelineConfig, readProviderKeys } from './lib/config.mjs';
 import { ask, askHidden, confirm } from './lib/prompt.mjs';
 import {
-    bootSite, stopSite, listSites, listBuilds, readDescriptor, mergeConnection,
+    bootSite, stopSite, listSites, listBuilds, newSiteGuard, readDescriptor, mergeConnection,
     listSiteDirs, removeSiteDir, removeBuilds, formatBytes, dirSize as sizeOf, scrubConnection, readAgentConfig,
     storeProviderKey, defaultBuildConfig, pickProvider, writeBuildConfig,
     PROVIDER_DEFAULT_MODELS, PROVIDER_KEY_FIELDS, DEFAULT_SLOT, DEFAULT_PORT,
@@ -409,8 +409,19 @@ async function build(flags, positionals) {
         }
         await siteNew(flags);
     } else if (flags['new-site']) {
-        throw new PipelineError('preflight_failed', 'a site is already connected in .x-agent.json',
-            'Drop --new-site to build there, or x-pipeline site stop first.');
+        // A connection to a KNOWN slot loses nothing when re-wired — the
+        // descriptor keeps it reachable and `site use` switches back. Only an
+        // externally connected site (hand-entered credentials, no descriptor)
+        // refuses, because overwriting would discard what we cannot restore.
+        const guard = newSiteGuard(agentCfg.url, listSites());
+        if (!guard.allow) {
+            throw new PipelineError('preflight_failed', `an externally connected site is wired in .x-agent.json (${agentCfg.url})`,
+                'Overwriting would discard credentials the runtime cannot restore. Drop --new-site to build there, or reconnect later with: x-pipeline site connect');
+        }
+        if (guard.previous) {
+            log(`replacing the connection to slot "${guard.previous.slot}" (${guard.previous.url}) — it keeps running; switch back with: x-pipeline site use --slot ${guard.previous.slot}`);
+        }
+        await siteNew(flags);
     }
 
     const { runPipeline } = await import('./run.mjs');

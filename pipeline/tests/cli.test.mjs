@@ -143,3 +143,19 @@ test('confirm refuses to delete unattended without --yes', async () => {
     // stdin is not a TTY under the test runner: must refuse rather than hang
     await assert.rejects(confirm('Delete everything?'), (e) => e.code === 'preflight_failed' && /--yes/.test(e.hint));
 });
+
+test('--new-site replaces a known-slot connection (recoverable via site use) but refuses an external one', async () => {
+    const { newSiteGuard } = await import('../lib/site.mjs');
+    const sites = [
+        { slot: 'x-pipeline', url: 'http://127.0.0.1:9430', pid: 1, alive: true },
+        { slot: 'tea-salon', url: 'http://127.0.0.1:9431', pid: 2, alive: true },
+    ];
+    // No connection at all: proceed.
+    assert.deepEqual(newSiteGuard(undefined, sites), { allow: true, previous: null });
+    // Connected to a known slot: proceed, naming what is being replaced.
+    const known = newSiteGuard('http://127.0.0.1:9430', sites);
+    assert.equal(known.allow, true);
+    assert.equal(known.previous.slot, 'x-pipeline');
+    // Externally connected (no descriptor): refuse — credentials would be lost.
+    assert.deepEqual(newSiteGuard('https://staging.example.com', sites), { allow: false, previous: null });
+});
