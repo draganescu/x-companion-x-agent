@@ -1,8 +1,8 @@
 ---
 task_type: tree
-required: [section, page, art_direction, style_note, voice, language, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, style_note, voice, language, page_plan, design, axis, skeleton, pane_note, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
 ---
-You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
+You are generating ONE section of a WordPress page as TreeIR JSON. The site skeleton is {{skeleton}}. {{pane_note}} Code decides
 whether it ships; there is no conversation. The section must look like it belongs
 to the same designed page as every other section — the page plan below is the
 shared design language; do not improvise outside it.

@@ -50,7 +50,7 @@ function treeFor(label, extra = {}) {
     };
 }
 
-function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
+function makeCtx({ treesByLabel, validateByKey, compileByKey = {}, theme }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s4-'));
     for (const d of ['trees', 'sections']) mkdirSync(join(runDir, d), { recursive: true });
     writeFileSync(join(runDir, 'tokens.json'), JSON.stringify(TOKENS));
@@ -86,7 +86,7 @@ function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
         runDir, budget, ledger, payloads,
         config: { concurrency: 2 },
         llm: createLlm({ providers: new Map([['tree', { provider, model: 'm' }]]), promptsDir: PROMPTS_DIR, budget, ledger }),
-        state: { brief: structuredClone(brief), fingerprint: EPOCH, sections },
+        state: { brief: structuredClone(brief), fingerprint: EPOCH, sections, ...(theme ? { theme } : {}) },
         log: () => {},
         peak: () => peak,
         call: async (name, tree) => {
@@ -280,4 +280,60 @@ test('a tool error in one lane is fatal to the run, but no sibling lane is aband
     assert.equal(ctx.state.artifacts.furniture.header.status, 'pass');
     assert.equal(ctx.state.artifacts.furniture.footer.status, 'pass');
     assert.equal(ctx.state.artifacts.trees['home--hero'], undefined); // the failed lane never recorded a verdict
+});
+
+test('the skeleton rides every payload; a stacked run makes no rail call (theme-factory M4)', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+    await s4.run(ctx);
+    assert.equal(ctx.payloads['home/hero'].skeleton, 'stacked');
+    assert.equal(ctx.payloads['home/hero'].pane_note, '');
+    assert.equal(ctx.payloads['furniture/header'].skeleton, 'stacked');
+    assert.equal(ctx.payloads['furniture/rail'], undefined);
+    assert.equal(ctx.state.artifacts.furniture.rail, undefined);
+});
+
+test('a rail skeleton adds the third furniture call and its artifact (theme-factory M4)', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+        'furniture/rail': {
+            version: 1, epoch: EPOCH,
+            blocks: [{ name: 'core/group', attributes: { backgroundColor: 'base', layout: { type: 'default' } }, innerBlocks: [
+                { name: 'core/site-title', attributes: {}, innerBlocks: [] },
+            ] }],
+        },
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {}, theme: { skeleton: 'rail', rail_width: '20rem' } });
+    await s4.run(ctx);
+    assert.equal(ctx.payloads['furniture/rail'].skeleton, 'rail');
+    assert.match(ctx.payloads['furniture/rail'].part_note, /RAIL/);
+    assert.equal(ctx.state.artifacts.furniture.rail.status, 'pass');
+});
+
+test('a split skeleton demands the pane declaration on every section root (theme-factory M4)', async () => {
+    const paneTree = (label, pane) => ({
+        version: 1, epoch: EPOCH,
+        blocks: [{ name: 'core/group', attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' }, ...(pane ? { metadata: { pane } } : {}) }, innerBlocks: [{ name: 'core/heading', attributes: { content: label } }] }],
+    });
+    // hero declares primary; what-we-bake FORGETS the pane on attempt 1 and is
+    // corrected on the retry; signup declares secondary.
+    const forgot = paneTree('home/what-we-bake');
+    const fixed = paneTree('home/what-we-bake', 'secondary');
+    let bakeAttempts = 0;
+    const treesByLabel = {
+        'home/hero': paneTree('home/hero', 'primary'),
+        get 'home/what-we-bake'() { bakeAttempts += 1; return bakeAttempts === 1 ? forgot : fixed; },
+        'home/signup': paneTree('home/signup', 'secondary'),
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {}, theme: { skeleton: 'split' } });
+    await s4.run(ctx);
+    assert.equal(bakeAttempts, 2, 'the missing pane burned the one schema retry');
+    assert.match(ctx.payloads['home/hero'].pane_note, /SPLIT/);
+    assert.equal(ctx.state.artifacts.trees['home--what-we-bake'].status, 'pass');
 });

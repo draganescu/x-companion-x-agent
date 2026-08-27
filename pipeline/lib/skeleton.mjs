@@ -14,6 +14,18 @@ export const SKELETON_VOCABULARY = [
 export const SPLIT_PANES = ['primary', 'secondary'];
 
 export function paneOf(tree) {
-    const pane = tree?.metadata?.pane;
+    const pane = tree?.blocks?.[0]?.attributes?.metadata?.pane;
     return typeof pane === 'string' ? pane : null;
+}
+
+/** Split-skeleton gate: the section root must declare its pane. */
+export function screenPaneDeclaration(tree) {
+    const pane = paneOf(tree);
+    if (pane === null) {
+        return [{ path: '/blocks/0/attributes/metadata', message: 'this is a SPLIT-skeleton site: the section root must declare its pane — attributes.metadata.pane set to "primary" or "secondary"' }];
+    }
+    if (!SPLIT_PANES.includes(pane)) {
+        return [{ path: '/blocks/0/attributes/metadata/pane', message: `pane must be "primary" or "secondary", got "${pane}"` }];
+    }
+    return [];
 }
