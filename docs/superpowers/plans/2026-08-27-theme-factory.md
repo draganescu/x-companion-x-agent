@@ -264,10 +264,10 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 
 `themeSpecChecks(spec)` (pure, `lib/schema.mjs` issue shape): (a) measure units match → numeric contentSize < wideSize, else `{path:'/measure', message}` naming the two values (mismatched units → "use the same unit for both"); (b) preset slugs unique within each of shadows/gradients/duotones → path names the duplicate; (c) `identity.slug` not one of the reserved WP theme dirs (`twenty*` prefix) and not `x-companion`.
 
-- [ ] **Step 1: Write `pipeline/tests/theme-spec.test.mjs`** — a valid fixture spec passes `validateSchema(contract, spec)` + `themeSpecChecks`; an unknown skeleton (`"floating"`) fails schema NAMING the enum values in the validator's message (M1 acceptance clause 2); `contentSize: "1400px", wideSize: "900px"` fails the cross-check; duplicate shadow slugs fail; mismatched units (`70ch` vs `1200px`) fail with the units message. Run: expect FAIL (no schema, no lib).
-- [ ] **Step 2: Write the two schema files (identical bytes) + `pipeline/lib/theme-spec.mjs`.** Run: `node --test pipeline/tests/theme-spec.test.mjs` → PASS.
-- [ ] **Step 3: Extend `x-agent/tests/schemas.test.ts`** byte-identity pin: `contract/schemas/theme-spec.schema.json` === `x-agent/schemas/theme-spec.schema.json`. Run vitest → PASS.
-- [ ] **Step 4: Create `PROGRESS.theme-factory.json`**; commit all.
+- [x] **Step 1: Write `pipeline/tests/theme-spec.test.mjs`** — a valid fixture spec passes `validateSchema(contract, spec)` + `themeSpecChecks`; an unknown skeleton (`"floating"`) fails schema NAMING the enum values in the validator's message (M1 acceptance clause 2); `contentSize: "1400px", wideSize: "900px"` fails the cross-check; duplicate shadow slugs fail; mismatched units (`70ch` vs `1200px`) fail with the units message. Run: expect FAIL (no schema, no lib).
+- [x] **Step 2: Write the two schema files (identical bytes) + `pipeline/lib/theme-spec.mjs`.** Run: `node --test pipeline/tests/theme-spec.test.mjs` → PASS.
+- [x] **Step 3: Extend `x-agent/tests/schemas.test.ts`** byte-identity pin: `contract/schemas/theme-spec.schema.json` === `x-agent/schemas/theme-spec.schema.json`. Run vitest → PASS.
+- [x] **Step 4: Create `PROGRESS.theme-factory.json`**; commit all.
 
 ### Task 2: The scaffolder — `x-agent/templates/block-theme/` + `themeFactory.ts` scaffold + `wp_theme_scaffold` (milestone M1)
 
@@ -286,16 +286,16 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Consumes: Task 1's contract (zod mirror must accept exactly what the JSON schema accepts — pin with a shared valid/invalid fixture pair).
 - Produces: a complete theme dir. `buildThemeJson(spec)` emits (theme.json v3): `settings.layout.{contentSize,wideSize}` from measure; `styles.spacing.blockGap` + `settings.spacing.blockGap` from physics; `styles.spacing.padding` from rootPadding + `settings.useRootPaddingAwareAlignments: true`; `settings.appearanceTools: true`; `settings.typography.fluid: true`; `settings.shadow.presets`, `settings.color.gradients`, `settings.color.duotone` from presets; `settings.custom` from presets.custom (+ `railWidth: RAIL_WIDTH` iff skeleton rail); `customTemplates: [{name:'page-no-title', title:'Page (no title)', postTypes:['page']}, {name:'canvas', title:'Canvas', postTypes:['page']}]`; `templateParts: [{name:'header', area:'header', title:'Header'}, {name:'footer', area:'footer', title:'Footer'}]` + rail part iff rail. Stable key order, `JSON.stringify(obj, null, '\t')` — byte-determinism.
 
-- [ ] **Step 1: Write failing tests** in `theme-factory.test.ts`:
+- [x] **Step 1: Write failing tests** in `theme-factory.test.ts`:
     - a fixture ThemeSpec (stacked) scaffolds → files exactly `[style.css, theme.json, templates/index.html, templates/page.html, templates/page-no-title.html, templates/canvas.html, parts/header.html, parts/footer.html]`; scaffolding twice into two dirs → byte-identical trees (M1 clause 1);
     - skeleton `rail` → `parts/rail.html` present + rail templates used + `rail_width === '20rem'`; `stacked` → no rail file (M1 clause 2);
     - zod `ThemeSpecSchema` rejects unknown skeleton naming the enum;
     - **poisoned-spec test** (M1 clause 3): every string field of the spec set to a unique sentinel (`XPOISON-name`, `XPOISON-desc`, …) → grep every scaffolded file: sentinels appear ONLY in `style.css` + `theme.json`, and only the identity/description/preset-value sentinels at that;
     - slug guards: traversal (`../x`), uppercase, reserved → structured throw.
-- [ ] **Step 2: Run** vitest → FAIL (module absent).
-- [ ] **Step 3: Implement** templates + `themeFactory.ts` (reuse `interpolate`, `assertSlug`-style guards — import from `factory.js` where exported, else local equivalents) + tool shell + registry spread.
-- [ ] **Step 4: Run** vitest → PASS. `npm run build` clean.
-- [ ] **Step 5: Commit**; tick M1 progress (evidence: test names).
+- [x] **Step 2: Run** vitest → FAIL (module absent).
+- [x] **Step 3: Implement** templates + `themeFactory.ts` (reuse `interpolate`, `assertSlug`-style guards — import from `factory.js` where exported, else local equivalents) + tool shell + registry spread.
+- [x] **Step 4: Run** vitest → PASS. `npm run build` clean.
+- [x] **Step 5: Commit**; tick M1 progress (evidence: test names).
 
 ### Task 3: The build gate — `wp_theme_build_test` with measured physics (milestone M2, sandbox half)
 
@@ -309,10 +309,10 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Input `{dir, port?, timeout_ms?}`; output `{built, smoke: {activated, templates_resolved: string[], page_no_title_present, front_html_ok, php_error?}, measured?: {root_gap_px, root_padding, content_width_px, expected_content_px, wide_width_px, viewport_px}, zip_path?, failure?: {code:'build_failed'|'smoke_failed', message, hint}}`.
 - Mechanics (SMOKE_RUNNER mold, `factory.ts` L1437-1529): port from `freePort` over `X_AGENT_THEME_SMOKE_PORT_RANGE` default `[9480,9489]`; playground `runCLI` mounting `{hostPath: dir, vfsPath: '/wordpress/wp-content/themes/<slug>'}` with blueprint steps `[{step:'activateTheme', themeFolderName: slug}]`; PHP probes (the `SmokeConfig.probes` seam): active stylesheet === slug, `get_block_template('<slug>//page-no-title')` non-null (M2 clause 2 poisons this), each roster template resolves, create+publish a physics page (two paragraphs + one `align:full` group + one `align:wide` group), echo permalink; Playwright pass: goto permalink; evaluate → root children vertical gaps of `.wp-site-blocks` (`root_gap_px`, must be 0±1), computed root padding vs declared, paragraph width vs declared contentSize resolved to px in-page (temp div `width: <declared>`), full group ≈ viewport, wide group ≈ wideSize resolved. Gate in the tool: any measured physics off → `built:false, failure:{code:'smoke_failed', ...}` naming the number. Zip only on pass.
 
-- [ ] **Step 1: Offline failing tests**: `packageTheme` zip has single root dir === slug, deterministic bytes for same input; `inspectThemePackage` rejects >5MB / traversal entries / missing style.css / missing templates/index.html, naming reasons. Run → FAIL.
-- [ ] **Step 2: Implement packaging/inspection**; vitest offline PASS.
-- [ ] **Step 3: Live test** (gated): scaffold fixture spec → `buildAndTestTheme` → `built:true`, `measured.root_gap_px === 0`, content clamped (M2 clause 1); poisoned spec (delete page-no-title from the scaffolded dir before the call) → failure NAMING the template (M2 clause 2). Implement runner + tool; run live suite → PASS.
-- [ ] **Step 4: `npm run build`; commit.**
+- [x] **Step 1: Offline failing tests**: `packageTheme` zip has single root dir === slug, deterministic bytes for same input; `inspectThemePackage` rejects >5MB / traversal entries / missing style.css / missing templates/index.html, naming reasons. Run → FAIL.
+- [x] **Step 2: Implement packaging/inspection**; vitest offline PASS.
+- [x] **Step 3: Live test** (gated): scaffold fixture spec → `buildAndTestTheme` → `built:true`, `measured.root_gap_px === 0`, content clamped (M2 clause 1); poisoned spec (delete page-no-title from the scaffolded dir before the call) → failure NAMING the template (M2 clause 2). Implement runner + tool; run live suite → PASS.
+- [x] **Step 4: `npm run build`; commit.**
 
 ### Task 4: The companion route — `POST /x-companion/v1/themes/install` (milestone M2, instance half)
 
@@ -325,9 +325,9 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Route: extend tier (`permission_extend` — posture 403 ahead of capability), multipart field `package`. Behavior: `analyze_theme_package` (≤5MB, safe entries, exactly one root dir = slug, `style.css` with `Theme Name:` header, `theme.json` parses if present, `templates/index.html` exists, every `templates/*.html` + `parts/*.html` non-empty) → staged unzip under `get_theme_root() . '/.agent-staging-<slug>-<rand>'` → move to `get_theme_root() . '/<slug>'` (existing same-slug theme moved to backup first, restored on failure) → `switch_theme($slug)` → verify `get_stylesheet() === $slug` → response `{installed: {slug, name, version}, fingerprint: X_Companion_Manifest::fingerprint(true), replaced_previous}`. Policy violations → 422 `{code:'invalid_theme_package', data.reasons[]}`. All fs via `WP_Filesystem`; own `is_managed_theme_path()` fence (only `<slug>` it staged + `.agent-staging-*` under the theme root). `switch_theme` already busts the manifest cache (`class-manifest.php` L81); compute the returned fingerprint AFTER activation.
 - The ONE pledge-breaking surface — the class docblock records it, citing the spec (`core REST cannot upload themes`).
 
-- [ ] **Step 1: Fixtures + failing live test**: valid zip installs+activates and moves the fingerprint; re-install same slug → `replaced_previous: true`; poisoned zip (no `templates/index.html`) → 422 naming the file; production-posture instance → 403 `posture_forbidden` (boot second instance, `test-install.php` does the same).
-- [ ] **Step 2: Implement** class + rest wiring. Run `php x-companion/tests/test-themes.php --runtime tools/.runtime/<slot>.json` → PASS. `bin/plugin-check.sh` still clean.
-- [ ] **Step 3: Commit.**
+- [x] **Step 1: Fixtures + failing live test**: valid zip installs+activates and moves the fingerprint; re-install same slug → `replaced_previous: true`; poisoned zip (no `templates/index.html`) → 422 naming the file; production-posture instance → 403 `posture_forbidden` (boot second instance, `test-install.php` does the same).
+- [x] **Step 2: Implement** class + rest wiring. Run `php x-companion/tests/test-themes.php --runtime tools/.runtime/<slot>.json` → PASS. `bin/plugin-check.sh` still clean.
+- [x] **Step 3: Commit.**
 
 ### Task 5: Manifest theme identity + `wp_theme_install` + the companion client (milestone M2, agent half)
 
@@ -340,9 +340,9 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Modify: `x-agent/mcp/src/registry.ts`; `x-agent/tests/mock-companion/index.ts` (+`POST /themes/install` bumping the fingerprint) + `fixtures.ts` (manifest gains `theme`)
 - Modify: `x-agent/tests/theme-factory.test.ts` (tool-surface test via `callTool` against the mock)
 
-- [ ] **Step 1: Failing tests**: mock-companion `wp_theme_install` happy path returns NEW fingerprint ≠ previous; refuses on mock production posture with `posture_forbidden`; `wp_manifest` output now carries `theme.name` (mock fixture). Multipart refactor: existing block/schema install tests still green (regression pin).
-- [ ] **Step 2: Implement**; vitest PASS; PHP offline manifest test (`test-manifest.php`) extended for the `theme` key → PASS.
-- [ ] **Step 3: `npm run build`; commit**; tick M2 progress with live evidence from Tasks 3-5.
+- [x] **Step 1: Failing tests**: mock-companion `wp_theme_install` happy path returns NEW fingerprint ≠ previous; refuses on mock production posture with `posture_forbidden`; `wp_manifest` output now carries `theme.name` (mock fixture). Multipart refactor: existing block/schema install tests still green (regression pin).
+- [x] **Step 2: Implement**; vitest PASS; PHP offline manifest test (`test-manifest.php`) extended for the `theme` key → PASS.
+- [x] **Step 3: `npm run build`; commit**; tick M2 progress with live evidence from Tasks 3-5.
 
 ### Task 6: Pipeline plumbing — `--bespoke`, optional `theme` task, budget T (milestone M3, plumbing half)
 
@@ -357,8 +357,8 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Modify: `pipeline/lib/report.mjs` (PREDICTED.theme, ceiling sentence gains `+ T=` term)
 - Tests: extend `pipeline/tests/{budget,cli,config,run}.test.mjs`
 
-- [ ] **Step 1: Failing tests**: `computeBudget(brief, {bespoke:true})` ceiling = old+2 (T in base, doubled); `{bespoke:true, rail:true}` → F=3; `computeBudget(brief)` byte-equal to today's (regression); config: `theme` entry absent → loads fine; malformed `theme` entry (missing model) → `preflight_failed`; cli preflight: bespoke-without-new-site throws naming the rule (unit-test the extracted check or via parseArgs+build guard); run.mjs: `state.bespoke` persists and a resume without the flag keeps it (synthetic-stages test).
-- [ ] **Step 2: Implement; `node --test` PASS; commit.**
+- [x] **Step 1: Failing tests**: `computeBudget(brief, {bespoke:true})` ceiling = old+2 (T in base, doubled); `{bespoke:true, rail:true}` → F=3; `computeBudget(brief)` byte-equal to today's (regression); config: `theme` entry absent → loads fine; malformed `theme` entry (missing model) → `preflight_failed`; cli preflight: bespoke-without-new-site throws naming the rule (unit-test the extracted check or via parseArgs+build guard); run.mjs: `state.bespoke` persists and a resume without the flag keeps it (synthetic-stages test).
+- [x] **Step 2: Implement; `node --test` PASS; commit.**
 
 ### Task 7: The stage — `pipeline/prompts/theme.md` + `pipeline/stages/s1t-theme.mjs` (milestone M3)
 
@@ -383,10 +383,10 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Create: `pipeline/fixtures/fake/theme.theme.json` (a full valid ThemeSpec `{text, usage}` — stacked, 70ch/1080px measure, one shadow+gradient preset)
 - Create: `pipeline/tests/s1t-theme.test.mjs` (s3-tokens.test.mjs ctx mold)
 
-- [ ] **Step 1: Failing tests**: non-bespoke ctx → zero llm calls, zero tool calls, one log line (M3 clause 1's stage half); bespoke happy path → exactly 1 ledger `theme` entry, tool calls `[wp_theme_scaffold, wp_theme_build_test, wp_theme_install]` in order, `state.theme` populated, fingerprint adopted; build-test fails once → repair call (`maxAttempts:1`) + re-scaffold + second build-test → success; build fails twice → `preflight_failed` thrown, 2 theme ledger entries; rail spec → `budget.F === 3` and ceiling bumped (M3 clause 2); resume: `state.completed` containing S1T_theme never re-enters (synthetic-stage run.test addition — M3 clause 3).
-- [ ] **Step 2: Implement; `node --test` PASS.**
-- [ ] **Step 3: Ledger-diff regression** (M3 clause 1): run the fake-provider pipeline twice via the existing determinism harness path (`runPipeline({stages, skipToolchain:true})` fixture run or accept script), once on this branch, once against the pre-spec behavior — assert a non-bespoke run's ledger is byte-identical (timestamps excepted). Cheapest honest form: `pipeline/tests/s1t-theme.test.mjs` asserts the non-bespoke stage writes nothing to ledger/budget, plus the accept script diff in Task 12.
-- [ ] **Step 4: Commit; tick M3.**
+- [x] **Step 1: Failing tests**: non-bespoke ctx → zero llm calls, zero tool calls, one log line (M3 clause 1's stage half); bespoke happy path → exactly 1 ledger `theme` entry, tool calls `[wp_theme_scaffold, wp_theme_build_test, wp_theme_install]` in order, `state.theme` populated, fingerprint adopted; build-test fails once → repair call (`maxAttempts:1`) + re-scaffold + second build-test → success; build fails twice → `preflight_failed` thrown, 2 theme ledger entries; rail spec → `budget.F === 3` and ceiling bumped (M3 clause 2); resume: `state.completed` containing S1T_theme never re-enters (synthetic-stage run.test addition — M3 clause 3).
+- [x] **Step 2: Implement; `node --test` PASS.**
+- [x] **Step 3: Ledger-diff regression** (M3 clause 1): run the fake-provider pipeline twice via the existing determinism harness path (`runPipeline({stages, skipToolchain:true})` fixture run or accept script), once on this branch, once against the pre-spec behavior — assert a non-bespoke run's ledger is byte-identical (timestamps excepted). Cheapest honest form: `pipeline/tests/s1t-theme.test.mjs` asserts the non-bespoke stage writes nothing to ledger/budget, plus the accept script diff in Task 12.
+- [x] **Step 4: Commit; tick M3.**
 
 ### Task 8: Skeleton into S4 — payloads, rail furniture, prompts (milestone M4, authoring half)
 
@@ -395,8 +395,8 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Modify: `pipeline/prompts/tree.md` + `pipeline/prompts/furniture.md` — `{{skeleton}}` + `{{pane_note}}` (tree only) + required entries
 - Modify: `pipeline/tests/s4-sections.test.mjs`
 
-- [ ] **Step 1: Failing tests**: stacked ctx (no state.theme) → payloads carry `skeleton: 'stacked'`, prompts render (template required-fields satisfied), NO rail call (fan-out length = sections+2); rail ctx → fan-out includes `furniture/rail` labeled call and `state.artifacts.furniture.rail` written (M4 clause 2's authoring half); split ctx → a section tree without `metadata.pane` fails its gate naming the field, with pane passes.
-- [ ] **Step 2: Implement; PASS; commit.**
+- [x] **Step 1: Failing tests**: stacked ctx (no state.theme) → payloads carry `skeleton: 'stacked'`, prompts render (template required-fields satisfied), NO rail call (fan-out length = sections+2); rail ctx → fan-out includes `furniture/rail` labeled call and `state.artifacts.furniture.rail` written (M4 clause 2's authoring half); split ctx → a section tree without `metadata.pane` fails its gate naming the field, with pane passes.
+- [x] **Step 2: Implement; PASS; commit.**
 
 ### Task 9: Skeleton into S8 — rail part publish + split pane assembly (milestone M4, publish half)
 
@@ -405,8 +405,8 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Create: `pipeline/lib/skeleton.mjs` — `assembleSplitPage(trees) -> tree[]`, `SKELETON_VOCABULARY` (the prompt text, shared with s1t), `paneOf(tree)`
 - Modify: `pipeline/tests/s8-s9-publish.test.mjs`
 
-- [ ] **Step 1: Failing tests**: `assembleSplitPage` with trees declaring primary/primary/secondary → one full flex root, two panes, order preserved, classNames right; s8 with a rail furniture artifact writes a third template part with `area:'rail'` (ctx.rest capture assert); stacked run's s8 rest calls byte-identical to before (regression pin on the recorded call list — M4 clause 3's publish half).
-- [ ] **Step 2: Implement; PASS; commit.**
+- [x] **Step 1: Failing tests**: `assembleSplitPage` with trees declaring primary/primary/secondary → one full flex root, two panes, order preserved, classNames right; s8 with a rail furniture artifact writes a third template part with `area:'rail'` (ctx.rest capture assert); stacked run's s8 rest calls byte-identical to before (regression pin on the recorded call list — M4 clause 3's publish half).
+- [x] **Step 2: Implement; PASS; commit.**
 
 ### Task 10: Skeleton into S9 — pane-aware audits (milestone M4, verify half)
 
@@ -415,8 +415,8 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Modify: `pipeline/stages/s9-verify.mjs` — pass `{skeleton: ctx.state.theme?.skeleton ?? 'stacked', railWidth: ctx.state.theme?.rail_width}` into both screens
 - Modify: `pipeline/tests/gates.test.mjs` (fixture box trees per skeleton)
 
-- [ ] **Step 1: Failing tests**: split fixture (two panes 60/40, bands spanning their panes) → clean, same fixture judged with a viewport-width expectation → fails (proving the pane-awareness is load-bearing, M4 clause 1); band overflowing its pane → `band_width` failure naming the pane; rail fixture (rail 320px beside content) → clean under rail skeleton, `band_width` failure under stacked (regression direction); rail ≠ declared width → failure; stacked fixtures → outputs byte-identical to today (M4 clause 3).
-- [ ] **Step 2: Implement; PASS; commit; tick M4** (fixture-level; live evidence rides Task 15).
+- [x] **Step 1: Failing tests**: split fixture (two panes 60/40, bands spanning their panes) → clean, same fixture judged with a viewport-width expectation → fails (proving the pane-awareness is load-bearing, M4 clause 1); band overflowing its pane → `band_width` failure naming the pane; rail fixture (rail 320px beside content) → clean under rail skeleton, `band_width` failure under stacked (regression direction); rail ≠ declared width → failure; stacked fixtures → outputs byte-identical to today (M4 clause 3).
+- [x] **Step 2: Implement; PASS; commit; tick M4** (fixture-level; live evidence rides Task 15).
 
 ### Task 11: The widened tokens contract — `families[].source` + `families[].fontFace` across every copy
 
@@ -430,7 +430,7 @@ PROGRESS.theme-factory.json                      NEW — milestones + decisions 
 - Modify: `pipeline/lib/tokens.mjs` `tokenChecks` — model-authored `fontFace` is an issue ("fontFace is pipeline-owned — declare source instead"); `source.family` must be non-empty and weights sane
 - Tests: `x-agent/tests/schemas.test.ts` (zod accepts source'd family; byte-identity pins now cover the widened copies), `pipeline/tests/s3-tokens.test.mjs` (tokenChecks rejects model fontFace), companion `test-tokens.php` (fontFace round-trips into the global-styles write)
 
-- [ ] **Step 1: Failing tests → Step 2: implement all copies together → all three suites PASS → commit.**
+- [x] **Step 1: Failing tests → Step 2: implement all copies together → all three suites PASS → commit.**
 
 ### Task 12: The font lane — `pipeline/lib/fonts.mjs` (download + cache + Font Library install)
 
@@ -458,8 +458,8 @@ export function enrichFamilies(families, fontFacesBySlug) -> families with fontF
 ```
 Failure discipline: a font-lane failure is a RUN failure (`PipelineError('font_failed', ...)`) — "a tokens family with a source is a PROMISE"; but license-text fetch specifically degrades (decision 13). No ledger writes anywhere. Downloads only on cache miss (determinism clause).
 
-- [ ] **Step 1: Failing tests** (stub fetch serving a canned css2 body + metadata + woff2 bytes; stub rest recording calls): parseCss2Faces extracts 2 weights; cache miss downloads + writes LICENSE + meta.json, second call is a `hit` with ZERO fetch calls (M5 cache clause); install creates family once (slug-reuse path asserted with a stubbed existing family), one multipart POST per missing weight with `font_face_settings` as a STRING part and the file part named in src; `enrichFamilies` output carries fontFace and never source; corrupted cache (bad sha256) re-downloads.
-- [ ] **Step 2: Implement; PASS; commit.**
+- [x] **Step 1: Failing tests** (stub fetch serving a canned css2 body + metadata + woff2 bytes; stub rest recording calls): parseCss2Faces extracts 2 weights; cache miss downloads + writes LICENSE + meta.json, second call is a `hit` with ZERO fetch calls (M5 cache clause); install creates family once (slug-reuse path asserted with a stubbed existing family), one multipart POST per missing weight with `font_face_settings` as a STRING part and the file part named in src; `enrichFamilies` output carries fontFace and never source; corrupted cache (bad sha256) re-downloads.
+- [x] **Step 2: Implement; PASS; commit.**
 
 ### Task 13: The S3 hook — install, enrich, apply, record (milestone M5, pipeline half)
 
@@ -468,8 +468,8 @@ Failure discipline: a font-lane failure is a RUN failure (`PipelineError('font_f
 - Modify: `pipeline/lib/report.mjs` — `## Fonts` section from `state.fonts` (family, version, license, weights, bytes, cache hit/miss); nothing when empty
 - Modify: `pipeline/tests/s3-tokens.test.mjs`
 
-- [ ] **Step 1: Failing tests**: sourced-family tokens → font lane invoked BEFORE the apply call (ctx.call order asserted), apply payload families carry fontFace and NOT source, `state.fonts` recorded, ledger has exactly the 1 tokens entry (no font entries — M5 clause 3), tokens.json on disk still carries source; sourceless tokens → zero rest calls, behavior byte-identical (regression); font-lane throw → run fails `font_failed` before any apply.
-- [ ] **Step 2: Implement; PASS; report section renders; commit.**
+- [x] **Step 1: Failing tests**: sourced-family tokens → font lane invoked BEFORE the apply call (ctx.call order asserted), apply payload families carry fontFace and NOT source, `state.fonts` recorded, ledger has exactly the 1 tokens entry (no font entries — M5 clause 3), tokens.json on disk still carries source; sourceless tokens → zero rest calls, behavior byte-identical (regression); font-lane throw → run fails `font_failed` before any apply.
+- [x] **Step 2: Implement; PASS; report section renders; commit.**
 
 ### Task 14: The rendered promise — oracle fonts + `screenFontFamilies` (milestone M5, verify half)
 
@@ -480,8 +480,8 @@ Failure discipline: a font-lane failure is a RUN failure (`PipelineError('font_f
 - Modify: `pipeline/stages/s9-verify.mjs` — read `tokens.json`, collect `source.family` names, push `...screenFontFamilies(verify, sourced)`
 - Tests: `pipeline/tests/gates.test.mjs` fixtures; `x-agent/tests/` schema pin for the widened verify output
 
-- [ ] **Step 1: Failing tests**: fixture verify data with loaded font + matching computed → clean; `status:'unloaded'` → font failure naming the family; loaded in document.fonts but NO box_tree node rendering it → failure (the silent-stack case); zero sourced families → screen returns `[]` (byte-identical S9 for sourceless runs).
-- [ ] **Step 2: Implement (oracle + zod + gates + s9); `npm run build`; both suites PASS; commit; tick M5 unit-level.**
+- [x] **Step 1: Failing tests**: fixture verify data with loaded font + matching computed → clean; `status:'unloaded'` → font failure naming the family; loaded in document.fonts but NO box_tree node rendering it → failure (the silent-stack case); zero sourced families → screen returns `[]` (byte-identical S9 for sourceless runs).
+- [x] **Step 2: Implement (oracle + zod + gates + s9); `npm run build`; both suites PASS; commit; tick M5 unit-level.**
 
 ### Task 15: Acceptance scripts + live evidence (milestones M1-M6 acceptance)
 
@@ -494,14 +494,14 @@ Failure discipline: a font-lane failure is a RUN failure (`PipelineError('font_f
 - Create: `pipeline/tests/accept/tf-m6.sh` — the whole promise: one prompt + `--new-site --bespoke` (real provider from pipeline.config.json) → named theme in wp-admin (REST themes list), bespoke measure in manifest, skeleton-matching structure, verified site, report clean; same prompt WITHOUT `--bespoke` → TT5-grounded build unchanged; `wp_snapshot` zip contains `theme/<slug>/`
 - Modify: `PROGRESS.theme-factory.json` — evidence per milestone as scripts go green
 
-- [ ] **Step 1: Write scripts (each `set -euo pipefail`, repo-root cd, dedicated slots, cleanup traps).**
+- [x] **Step 1: Write scripts (each `set -euo pipefail`, repo-root cd, dedicated slots, cleanup traps).**
 - [ ] **Step 2: Run tf-m1, tf-m3, tf-m4 (no live spend); run tf-m2, tf-m5 against a fresh Playground; tf-m6 needs a real provider key — run if keys are present in `.x-agent.json`, else record as pending-live in PROGRESS with everything else green.**
 - [ ] **Step 3: Commit; update PROGRESS milestones.**
 
 ### Task 16: Ship — docs, self-review, PR
 
-- [ ] Update `pipeline/README.md` (the `--bespoke` mode, the font lane, one paragraph each) + `FLOW.md` (theme install route in the posture-wall list) + `x-companion` README route table if present.
-- [ ] Full-suite gate: `cd x-agent/mcp && npm run build && npx vitest run` · `node --test pipeline/tests/*.test.mjs` · companion offline PHP tests · `git status` clean of strays.
+- [x] Update `pipeline/README.md` (the `--bespoke` mode, the font lane, one paragraph each) + `FLOW.md` (theme install route in the posture-wall list) + `x-companion` README route table if present.
+- [x] Full-suite gate: `cd x-agent/mcp && npm run build && npx vitest run` · `node --test pipeline/tests/*.test.mjs` · companion offline PHP tests · `git status` clean of strays.
 - [ ] superpowers:verification-before-completion — evidence before claims.
 - [ ] `ghe`-based PR: push `theme-factory`, open PR against `main` titled after the spec's commit voice ("the ground becomes an artifact — …"), body: what landed per milestone, the recorded decisions/deviations (1-14), test evidence, the one pledge-breaking companion surface called out.
 
