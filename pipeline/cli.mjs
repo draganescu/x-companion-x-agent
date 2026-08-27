@@ -62,7 +62,7 @@ usage:
   x-pipeline config init    [--provider cerebras|gemini|anthropic|openai] [--model ID] [--key API_KEY] [--force]
   x-pipeline build "<prompt>" [--until STAGE] [--resume RUN_DIR] [--config PATH]
                               [--new-site] [--port N] [--slot NAME] [--brochure] [--no-images]
-                              [--bespoke]
+                              [--bespoke] [--vary | --style-seed SEED]
                               --brochure: composition only — no custom blocks, no data
                               packages; the brief must express every section with the
                               blocks the site already has
@@ -72,6 +72,10 @@ usage:
                               (one metered call -> ThemeSpec -> scaffold, build-test,
                               install BEFORE the instance is read). Valid ONLY with
                               --new-site: a connected site's theme is the law there
+                              --vary: explore the style rosters — reshuffle them with a
+                              fresh seed and push the brief off the obvious pairing;
+                              the seed is printed and recorded, --style-seed SEED
+                              re-runs that exact exploration
 
 typical first run:
   x-pipeline config init                # picks a provider from your keys, or asks for one
@@ -429,6 +433,12 @@ async function build(flags, positionals) {
 
     const { runPipeline } = await import('./run.mjs');
     const { fmtDur } = await import('./lib/clock.mjs');
+    // The style seed: minted by --vary, pinned by --style-seed, recorded in
+    // the run so a resume replays the same exploration. Without either flag
+    // the shuffle stays prompt-seeded — the determinism claim untouched.
+    let styleSeed = flags['style-seed'] !== undefined ? String(flags['style-seed']) : undefined;
+    if (flags.vary && !styleSeed) styleSeed = Date.now().toString(36).slice(-6);
+    if (styleSeed) log(`style seed ${styleSeed} — re-run this exact exploration with --style-seed ${styleSeed}`);
     const { runDir, state, ms } = await runPipeline({
         prompt,
         configPath: flags.config,
@@ -437,6 +447,7 @@ async function build(flags, positionals) {
         brochure: !!flags.brochure,
         noImages: !!flags['no-images'],
         bespoke: !!flags.bespoke,
+        ...(styleSeed ? { styleSeed } : {}),
         cwd,
     });
     const front = state.published?.pages?.find((p) => p.front_page);
@@ -480,7 +491,7 @@ export async function main(argv) {
             const { flags } = parseArgs(rest, { booleans: ['force'] });
             await configInit(flags);
         } else if (cmd === 'build') {
-            const { flags, positionals } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['new-site', 'brochure', 'no-images', 'bespoke'] });
+            const { flags, positionals } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['new-site', 'brochure', 'no-images', 'bespoke', 'vary'] });
             await build(flags, positionals);
         } else {
             console.error(HELP);

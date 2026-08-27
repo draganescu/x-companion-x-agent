@@ -144,3 +144,42 @@ test('--no-images: I leaves the bill; the ceiling is 2*base with placeholders st
     assert.equal(ctx.budget.ceiling, 18);
     assert.ok(ctx.logs.some((l) => /images skipped, placeholders stay/.test(l)));
 });
+
+test('the style seed reshuffles the rosters and arms the exploration push; absent, every byte is today\'s', async () => {
+    const captured = [];
+    const provider = {
+        id: 'scripted',
+        complete: async (_t, prompt, payload) => {
+            captured.push({ prompt, payload });
+            return { text: JSON.stringify(fixtureBrief), usage: { input_tokens: 1, output_tokens: 1 } };
+        },
+    };
+    const run = async (style_seed) => {
+        const ctx = makeCtx({ provider });
+        if (style_seed) ctx.state.style_seed = style_seed;
+        await s1.run(ctx);
+        return captured[captured.length - 1];
+    };
+
+    const plain1 = await run();
+    const plain2 = await run();
+    assert.equal(plain1.prompt, plain2.prompt, 'no seed: the rendered prompt is byte-stable (the determinism claim)');
+    assert.ok(!/EXPLORATION RUN/.test(plain1.prompt), 'no seed: no exploration push');
+
+    const seeded = await run('k7f2ab');
+    assert.notEqual(seeded.payload.artistic_styles, plain1.payload.artistic_styles, 'the seed reshuffles the artistic roster');
+    assert.notEqual(seeded.payload.ui_styles, plain1.payload.ui_styles, 'the seed reshuffles the UI roster');
+    assert.equal(
+        seeded.payload.artistic_styles.split(', ').sort().join(', '),
+        plain1.payload.artistic_styles.split(', ').sort().join(', '),
+        'same names, different order — a shuffle, never a filter',
+    );
+    assert.match(seeded.payload.style_pin_note, /EXPLORATION RUN \(style seed k7f2ab\)/);
+    assert.match(seeded.payload.style_pin_note, /BASELINE TO BEAT/);
+
+    const seededAgain = await run('k7f2ab');
+    assert.equal(seededAgain.prompt, seeded.prompt, 'same seed: byte-stable — --style-seed reproduces the exploration');
+
+    const otherSeed = await run('zzz999');
+    assert.notEqual(otherSeed.payload.artistic_styles, seeded.payload.artistic_styles, 'a different seed explores differently');
+});

@@ -57,3 +57,20 @@ test('--until binds a resumed run: completed stages up to it are skipped and it 
     await runPipeline({ prompt: 'p', cwd, resumeDir: first.runDir, until: 'S1T_theme', stages, skipToolchain: true });
     assert.deepEqual(ran, [], 'everything up to --until was already done; NOTHING past it may run');
 });
+
+test('the style seed is the run\'s: first writer wins, a resume never reshuffles', async () => {
+    const cwd = setup();
+    const seen = [];
+    const stages = [{ id: 'S1_brief', kind: 'generative', run: async (ctx) => { seen.push(ctx.state.style_seed); } }];
+
+    const { runDir } = await runPipeline({ prompt: 'p', cwd, styleSeed: 'abc123', stages, skipToolchain: true });
+    assert.deepEqual(seen, ['abc123']);
+    const state = JSON.parse(readFileSync(join(runDir, 'state.json'), 'utf8'));
+    assert.equal(state.style_seed, 'abc123');
+
+    // a resume with a DIFFERENT seed keeps the original — the brief already
+    // chose from the first shuffle
+    const again = await runPipeline({ prompt: 'p', cwd, resumeDir: runDir, styleSeed: 'zzz999', stages, skipToolchain: true });
+    const state2 = JSON.parse(readFileSync(join(again.runDir, 'state.json'), 'utf8'));
+    assert.equal(state2.style_seed, 'abc123');
+});
