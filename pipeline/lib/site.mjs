@@ -3,7 +3,7 @@
 // All state lives in the two files the pipeline already reads (.x-agent.json,
 // pipeline.config.json) plus tools/.runtime — no new state anywhere.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, openSync, chmodSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, chmodSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PipelineError } from './errors.mjs';
@@ -139,6 +139,9 @@ export async function bootSite({ slot = DEFAULT_SLOT, port = DEFAULT_PORT, plugi
             `Reuse it (x-pipeline site status), or stop it first (x-pipeline site stop --slot ${slot}).`);
     }
     rmSync(descriptorPath(slot), { force: true });
+    // tools/.runtime is gitignored runtime state: a fresh clone or a linked
+    // worktree does not have it yet, and openSync will not create directories.
+    mkdirSync(RUNTIME_DIR, { recursive: true });
     const logPath = join(RUNTIME_DIR, `${slot}.boot.log`);
     const out = openSync(logPath, 'a');
     const child = spawn(process.execPath, [HOLDER, 'hold', slot, String(port), plugin], {
