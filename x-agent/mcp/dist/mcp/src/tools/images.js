@@ -34,7 +34,7 @@ import { ConnectionArgsShape, connectionArgs, defineTool } from './_shared.js';
 import { GeminiImages, DEFAULT_IMAGE_MODEL, aspectForClass, buildImagePrompt, buildSurfacePrompt, fixturePathFor, } from '../images/gemini.js';
 import { scanRefs, applyImage, applySurface } from '../images/scan.js';
 import { MANIFEST_FILENAME, emptyManifest, loadManifest, loadManifestIfPresent, mergeManifest, planSurfaceCalls, saveManifest, } from '../images/manifest.js';
-import { processAsset } from '../images/process.js';
+import { computeKeyHex, processAsset } from '../images/process.js';
 function defaultOutDir(postId) {
     const base = process.env.X_AGENT_DATA_DIR && process.env.X_AGENT_DATA_DIR.trim() !== ''
         ? process.env.X_AGENT_DATA_DIR
@@ -240,10 +240,18 @@ export const wpImagesGenerate = defineTool({
         const surfacesOut = [];
         for (const spec of surfacePlan.generate) {
             try {
+                // A true-alpha spot is generated on a computed chroma key — the
+                // candidate farthest from the site palette, recorded in the manifest.
+                // A ground-baked spot bakes the band hex instead and skips the
+                // knockout: it ships as a JPEG, legal only on skin-less flat bands.
+                if (spec.class === 'spot' && !spec.ground_baked && !spec.key_hex) {
+                    spec.key_hex = computeKeyHex(spec.hexes);
+                }
                 const prompt = buildSurfacePrompt(spec, args.style);
                 const aspect = aspectForClass(spec.class);
                 const raw = await birthImage(gemini, prompt, aspect);
-                const processed = await processAsset(session, raw.data, raw.mimeType, { class: spec.class, key_hex: spec.key_hex });
+                const processClass = spec.class === 'spot' && spec.ground_baked ? 'field' : spec.class;
+                const processed = await processAsset(session, raw.data, raw.mimeType, { class: processClass, key_hex: spec.key_hex });
                 const ext = processed.mime_type === 'image/png' ? 'png' : 'jpg';
                 const file = path.join(outDir, `asset-${spec.id}.${ext}`);
                 fs.writeFileSync(file, processed.bytes);
