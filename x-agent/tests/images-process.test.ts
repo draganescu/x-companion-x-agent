@@ -151,7 +151,7 @@ describe('the texture bound and the veil policy (pure)', () => {
     expect(textureBoundFor('field', 'whisper')).toBe(0.2);
     expect(textureBoundFor('pattern', 'present')).toBe(0.4);
     expect(textureBoundFor('canvas', 'loud')).toBe(0.6);
-    expect(textureBoundFor('frieze', 'whisper')).toBe(0.7);
+    expect(textureBoundFor('frieze', 'whisper')).toBe(0.85);
     expect(textureBoundFor('spot', 'present')).toBeNull();
   });
 

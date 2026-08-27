@@ -77,7 +77,11 @@ export function veilFor(cls: SurfaceClass, intensity: string | undefined, bandHe
  */
 export function textureBoundFor(cls: SurfaceClass, intensity: string | undefined): number | null {
   if (cls === 'spot') return null;
-  if (cls === 'frieze') return 0.7;
+  // Friezes are unveiled edge ornament, not grounds under text: gilt linework
+  // on cream legitimately spans a wide range (the Vienna run rejected 4/4
+  // legitimate-looking briefs at 0.7), so the bound only has to refuse
+  // scenes and documents — those read essentially 0..1.
+  if (cls === 'frieze') return 0.85;
   const bounds: Record<string, number> = { whisper: 0.2, present: 0.4, loud: 0.6 };
   return bounds[intensity ?? 'present'] ?? bounds.present!;
 }

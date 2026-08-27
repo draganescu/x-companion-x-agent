@@ -455,6 +455,63 @@ export function screenTextContrast(findings) {
         .map((f) => ({ code: 'ink_contrast', message: `unreadable text (${f.ratio}:1, ${f.color} on ${f.background}): "${f.sample}" at ${f.selector_path}` }));
 }
 
+// S4: the type-scale screen — the ink-menu pattern applied to type. Every
+// heading declares the fontSize slug the section grammar maps to its level;
+// a 104px h3 or a 12px h3 dies at birth with the exact correction instead of
+// shipping as one more voice in the hotch-potch. Grammar null = stand down.
+export function screenTreeType(tree, { grammar } = {}) {
+    if (!grammar) return [];
+    const failures = [];
+    const walk = (nodes, prefix) => {
+        (nodes ?? []).forEach((node, i) => {
+            const path = `${prefix}/${i}`;
+            if (node.name === 'core/heading') {
+                const level = node.attributes?.level ?? 2;
+                const expected = level <= 1 ? grammar.h1 : level === 2 ? grammar.h2 : grammar.h3;
+                const actual = node.attributes?.fontSize;
+                if (actual !== expected) {
+                    failures.push({
+                        code: 'type_scale',
+                        path,
+                        message: `heading level ${level} at ${path} declares fontSize ${actual ? `"${actual}"` : 'nothing'} — the site's type scale maps level ${level} to "${expected}" (h1 "${grammar.h1}", h2 "${grammar.h2}", h3+ "${grammar.h3}"); set attributes.fontSize explicitly`,
+                    });
+                }
+            }
+            walk(node.innerBlocks, `${path}/innerBlocks`);
+        });
+    };
+    walk(tree?.blocks ?? [], '/blocks');
+    return failures;
+}
+
+// S4: the width screen — the recipe (lib/grammar.mjs widthRecipe) decides how
+// many alignwide containers a section's content host may carry: none for a
+// stack, exactly one for split/asymmetric/grid. Arbitrary alignfull children
+// are never legal (full-bleed is the band root's job — and a loud cover's).
+// The measured field bug: band content alternating 645px and 1340px at random.
+export function screenTreeWidths(tree, { layout } = {}) {
+    const root = tree?.blocks?.[0];
+    if (!root) return [];
+    const failures = [];
+    // A loud section's ground is a core/cover; the content lives inside it.
+    const cover = (root.innerBlocks ?? []).find((n) => n.name === 'core/cover');
+    const host = cover ?? root;
+    const children = host.innerBlocks ?? [];
+    const wide = children.filter((n) => n.attributes?.align === 'wide');
+    const full = children.filter((n) => n.attributes?.align === 'full' && n.name !== 'core/cover');
+    const want = (layout === 'split' || layout === 'asymmetric' || layout === 'grid') ? 1 : 0;
+    if (full.length > 0) {
+        failures.push({ code: 'section_width', message: `${full.length} child(ren) of the section's content host carry align "full" — full-bleed belongs to the band root (and a loud cover), never to content containers; drop the align or use "wide"` });
+    }
+    if (wide.length !== want) {
+        const correction = want === 0
+            ? 'a "stack" section reads at content width — remove align from its containers'
+            : `a "${layout}" section carries EXACTLY ONE alignwide container (the columns/grid wrapper) with everything else at content width`;
+        failures.push({ code: 'section_width', message: `${wide.length} alignwide container(s) in a "${layout ?? 'stack'}" section (the recipe says ${want}) — ${correction}` });
+    }
+    return failures;
+}
+
 // S9: presence for surfaces, as loaded/natural_w is presence for content
 // images (x-surfaces). The flat band under a missing asset keeps the page
 // coherent, so the RUN has to be the thing that screams.

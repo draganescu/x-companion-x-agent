@@ -2,7 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit, settleAll } from '../lib/limit.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity } from '../lib/gates.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity, screenTreeType, screenTreeWidths } from '../lib/gates.mjs';
+import { sectionGrammar } from '../lib/grammar.mjs';
 import { resolveBandColors, annotatePalette, resolveInkMenus, resolveInkMenusFromLuminance } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
@@ -51,6 +52,20 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
     const skinnedKeys = new Set((brief.surfaces ?? [])
         .filter((s) => s.class === 'field' || s.class === 'pattern')
         .flatMap((s) => s.attach ?? []));
+    // The loudest skin per band: a LOUD material means the section's ground is
+    // a core/cover with the band's veil — the model is told to author one.
+    const intensityRank = { whisper: 1, present: 2, loud: 3 };
+    const skinIntensity = new Map();
+    for (const s of (brief.surfaces ?? []).filter((x) => x.class === 'field' || x.class === 'pattern')) {
+        for (const ref of s.attach ?? []) {
+            const cur = skinIntensity.get(ref);
+            if (!cur || (intensityRank[s.intensity] ?? 0) > (intensityRank[cur] ?? 0)) skinIntensity.set(ref, s.intensity);
+        }
+    }
+    // The section grammar: one level->fontSize map and one width recipe for
+    // every call, derived from the applied type scale — the shared discipline
+    // that makes independent section calls read as one site.
+    const grammar = sectionGrammar(tokens.typography);
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -102,6 +117,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
         const design = { band: 'base', layout: 'stack', ...(section.design ?? {}) };
         design.layout = composition(design.layout);
         design.skinned = skinnedKeys.has(`${s.page}/${section.id}`);
+        design.surface_intensity = skinIntensity.get(`${s.page}/${section.id}`) ?? null;
         const payload = {
             section,
             page: entry.page,
@@ -124,6 +140,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             epoch,
             image_note: imageNote,
             heading_rule: headingRule,
+            grammar: grammar ?? { note: 'no parseable type scale — set heading sizes from token_slugs.font_sizes, largest for h1, consistently' },
         };
         let tree;
         try {
@@ -140,6 +157,10 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                     if (literals.length > 0) return literals;
                     const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
                     if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
+                    const type = screenTreeType(v, { grammar });
+                    if (type.length > 0) return type.map((f) => ({ path: f.path, message: f.message }));
+                    const widths = screenTreeWidths(v, { layout: design.layout });
+                    if (widths.length > 0) return widths.map((f) => ({ path: f.path ?? '/blocks/0', message: f.message }));
                     return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
                 },
             }));

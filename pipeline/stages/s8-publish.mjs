@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { sha256 } from '../lib/hash.mjs';
 import { screenTreeDiagnostics } from '../lib/gates.mjs';
-import { mixHex, toneOf } from '../lib/tokens.mjs';
+import { mixHex, toneOf, resolveBandColors } from '../lib/tokens.mjs';
+import { stripUnknownAttrs } from '../lib/normalize.mjs';
 import { mintSurfaceMarkers, pageSurfaceDict, pageSurfacePlan, surfaceStyleLine } from '../lib/surfaces.mjs';
 import { createRest, readConnection } from '../lib/rest.mjs';
 
@@ -67,9 +68,11 @@ export async function run(ctx) {
     const accent = toneRoles.map((r) => brief.palette.find((p) => p.role === r)).find(Boolean) ?? brief.palette[0];
     let paletteBySlug = new Map();
     let appliedPalette = [];
+    let appliedSpacing = [];
     try {
         const tokens = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
         appliedPalette = tokens.palette;
+        appliedSpacing = tokens.spacing?.steps ?? [];
         paletteBySlug = new Map(tokens.palette.map((p) => [p.slug, p.color]));
     } catch { /* a run dir without applied tokens — the role fallback covers it */ }
     // The surface lane's run report: every degrade and refusal screams here,
@@ -212,13 +215,29 @@ export async function run(ctx) {
     // The furniture gate at the final epoch: validate + screen + compile.
     // Failures here degrade to the deterministic floor, never kill the run.
     const compilePart = async (part, tree) => {
-        const validation = await ctx.call('wp_validate', tree);
+        let validation = await ctx.call('wp_validate', tree);
         if (!validation.ok) {
             ctx.log(`${part} part: wp_validate errored at the final epoch (${validation.data.message}) — using the deterministic ${part}`);
             return null;
         }
-        const screen = screenTreeDiagnostics(validation.data, { allowedUnknown: new Set() });
-        if (screen.status !== 'pass') {
+        let screen = screenTreeDiagnostics(validation.data, { allowedUnknown: new Set() });
+        // One deterministic rescue before the floor: when EVERY failure is an
+        // unknown attribute, strip exactly those attributes and re-gate whole.
+        // Losing one textAlign is strictly less destructive than replacing the
+        // whole designed part with the unstyled floor (the Vienna footer bug).
+        if (screen.status !== 'pass' && screen.failures.every((f) => f.code === 'W_ATTR_UNKNOWN')) {
+            const removed = stripUnknownAttrs(tree, validation.data.diagnostics ?? []);
+            if (removed.length > 0) {
+                validation = await ctx.call('wp_validate', tree);
+                if (validation.ok) {
+                    screen = screenTreeDiagnostics(validation.data, { allowedUnknown: new Set() });
+                    if (screen.status === 'pass') {
+                        ctx.log(`${part} part: stripped ${removed.length} unknown attribute(s) (${removed.join(', ')}) — the designed ${part} ships without them`);
+                    }
+                }
+            }
+        }
+        if (!validation.ok || screen.status !== 'pass') {
             ctx.log(`${part} part: failed validation at the final epoch (${screen.failures.slice(0, 2).map((f) => f.code).join(', ')}) — using the deterministic ${part}`);
             return null;
         }
@@ -288,12 +307,25 @@ export async function run(ctx) {
         if (footerShipped) ctx.log("footer template part shipped from the design lane — the brief's footer intent, built");
     }
     if (!footerShipped && ((brief.footer.items ?? []).length > 0 || brief.footer.intent)) {
+        // Even the FLOOR is a band: contrast ground, measured ink, real
+        // padding — a fallback footer must read finished, never broken (the
+        // Vienna field bug: two bare paragraphs on white under a rich page).
+        const floorPair = appliedPalette.length > 0 ? resolveBandColors('contrast', brief.palette, appliedPalette) : null;
+        const floorPad = appliedSpacing[appliedSpacing.length - 1]?.slug;
         const footerTree = {
             version: 1,
             epoch,
             blocks: [{
                 name: 'core/group',
-                attributes: { style: { spacing: { padding: { top: 'var:preset|spacing|50', bottom: 'var:preset|spacing|50' } } } },
+                attributes: {
+                    align: 'full',
+                    layout: { type: 'constrained' },
+                    ...(floorPair ? { backgroundColor: floorPair.background, textColor: floorPair.text } : {}),
+                    style: { spacing: { padding: {
+                        top: `var:preset|spacing|${floorPad ?? '50'}`,
+                        bottom: `var:preset|spacing|${floorPad ?? '50'}`,
+                    } } },
+                },
                 innerBlocks: [
                     { name: 'core/paragraph', attributes: { content: `${brief.identity.site_title} — ${brief.identity.tagline}` }, innerBlocks: [] },
                     ...(brief.footer.items.length > 0 ? [{

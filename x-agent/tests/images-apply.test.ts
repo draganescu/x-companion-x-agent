@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockNode } from '../mcp/src/schemas.js';
-import { applySurface } from '../mcp/src/images/scan.js';
+import { applySurface, stripSurface } from '../mcp/src/images/scan.js';
 import type { ManifestSurfaceTarget } from '../mcp/src/images/manifest.js';
 
 const MEDIA = { id: 42, url: 'http://x/wp-content/uploads/asset-linen-wash.jpg' };
@@ -77,6 +77,36 @@ describe('applySurface — group backgrounds', () => {
   it('refuses a node whose block name drifted since the scan', () => {
     const blocks: BlockNode[] = [{ name: 'core/columns', attributes: {} }];
     expect(applySurface(blocks, groupTarget(), MEDIA, { class: 'field' })).toBe(false);
+  });
+});
+
+describe('stripSurface — the S9 rescue takes the material back off', () => {
+  it('removes OUR background and the flat band shows again; sibling style keys survive', () => {
+    const blocks = groupTree({ style: { spacing: { padding: { top: '2rem' } } } });
+    applySurface(blocks, groupTarget(), MEDIA, { class: 'field' });
+    expect(stripSurface(blocks, groupTarget(), MEDIA.url)).toBe(true);
+    const attrs = blocks[0]!.attributes as Record<string, any>;
+    expect(attrs.style.background).toBeUndefined();
+    expect(attrs.style.spacing.padding.top).toBe('2rem');
+    expect(attrs.backgroundColor).toBe('base'); // the reservation, untouched throughout
+  });
+
+  it("never strips an admin's own background — the url must match our upload", () => {
+    const blocks = groupTree({ style: { background: { backgroundImage: { url: 'http://x/admins-own.jpg' } } } });
+    expect(stripSurface(blocks, groupTarget(), MEDIA.url)).toBe(false);
+    expect((blocks[0]!.attributes as any).style.background.backgroundImage.url).toBe('http://x/admins-own.jpg');
+  });
+
+  it('covers: url and id come off, the authored veil stays', () => {
+    const blocks: BlockNode[] = [
+      { name: 'core/cover', attributes: { url: MEDIA.url, id: MEDIA.id, overlayColor: 'contrast', dimRatio: 80 } },
+    ];
+    const target = groupTarget({ block_name: 'core/cover', mechanism: 'cover', reservation: null });
+    expect(stripSurface(blocks, target, MEDIA.url)).toBe(true);
+    const attrs = blocks[0]!.attributes as Record<string, any>;
+    expect(attrs.url).toBeUndefined();
+    expect(attrs.id).toBeUndefined();
+    expect(attrs.overlayColor).toBe('contrast');
   });
 });
 

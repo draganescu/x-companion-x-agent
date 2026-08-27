@@ -42,12 +42,33 @@ const FURNITURE_TREES = {
 };
 
 function treeFor(label, extra = {}) {
+    // Grammar-compliant model output: explicit level + the mapped fontSize
+    // (the test scale has one size, so every level maps to 'display'), and
+    // grid sections carry their EXACTLY ONE alignwide container.
+    const heading = { name: 'core/heading', attributes: { content: label, level: 2, fontSize: 'display' } };
+    const inner = label.includes('what-we-bake')
+        ? [{ name: 'core/group', attributes: { align: 'wide' }, innerBlocks: [heading] }]
+        : [heading];
     return {
         version: 1,
         epoch: EPOCH,
-        blocks: [{ name: 'core/group', attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } }, innerBlocks: [{ name: 'core/heading', attributes: { content: label } }] }],
+        blocks: [{ name: 'core/group', attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } }, innerBlocks: inner }],
         ...extra,
     };
+}
+
+// The scripted ctx.call keys tool responses off the section label, which
+// lives on the first content-bearing node wherever the grammar nests it.
+function labelOf(tree) {
+    const walk = (ns) => {
+        for (const n of ns ?? []) {
+            if (n.attributes?.content) return n.attributes.content;
+            const hit = walk(n.innerBlocks);
+            if (hit) return hit;
+        }
+        return null;
+    };
+    return walk(tree.blocks) ?? '?';
 }
 
 function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
@@ -90,7 +111,7 @@ function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
         log: () => {},
         peak: () => peak,
         call: async (name, tree) => {
-            const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
+            const key = labelOf(tree);
             if (name === 'wp_compile') {
                 return { ok: true, data: compileByKey[key] ?? { markup: '<!-- wp:group /-->', all_valid: true, invalid: [], content_lost: [] } };
             }
@@ -170,7 +191,7 @@ test('content the save() ignores fails the artifact at the compile-parity gate',
                 name: 'core/group',
                 attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } },
                 innerBlocks: [
-                    { name: 'core/heading', attributes: { content: 'home/hero' } },
+                    { name: 'core/heading', attributes: { content: 'home/hero', level: 2, fontSize: 'display' } },
                     { name: 'core/quote', attributes: { value: '<p>the quote text</p>', citation: 'someone' }, innerBlocks: [] },
                 ],
             }],
@@ -264,7 +285,7 @@ test('a tool error in one lane is fatal to the run, but no sibling lane is aband
     const ctx = makeCtx({ treesByLabel, validateByKey: {} });
     const inner = ctx.call;
     ctx.call = async (name, tree) => {
-        const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
+        const key = labelOf(tree);
         if (name === 'wp_validate' && key === 'home/hero') {
             return { ok: false, data: { code: 'companion_unreachable', message: 'net::ERR_ABORTED (scripted)' } };
         }

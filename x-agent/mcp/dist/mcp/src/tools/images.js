@@ -32,7 +32,7 @@ import { z } from 'zod';
 import { XError, errInvalidInput } from '../errors.js';
 import { ConnectionArgsShape, connectionArgs, defineTool } from './_shared.js';
 import { GeminiImages, DEFAULT_IMAGE_MODEL, SURFACE_RETRY_SUFFIX, aspectForClass, buildImagePrompt, buildSurfacePrompt, fixturePathFor, } from '../images/gemini.js';
-import { scanRefs, applyImage, applySurface } from '../images/scan.js';
+import { scanRefs, applyImage, applySurface, stripSurface } from '../images/scan.js';
 import { MANIFEST_FILENAME, emptyManifest, loadManifest, loadManifestIfPresent, mergeManifest, planSurfaceCalls, saveManifest, } from '../images/manifest.js';
 import { computeKeyHex, processAsset, textureBoundFor, veilFor } from '../images/process.js';
 function defaultOutDir(postId) {
@@ -288,6 +288,12 @@ export const wpImagesGenerate = defineTool({
                     processed = await processAsset(session, raw.data, raw.mimeType, { class: processClass, key_hex: spec.key_hex, veil });
                     if (bound === null || processed.lum_max - processed.lum_min <= bound)
                         break;
+                    // Keep the evidence: a rejected birth is saved for the post-mortem
+                    // the report will provoke — was it a scene, or is the bound wrong?
+                    const rejectDir = path.join(outDir, 'rejected');
+                    fs.mkdirSync(rejectDir, { recursive: true });
+                    const rejectExt = processed.mime_type === 'image/png' ? 'png' : 'jpg';
+                    fs.writeFileSync(path.join(rejectDir, `asset-${spec.id}-attempt${attempts}.${rejectExt}`), processed.bytes);
                     processed = null;
                 }
                 if (!processed) {
@@ -392,12 +398,17 @@ const ApplyInput = z.object({
     post_id: z.number().int().positive(),
     rest_base: z.string().optional().describe("Defaults to the manifest target's rest_base."),
     manifest_path: z.string().optional().describe('The manifest wp_images_generate wrote; defaults to its default location for this post.'),
+    strip_surfaces: z
+        .array(z.string())
+        .optional()
+        .describe('REVERSE mode: take these dictionary assets OFF the post instead of applying anything — the flat band underneath shows again. Only removes applications whose url matches our own upload; an admin’s background is never stripped. Same one-transaction contract (parse fresh, strip, recompile, update once).'),
 });
 const ApplyOutput = z.object({
     post_id: z.number(),
     uploaded: z.array(z.object({ id: z.number(), source_url: z.string() })),
     swapped: z.number().describe('Content nodes whose url/id were swapped.'),
     surfaces_applied: z.number().describe('Surface targets whose background was written.'),
+    surfaces_stripped: z.number().optional().describe('Surface targets whose background was removed (strip_surfaces mode).'),
     skipped: z.array(z.string()).describe('Entries refused: drifted content nodes, or surface targets an admin has claimed.'),
     surfaces: z
         .array(z.object({ asset_id: z.string(), media_id: z.number().optional(), media_url: z.string().optional(), applied: z.number(), refused: z.number() }))
@@ -431,6 +442,48 @@ export const wpImagesApply = defineTool({
         const session = await sessionFor(live);
         const { content_raw } = await live.companion.corePostRaw(restBase, args.post_id);
         const { blocks: tree } = await session.parseMarkup(content_raw);
+        // REVERSE mode — the S9 rescue's instrument: take named assets OFF this
+        // post. The flat band underneath was never touched, so removing our
+        // application restores today's design exactly. Same transaction shape.
+        if (args.strip_surfaces && args.strip_surfaces.length > 0) {
+            const stripSkipped = [];
+            let stripped = 0;
+            for (const assetId of args.strip_surfaces) {
+                const entry = manifest.surfaces.find((s) => s.asset_id === assetId);
+                if (!entry?.media_url) {
+                    stripSkipped.push(`surface ${assetId}: not in the manifest or never uploaded — nothing to strip`);
+                    continue;
+                }
+                for (const target of entry.targets.filter((t) => t.post_id === args.post_id)) {
+                    if (stripSurface(tree, target, entry.media_url))
+                        stripped += 1;
+                    else
+                        stripSkipped.push(`${target.path}: does not carry our ${assetId} application — not touched`);
+                }
+            }
+            if (stripped === 0) {
+                throw new XError('invalid_input', 'Nothing to strip: no named surface application still matches the post.', 'Check strip_surfaces ids against the manifest.', {
+                    skipped: stripSkipped,
+                });
+            }
+            await live.manifestCache.get({ fingerprintMinIntervalMs: 0 });
+            const compiled = await session.compile(tree);
+            if (!compiled.all_valid) {
+                throw new XError('companion_error', 'The stripped tree did not compile all_valid; the post was NOT updated.', '', { invalid: compiled.invalid });
+            }
+            const saved = await live.companion.corePostUpdate(restBase, args.post_id, compiled.markup);
+            return {
+                post_id: args.post_id,
+                uploaded: [],
+                swapped: 0,
+                surfaces_applied: 0,
+                surfaces_stripped: stripped,
+                skipped: stripSkipped,
+                surfaces: args.strip_surfaces.map((id) => ({ asset_id: id, applied: 0, refused: 0 })),
+                all_valid: compiled.all_valid,
+                link: saved.link,
+            };
+        }
         const uploaded = [];
         const skipped = [];
         let swapped = 0;

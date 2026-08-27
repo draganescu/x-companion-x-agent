@@ -191,10 +191,42 @@ function backgroundFor(media: { id: number; url: string }, opts: SurfaceStyleOpt
     case 'frieze':
       return { ...image, backgroundRepeat: 'repeat-x', backgroundPosition: opts.position ?? 'top', backgroundSize: opts.size ?? 'auto' };
     case 'spot':
-      return { ...image, backgroundRepeat: 'no-repeat', backgroundPosition: opts.position ?? 'top right', backgroundSize: opts.size ?? 'auto' };
+      // A spot is punctuation, not a mural: without an explicit size it ships
+      // bounded (the Vienna field bug: a cartouche at natural size filled a
+      // whole FAQ band behind its text).
+      return { ...image, backgroundRepeat: 'no-repeat', backgroundPosition: opts.position ?? 'top right', backgroundSize: opts.size ?? '180px' };
     default:
       return { ...image, backgroundSize: 'cover' };
   }
+}
+
+/**
+ * Take a surface BACK off its target node — the S9 rescue's instrument: when
+ * the pixel oracle rates ink over an applied material unreadable, the material
+ * comes off and the flat band underneath (never touched) simply shows again.
+ * Only OUR application is removed: the url must match the media we uploaded,
+ * so an admin's own later background is never stripped.
+ */
+export function stripSurface(blocks: BlockNode[], target: SurfaceTargetRef, mediaUrl: string): boolean {
+  const node = nodeAt(blocks, target.path);
+  if (!node || node.name !== target.block_name) return false;
+  const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+  if (target.mechanism === 'cover') {
+    if (attrs.url !== mediaUrl) return false;
+    delete attrs.url;
+    delete attrs.id;
+    node.attributes = attrs;
+    return true;
+  }
+  const style = (attrs.style ?? {}) as Record<string, unknown>;
+  const background = (style.background ?? {}) as Record<string, unknown>;
+  const image = background.backgroundImage as { url?: string } | string | undefined;
+  const url = typeof image === 'string' ? image : image?.url;
+  if (url !== mediaUrl) return false;
+  delete style.background;
+  attrs.style = style;
+  node.attributes = attrs;
+  return true;
 }
 
 /**

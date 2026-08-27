@@ -1,6 +1,6 @@
 ---
 task_type: tree
-required: [section, page, art_direction, style_note, voice, language, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule]
+required: [section, page, art_direction, style_note, voice, language, page_plan, design, axis, band_colors, manifest_slice, pattern_tree, token_slugs, epoch, image_note, heading_rule, grammar]
 ---
 You are generating ONE section of a WordPress page as TreeIR JSON. Code decides
 whether it ships; there is no conversation. The section must look like it belongs
@@ -86,6 +86,26 @@ mechanically before the tree ships. An inner group that sets its own backgroundC
 changes the ground — the same floor is enforced against the ground each text node
 ACTUALLY sits on, so re-think the ink when you re-ground: {{band_colors}}
 
+THE SECTION GRAMMAR (enforced mechanically — a violation is rejected before the
+tree ships, exactly like an off-menu ink): {{grammar}}
+- TYPE SCALE: every core/heading carries an EXPLICIT attributes.fontSize from
+  this map — level 1 -> grammar.h1, level 2 -> grammar.h2, level 3+ ->
+  grammar.h3. No exceptions, no per-section invention: twenty sections written
+  by twenty calls must read as ONE site. Display-scale numerals or ornament
+  text that wants h1 size is a PARAGRAPH with fontSize grammar.h1, never a
+  heading with an inflated size.
+- THE OPENING MOVE: every section except the hero and dividers opens with the
+  same two nodes — a kicker paragraph (uppercase, letterspaced, fontSize
+  grammar.kicker, the band's safest ink) followed by the level-2 heading. This
+  repetition IS the rhythm between sections; do not improvise a different
+  opener per section.
+- WIDTH RECIPE (enforced): the section's content sits at CONTENT WIDTH by
+  default. layout "stack" = NO alignwide children anywhere in the content
+  host. layout "split" / "asymmetric" / "grid" = EXACTLY ONE alignwide
+  container (the core/columns or grid core/group that carries the
+  composition), everything else unaligned. align "full" on content children
+  is never legal — full-bleed belongs to the band root (and a loud cover).
+
 THE SURFACE DISCIPLINE: design.skinned tells you whether this band will wear a
 generated texture skin (applied mechanically at publish — you never reference
 images or backgrounds for it yourself). On a SKINNED band keep the composition
@@ -99,6 +119,13 @@ menus (they are measured against the canvas material itself). A role of
 "divider" is a shallow full-width band whose only job is its skin: one root
 group, its band attributes, generous-but-single padding slugs, and AT MOST a
 spacer inside — no copy, no headings.
+If design.surface_intensity is "loud", the section's GROUND is a core/cover:
+the root group's first child is {"name": "core/cover", "attributes":
+{"overlayColor": "<the band background slug>", "dimRatio": 80, "align":
+"full"}} with NO url (the material arrives at publish, veiled by that
+overlay), and ALL of the section's content lives inside the cover. A loud
+material without its veil is unreadable by construction and will fail the
+pixel audit.
 
 THE LAYOUT CASCADE (why the root is shaped this way): WordPress clamps every
 child of a constrained layout to the theme's contentSize via

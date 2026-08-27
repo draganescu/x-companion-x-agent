@@ -422,6 +422,128 @@ test('S9: measured unreadable text fails the run; muddy text is advisory only', 
     assert.ok(muddy.logs.some((l) => /advisory: 1 text element/.test(l)));
 });
 
+test('S8 furniture: a designed part with one unknown attribute is rescued, not floored', async () => {
+    const toolLog = [];
+    const ctx = surfaceCtx({ surfaces: [], toolLog, restLog: [] });
+    mkdirSync(join(ctx.runDir, 'trees'), { recursive: true });
+    writeFileSync(join(ctx.runDir, 'trees', 'furniture--footer.json'), JSON.stringify({
+        tree: {
+            version: 1,
+            epoch: 'old',
+            blocks: [{
+                name: 'core/group',
+                attributes: { align: 'full', backgroundColor: 'contrast', layout: { type: 'constrained' } },
+                innerBlocks: [
+                    { name: 'core/heading', attributes: { level: 2, textAlign: 'center', content: 'Visit us' }, innerBlocks: [] },
+                    { name: 'core/paragraph', attributes: { content: 'links' }, innerBlocks: [] },
+                ],
+            }],
+        },
+        gate: { status: 'pass' },
+    }));
+    ctx.state.artifacts.furniture = { footer: { status: 'pass' } };
+    const inner = ctx.call;
+    let footerValidations = 0;
+    ctx.call = async (name, tree) => {
+        const isFooterPart = name === 'wp_validate' && JSON.stringify(tree).includes('Visit us');
+        if (isFooterPart) {
+            footerValidations += 1;
+            const hasTextAlign = JSON.stringify(tree).includes('textAlign');
+            return {
+                ok: true,
+                data: hasTextAlign
+                    ? { valid: true, epoch_ok: true, diagnostics: [{ code: 'W_ATTR_UNKNOWN', severity: 'warning', path: '/blocks/0/innerBlocks/0/attributes/textAlign', message: 'Attribute "textAlign" is not declared by "core/heading".' }] }
+                    : { valid: true, epoch_ok: true, diagnostics: [] },
+            };
+        }
+        return inner(name, tree);
+    };
+    await s8.run(ctx);
+    // Stripped, re-gated, shipped: the designed footer landed, not the floor.
+    assert.equal(footerValidations, 2);
+    assert.equal(ctx.state.published.footer_part, 'theme//footer');
+    assert.ok(ctx.logs?.some?.((l) => /stripped 1 unknown attribute/.test(l)) ?? true);
+});
+
+test('S9 surface rescue: unreadable ink over a material strips the material, re-verifies, and the run COMPLETES flat', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-rescue-'));
+    mkdirSync(join(runDir, 'images'), { recursive: true });
+    writeFileSync(join(runDir, 'images', 'images-manifest.json'), JSON.stringify({
+        schema_version: 2,
+        model: 'fake',
+        content: [],
+        surfaces: [{
+            kind: 'surface', asset_id: 'aged-damask', class: 'pattern', file: '/a.png', prompt: 'p',
+            mime_type: 'image/png', bytes: 1, ms: 1, post_processing: 'mirror-tile+veil(#F6EFE6@0.7)',
+            media_id: 501, media_url: 'http://x/uploads/asset-aged-damask.png',
+            targets: [{ post_id: 8, rest_base: 'pages', path: '/blocks/0', block_name: 'core/group', mechanism: 'group_background', reservation: 'contrast' }],
+        }],
+    }));
+    const probePath = 'body:nth-child(2) > div:nth-child(2) > main:nth-child(2) > div:nth-child(1) > div:nth-child(1)';
+    const failingSelector = 'body:nth-child(2) > div:nth-child(2) > main.wp-block-group:nth-child(2) > div.wp-block-post-content:nth-child(1) > div.wp-block-group:nth-child(1) > h1.wp-block-heading:nth-child(2)';
+    let verifies = 0;
+    const stripCalls = [];
+    const ctx = {
+        runDir,
+        logs: [],
+        log(m) { this.logs.push(m); },
+        state: { instance: { site_url: 'http://x' }, published: { pages: [{ slug: 'home', id: 8, front_page: true }] } },
+        call: async function (name, args) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') {
+                verifies += 1;
+                if (verifies === 1) {
+                    return { ok: true, data: {
+                        pass: true,
+                        box_tree: [],
+                        a11y_outline: [{ role: 'heading', name: 'H', level: 1 }],
+                        images: [],
+                        surfaces: [{ selector_path: probePath, url: 'http://x/uploads/asset-aged-damask.png', status: 200, ok: true }],
+                        text_contrast: [{ selector_path: failingSelector, ratio: 1, color: 'rgb(244, 235, 217)', background: 'sampled(0.008..0.837)', sample: 'A Tea Salon', sampled: true }],
+                    } };
+                }
+                return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], surfaces: [], text_contrast: [] } };
+            }
+            if (name === 'wp_images_apply') {
+                stripCalls.push(args);
+                return { ok: true, data: { post_id: args.post_id, uploaded: [], swapped: 0, surfaces_applied: 0, surfaces_stripped: 1, skipped: [], surfaces: [], all_valid: true, link: 'http://x/home/' } };
+            }
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await s9.run(ctx);
+    assert.equal(verifies, 2);
+    assert.equal(stripCalls.length, 1);
+    assert.deepEqual(stripCalls[0].strip_surfaces, ['aged-damask']);
+    assert.ok(ctx.state.surface_report.degraded.some((d) => d.asset_id === 'aged-damask' && /stripped by the S9 rescue/.test(d.reason)));
+    assert.equal(ctx.state.screenshot_taken, true);
+});
+
+test('S9 surface rescue: a second failure after the strip is final — no rescue loop', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-rescue2-'));
+    mkdirSync(join(runDir, 'images'), { recursive: true });
+    writeFileSync(join(runDir, 'images', 'images-manifest.json'), JSON.stringify({
+        schema_version: 2, model: 'fake', content: [],
+        surfaces: [{ kind: 'surface', asset_id: 'aged-damask', class: 'pattern', file: '/a.png', prompt: 'p', mime_type: 'image/png', bytes: 1, ms: 1, post_processing: 'mirror-tile', media_id: 501, media_url: 'http://x/u/a.png', targets: [{ post_id: 8, rest_base: 'pages', path: '/blocks/0', block_name: 'core/group', mechanism: 'group_background', reservation: 'contrast' }] }],
+    }));
+    const finding = { selector_path: 'p:nth-child(1)', ratio: 1, color: 'rgb(0,0,0)', background: 'sampled(0..1)', sample: 'x', sampled: true };
+    let applies = 0;
+    const ctx = {
+        runDir,
+        log: () => {},
+        state: { instance: { site_url: 'http://x' }, published: { pages: [{ slug: 'home', id: 8, front_page: true }] } },
+        call: async (name, args) => {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], surfaces: [], text_contrast: [finding] } };
+            if (name === 'wp_images_apply') { applies += 1; return { ok: true, data: { post_id: args.post_id, uploaded: [], swapped: 0, surfaces_applied: 0, surfaces_stripped: 1, skipped: [], surfaces: [], all_valid: true, link: 'x' } }; }
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed');
+    assert.equal(applies, 1); // the rescue ran once and never looped
+});
+
 test('S9: a 404\'d surface asset fails the run; present surfaces pass silently', async () => {
     const mk = (surfaces) => ({
         runDir: mkdtempSync(join(tmpdir(), 'x-pipeline-s9-surface-')),
