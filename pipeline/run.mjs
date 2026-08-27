@@ -47,7 +47,7 @@ function timestamp() {
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
-export async function runPipeline({ prompt, configPath, resumeDir, until, brochure = false, noImages = false, bespoke = false, cwd = process.cwd(), stages = DEFAULT_STAGES, skipToolchain = false }) {
+export async function runPipeline({ prompt, configPath, resumeDir, until, brochure = false, noImages = false, bespoke = false, styleSeed, cwd = process.cwd(), stages = DEFAULT_STAGES, skipToolchain = false }) {
     const config = loadPipelineConfig(configPath ?? join(cwd, 'pipeline.config.json'));
     if (bespoke && !config.tasks.theme) {
         throw new PipelineError('preflight_failed', 'pipeline config is missing the "theme" task entry, and --bespoke summons it',
@@ -72,6 +72,9 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, brochu
     if (brochure) state.brochure = true;
     if (noImages) state.no_images = true;
     if (bespoke) state.bespoke = true;
+    // The seed belongs to the RUN: first writer wins, so a resume never
+    // reshuffles a world the brief already chose from.
+    if (styleSeed && !state.style_seed) state.style_seed = String(styleSeed);
 
     const startedRun = Date.now();
     const log = (m) => console.error(`[x-pipeline +${fmtClock(Date.now() - startedRun)}] ${m}`);

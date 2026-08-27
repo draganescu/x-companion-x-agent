@@ -52,6 +52,17 @@ export async function run(ctx) {
         const named = [pins.artistic, pins.ui, pins.flexible?.artistic].filter(Boolean).join('", "');
         ctx.log(`the request names "${named}" — pinned; the brief chooses only what is missing`);
     }
+    // The style seed (--vary / --style-seed): a temperature-less model over a
+    // prompt-seeded shuffle picks the SAME combo for the same prompt forever —
+    // deterministic by design, conservative by consequence (the pairing that
+    // names itself from the subject wins every time). The seed reshuffles the
+    // rosters and arms the exploration push; recorded in state.style_seed so
+    // a resume replays the same exploration, and ABSENT it every byte below
+    // is identical to today — the determinism claim holds unless summoned.
+    const styleSeed = ctx.state.style_seed ? `:${ctx.state.style_seed}` : '';
+    const explorePush = ctx.state.style_seed
+        ? `\nEXPLORATION RUN (style seed ${ctx.state.style_seed}): the pairing that names itself instantly from the subject is the BASELINE TO BEAT, never the answer — name that obvious pairing in your head, discard it, and choose a pairing from elsewhere in the lists that still genuinely serves this site. Surprise chosen FOR the brief reads as taste; the on-the-nose pick reads as a template.`
+        : '';
     const { value: brief } = await ctx.llm.generate({
         task_type: 'brief',
         label: 'brief',
@@ -59,9 +70,9 @@ export async function run(ctx) {
             prompt: ctx.prompt,
             contract: schema,
             mode_note: brochure ? BROCHURE_NOTE : '',
-            artistic_styles: seededShuffle(styles.artistic.map((e) => e.name), `${ctx.prompt}:artistic`).join(', '),
-            ui_styles: seededShuffle(styles.ui.map((e) => e.name), `${ctx.prompt}:ui`).join(', '),
-            style_pin_note: renderPinNote(pins),
+            artistic_styles: seededShuffle(styles.artistic.map((e) => e.name), `${ctx.prompt}${styleSeed}:artistic`).join(', '),
+            ui_styles: seededShuffle(styles.ui.map((e) => e.name), `${ctx.prompt}${styleSeed}:ui`).join(', '),
+            style_pin_note: renderPinNote(pins) + explorePush,
         },
         // NOT passed as a structured-outputs contract: this schema compiles to
         // a grammar the API rejects as too large (field-tested 2026-08-25,

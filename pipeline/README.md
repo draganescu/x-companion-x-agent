@@ -72,7 +72,7 @@ anything else.
 | `x-pipeline site prune` | delete the directories of already-stopped sites (each is ~120MB) |
 | `x-pipeline builds rm …` | delete build artifacts: by run id, or `--failed` / `--gone` / `--keep N` / `--all` |
 | `x-pipeline config init [--provider P] [--model M]` | write `pipeline.config.json` with the proven per-task temperatures; stores the provider key in `.x-agent.json` if missing |
-| `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips image generation and leaves the placeholder pixels in place, `--bespoke` (valid only with `--new-site`) authors a bespoke block theme as the ground |
+| `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips image generation and leaves the placeholder pixels in place, `--bespoke` (valid only with `--new-site`) authors a bespoke block theme as the ground, `--vary` explores the style rosters with a fresh recorded seed (`--style-seed SEED` replays one) |
 
 ## The bespoke ground (`--bespoke --new-site`)
 
@@ -116,6 +116,12 @@ order — determinism and `--resume` survive, position bias does not), picks by 
 name, and argues the pairing in `style.rationale`; the chosen entries' cues then ride
 into every writing call. A style the prompt itself names is detected in code and
 **pinned — never overridden**; only the missing half is chosen.
+
+Because the shuffle is prompt-seeded and the routed models take no temperature, the
+same prompt picks the same combo forever — usually the semantically obvious one.
+`--vary` opts into exploration: a fresh seed (printed, recorded in the run, replayable
+with `--style-seed`) reshuffles the rosters and instructs the brief to treat the
+on-the-nose pairing as the baseline to beat. Without the flag, nothing changes.
 
 ## Where things live
 
