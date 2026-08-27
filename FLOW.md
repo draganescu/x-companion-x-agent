@@ -105,7 +105,7 @@ capabilities:
 
 ```mermaid
 flowchart TD
-    REQ["extend-tier request\n(tokens, install, snapshot, placeholder)"] --> AUTH{authenticated?}
+    REQ["extend-tier request\n(tokens, install, themes/install,\nsnapshot, placeholder)"] --> AUTH{authenticated?}
     AUTH -- no --> E401["401 rest_forbidden"]
     AUTH -- yes --> POST{posture?}
     POST -- production --> E403["403 posture_forbidden\n'snapshot to a sandbox, promote artifacts'"]

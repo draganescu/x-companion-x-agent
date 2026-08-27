@@ -72,7 +72,36 @@ anything else.
 | `x-pipeline site prune` | delete the directories of already-stopped sites (each is ~120MB) |
 | `x-pipeline builds rm …` | delete build artifacts: by run id, or `--failed` / `--gone` / `--keep N` / `--all` |
 | `x-pipeline config init [--provider P] [--model M]` | write `pipeline.config.json` with the proven per-task temperatures; stores the provider key in `.x-agent.json` if missing |
-| `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips image generation and leaves the placeholder pixels in place |
+| `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips image generation and leaves the placeholder pixels in place, `--bespoke` (valid only with `--new-site`) authors a bespoke block theme as the ground |
+
+## The bespoke ground (`--bespoke --new-site`)
+
+On a fresh Playground, one metered `theme` call authors a **ThemeSpec** — a parameter
+object, never files (`contract/schemas/theme-spec.schema.json`): a name the admin
+sees, ONE skeleton (`stacked | split | rail`), the measure (contentSize/wideSize),
+the physics (blockGap, root padding), and a preset vocabulary (shadows, gradients,
+duotones). A deterministic scaffolder compiles it into a complete block theme,
+`wp_theme_build_test` MEASURES its physics in a throwaway sandbox (zero root seams,
+the declared measure actually clamping), and `wp_theme_install` activates it **before
+S2 ever reads the instance** — so every downstream gate operates on the bespoke world
+unchanged. A failed gate gets one repair of the SPEC (never the files); a second
+failure aborts the run: no ground, no site. The theme is deliverable — named,
+versioned, deletable from wp-admin — and never removed at run end. Budget: `T=1`
+enters the base; a rail skeleton adds a third furniture call (`F=3`). Connected
+sites never see any of this: their own theme remains the law.
+
+## Real typography (the Font Library lane)
+
+Independent of `--bespoke`: a tokens family may carry
+`source: {provider: "google", family, weights}`. S3 then downloads the woff2s
+agent-side (hash-pinned cache in `tools/.runtime/fonts/`, license recorded beside
+them), installs them through core's own `wp/v2/font-families` + `font-faces` REST,
+and the constructed `fontFace` entries ride the one `wp_tokens_apply` into global
+styles — which is what makes the instance serve them from `uploads/fonts`. The
+instance never calls a font CDN, at install time or page view. Never metered, never
+in the ledger; the report's `## Fonts` section is the record. S9 verifies the
+RENDERED font-family and fails the run when a sourced face silently fell back to
+its stack.
 
 ## The style combo
 
@@ -96,7 +125,10 @@ into every writing call. A style the prompt itself names is detected in code and
 - `pipeline.config.json` (gitignored) — task → `{provider, model, temperature}` routing.
   Swapping a provider is a config edit, never a code change.
 - `runs/<timestamp>/` — every artifact of a run: `brief.json`, `tokens.json`, `trees/`,
-  `blocks/`, `packages/`, `images/`, `ledger.json`, `report.md`, `screenshot.png`.
+  `blocks/`, `packages/`, `images/`, `theme/` (the ThemeSpec + scaffold on bespoke
+  runs), `ledger.json`, `report.md`, `screenshot.png`.
+- `tools/.runtime/fonts/<family>@<version>/` — the agent-side font cache: woff2s,
+  LICENSE, hash-pinned `meta.json`. Repeat builds never re-download.
 
 ## After S9: the polish pass that is not built yet
 
@@ -119,3 +151,7 @@ and until then this is the method for hand-QA of a run:
 - Milestone acceptance (live Playground + real provider keys in the environment):
   `pipeline/tests/accept/m1.sh` … `m6-full.sh` — these boot their own instance on
   port 9410 and tear it down.
+- Theme-factory acceptance (`specs/theme-factory.spec.json`):
+  `pipeline/tests/accept/tf-m1.sh` … `tf-m6.sh` — tf-m1/tf-m4 are offline,
+  tf-m2/tf-m3/tf-m5 boot dedicated slots on 9491-9493 (fake provider or no model at
+  all), tf-m6 is the full-promise run and spends real provider tokens.

@@ -77,7 +77,8 @@ one — `x_companion_posture()` never guesses permissive.
 On a `production` instance the extend-tier routes are **hard-disabled in code**:
 
 - `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`,
-  `DELETE /blocks/library/{slug}`, `POST /theme/tokens`, `POST /snapshot/export`
+  `DELETE /blocks/library/{slug}`, `POST /themes/install`, `POST /theme/tokens`,
+  `POST /snapshot/export`
 - all answer **403 `posture_forbidden`**, from the `permission_callback`, **before the request body
   is ever parsed**;
 - they are also not registered as abilities;
@@ -188,7 +189,7 @@ Read it before writing a client. Summary only:
 |---|---|---|
 | introspect | `x_companion_read` | `GET /manifest`, `GET /fingerprint`, `GET /patterns`, `GET /harness`, `POST /validate`, `POST /parse`, `POST /render` |
 | author | `x_companion_author` | *(reserved — no v1 routes; this plugin authors no content)* |
-| extend | `x_companion_extend` | `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`, `DELETE /blocks/library/{slug}`, `POST /theme/tokens`, `POST /snapshot/export` |
+| extend | `x_companion_extend` | `POST /blocks/install`, `GET /blocks/library`, `POST /blocks/library/{slug}/rollback`, `DELETE /blocks/library/{slug}`, `POST /themes/install`, `POST /theme/tokens`, `POST /snapshot/export` |
 
 Order inside every handler, no exceptions: **capability check → input schema validation → work.**
 
