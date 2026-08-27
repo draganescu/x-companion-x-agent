@@ -111,6 +111,28 @@ test('text-heavy bands accept only whisper skins — louder material belongs to 
     assert.deepEqual(crossChecks(presentOnHero).filter((i) => /whisper skin/.test(i.message)), []);
 });
 
+test('a ground-baked spot matches exactly one band color — mixed-band attach is the visible-rectangle bug', () => {
+    // brief.m1: hero sits on contrast, what-we-bake on base — two colors.
+    const mixed = withSurfaces([{
+        id: 'filigree-spot', class: 'spot', prompt_seed: 'Engraved filigree corner', intensity: 'present',
+        ground_baked: true, attach: ['home/hero', 'home/what-we-bake'],
+    }]);
+    assert.ok(crossChecks(mixed).some((i) => /baked ground matches exactly one/.test(i.message)));
+
+    const uniform = withSurfaces([{
+        id: 'filigree-spot', class: 'spot', prompt_seed: 'Engraved filigree corner', intensity: 'present',
+        ground_baked: true, attach: ['home/what-we-bake'],
+    }]);
+    assert.deepEqual(crossChecks(uniform).filter((i) => /baked ground matches/.test(i.message)), []);
+
+    // True alpha has no such limit: the same attach without ground_baked is clean.
+    const alpha = withSurfaces([{
+        id: 'filigree-spot', class: 'spot', prompt_seed: 'Engraved filigree corner', intensity: 'present',
+        attach: ['home/hero', 'home/what-we-bake'],
+    }]);
+    assert.deepEqual(crossChecks(alpha).filter((i) => /baked ground/.test(i.message)), []);
+});
+
 test('a frieze is ornamental separation — it lives on dividers and hero/cta edges, never behind content copy', () => {
     const onContent = withSurfaces([{ ...FRIEZE, attach: ['home/what-we-bake'] }]);
     assert.ok(crossChecks(onContent).some((i) => /ornamental separation and lives on a divider/.test(i.message)));

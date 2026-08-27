@@ -56,7 +56,7 @@ import {
   type ManifestV2,
   type SurfaceCallSpec,
 } from '../images/manifest.js';
-import { computeKeyHex, processAsset, textureBoundFor, veilFor } from '../images/process.js';
+import { alphaScaleFor, computeKeyHex, processAsset, tamedAlpha, textureBoundFor, veilFor } from '../images/process.js';
 
 function defaultOutDir(postId: number): string {
   const base = process.env.X_AGENT_DATA_DIR && process.env.X_AGENT_DATA_DIR.trim() !== ''
@@ -317,17 +317,21 @@ export const wpImagesGenerate = defineTool({
     const surfaceStyle = args.surface_style ?? args.style;
     for (const spec of surfacePlan.generate) {
       try {
-        // A true-alpha spot is generated on a computed chroma key — the
-        // candidate farthest from the site palette, recorded in the manifest.
-        // A ground-baked spot bakes the band hex instead and skips the
-        // knockout: it ships as a JPEG, legal only on skin-less flat bands.
-        if (spec.class === 'spot' && !spec.ground_baked && !spec.key_hex) {
+        // EVERY ornament class (pattern, frieze, true-alpha spot) is generated
+        // on a computed chroma key — the candidate farthest from the site
+        // palette, recorded in the manifest — and knocked out to real alpha:
+        // one asset then sits on ANY band color, and intensity is baked as
+        // ornament opacity. A ground-baked spot bakes the band hex instead and
+        // ships LOSSLESS (a JPEG'd flat ground drifts off its own hex — the
+        // visible-rectangle field bug); legal only on bands of one color.
+        const ornament = spec.class === 'pattern' || spec.class === 'frieze' || (spec.class === 'spot' && !spec.ground_baked);
+        if (ornament && !spec.key_hex) {
           spec.key_hex = computeKeyHex(spec.hexes);
         }
         const prompt = buildSurfacePrompt(spec, surfaceStyle);
         const aspect = aspectForClass(spec.class);
         const processClass = spec.class === 'spot' && spec.ground_baked ? 'field' : spec.class;
-        const veil = veilFor(spec.class, spec.intensity, spec.hexes[0]);
+        const veil = veilFor(processClass, spec.intensity, spec.hexes[0]);
         const bound = textureBoundFor(spec.class, spec.intensity);
 
         let attempts = 0;
@@ -337,8 +341,28 @@ export const wpImagesGenerate = defineTool({
           attempts += 1;
           const raw = await birthImage(gemini, attemptPrompt, aspect);
           ms += raw.ms;
-          processed = await processAsset(session, raw.data, raw.mimeType, { class: processClass, key_hex: spec.key_hex, veil });
+          const stationOpts = {
+            class: processClass,
+            key_hex: spec.key_hex,
+            veil,
+            alpha_scale: ornament ? alphaScaleFor(spec.class, spec.intensity) : null,
+            // The bound rates what RENDERS: the composite over the band.
+            composite_hex: ornament ? spec.hexes[0] : null,
+            force_png: spec.class === 'spot' && spec.ground_baked === true,
+          };
+          processed = await processAsset(session, raw.data, raw.mimeType, stationOpts);
           if (bound === null || processed.lum_max - processed.lum_min <= bound) break;
+          // Ornaments are TAMED, not re-bought: trim the alpha on the same
+          // bytes until the composite meets the bound. Intensity is the
+          // ceiling, the bound is the law; below the visibility floor the raw
+          // was never a material and the retry (then the flat band) takes over.
+          if (ornament && stationOpts.alpha_scale) {
+            const trimmed = tamedAlpha(stationOpts.alpha_scale, processed.lum_max - processed.lum_min, bound);
+            if (trimmed !== null && trimmed < stationOpts.alpha_scale) {
+              processed = await processAsset(session, raw.data, raw.mimeType, { ...stationOpts, alpha_scale: trimmed });
+              if (processed.lum_max - processed.lum_min <= bound) break;
+            }
+          }
           // Keep the evidence: a rejected birth is saved for the post-mortem
           // the report will provoke — was it a scene, or is the bound wrong?
           const rejectDir = path.join(outDir, 'rejected');
@@ -366,7 +390,7 @@ export const wpImagesGenerate = defineTool({
           mime_type: processed.mime_type,
           bytes: processed.bytes.length,
           ms,
-          post_processing: veil ? `${processed.post_processing}+veil(${veil.hex}@${veil.alpha})` : processed.post_processing,
+          post_processing: processed.post_processing,
           lum_min: processed.lum_min,
           lum_max: processed.lum_max,
           targets: [],

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { chromium, type Browser, type Page } from 'playwright';
-import { computeKeyHex, processAsset, textureBoundFor, veilFor, type PageProvider } from '../mcp/src/images/process.js';
+import { alphaScaleFor, computeKeyHex, processAsset, textureBoundFor, veilFor, type PageProvider } from '../mcp/src/images/process.js';
 
 const browser: Browser | null = await chromium.launch().catch(() => null);
 
@@ -155,12 +155,87 @@ describe('the texture bound and the veil policy (pure)', () => {
     expect(textureBoundFor('spot', 'present')).toBeNull();
   });
 
-  it('grounds are veiled with the band hex; edges and ornaments are not', () => {
+  it('only the GROUND classes are veiled now; ornament classes carry their intensity as alpha', () => {
     expect(veilFor('field', 'whisper', '#F6EFE6')).toEqual({ hex: '#F6EFE6', alpha: 0.85 });
-    expect(veilFor('pattern', 'present', '#3B2A1E')).toEqual({ hex: '#3B2A1E', alpha: 0.7 });
     expect(veilFor('canvas', undefined, '#fff')).toEqual({ hex: '#fff', alpha: 0.7 });
+    expect(veilFor('pattern', 'present', '#3B2A1E')).toBeNull();
     expect(veilFor('frieze', 'present', '#F6EFE6')).toBeNull();
     expect(veilFor('spot', 'whisper', '#F6EFE6')).toBeNull();
     expect(veilFor('field', 'whisper', undefined)).toBeNull();
+
+    expect(alphaScaleFor('pattern', 'whisper')).toBe(0.25);
+    expect(alphaScaleFor('frieze', 'present')).toBe(0.7);
+    expect(alphaScaleFor('spot', 'loud')).toBe(1);
+    expect(alphaScaleFor('field', 'whisper')).toBeNull();
+    expect(alphaScaleFor('canvas', 'present')).toBeNull();
   });
+});
+
+describe.skipIf(!browser)('the alpha lane', () => {
+  const KEY = '#00b140';
+
+  it('knockout is soft and de-contaminated: no key fringe survives on the edges', async () => {
+    const input = await makePng('spot', KEY, 32);
+    const result = await processAsset(provider(), input, 'image/png', { class: 'spot', key_hex: KEY });
+    expect(result.mime_type).toBe('image/png');
+    expect(result.post_processing).toBe('chroma-key');
+    const { w, h, px } = await decodePixels(result.bytes, result.mime_type);
+    // Not a single visible pixel may keep a green-dominant key cast.
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3]! > 40) {
+        expect(px[i + 1]! - Math.max(px[i]!, px[i + 2]!)).toBeLessThan(60);
+      }
+    }
+    expect(px[3]).toBe(0); // the ground itself is fully transparent
+    void w; void h;
+  }, 30000);
+
+  it('a knocked-out pattern mirror-tiles with its alpha intact and measures as the COMPOSITE over the band', async () => {
+    const input = await makePng('spot', KEY, 16); // dark motif on key ground
+    const result = await processAsset(provider(), input, 'image/png', {
+      class: 'pattern',
+      key_hex: KEY,
+      alpha_scale: 0.25,
+      composite_hex: '#F6EFE6',
+    });
+    expect(result.mime_type).toBe('image/png');
+    expect(result.post_processing).toBe('chroma-key+mirror-tile+alpha(0.25)');
+    const { w, h, px } = await decodePixels(result.bytes, result.mime_type);
+    expect(w).toBe(32);
+    expect(h).toBe(32);
+    // The whisper bake: no pixel more than a quarter opaque.
+    for (let i = 3; i < px.length; i += 4) expect(px[i]!).toBeLessThanOrEqual(70);
+    // Measured as the render: the composite over the band, light and far
+    // narrower than the raw motif (0.85-lum band vs a near-black motif).
+    expect(result.lum_min).toBeGreaterThan(0.45);
+    expect(result.lum_max - result.lum_min).toBeLessThan(0.45);
+  }, 30000);
+
+  it('tamedAlpha: the bound trims the alpha deterministically; invisibility is a reject, not a whisper', async () => {
+    const { tamedAlpha } = await import('../mcp/src/images/process.js');
+    expect(tamedAlpha(0.25, 0.15, 0.2)).toBe(0.25); // already within bound
+    const trimmed = tamedAlpha(0.25, 0.34, 0.2)!;
+    expect(trimmed).toBeLessThan(0.25);
+    expect(trimmed).toBeGreaterThanOrEqual(0.08);
+    expect(tamedAlpha(0.25, 0.34, 0.2)).toBe(trimmed); // stable
+    expect(tamedAlpha(0.1, 0.9, 0.05)).toBeNull(); // would be invisible: reject
+    // The trim actually lands the composite inside the bound on real pixels.
+    const input = await makePng('spot', KEY, 16);
+    const tamed = await processAsset(provider(), input, 'image/png', {
+      class: 'pattern',
+      key_hex: KEY,
+      alpha_scale: trimmed,
+      composite_hex: '#F6EFE6',
+    });
+    expect(tamed.lum_max - tamed.lum_min).toBeLessThanOrEqual(0.2);
+  }, 30000);
+
+  it('a ground-baked spot ships LOSSLESS: the baked hex survives encoding exactly', async () => {
+    const input = await makePng('spot', '#f6efe6', 16);
+    const result = await processAsset(provider(), input, 'image/png', { class: 'field', force_png: true });
+    expect(result.mime_type).toBe('image/png');
+    const { px } = await decodePixels(result.bytes, result.mime_type);
+    // Corner pixel is the baked ground — byte-exact, no JPEG drift rectangle.
+    expect([px[0], px[1], px[2]]).toEqual([0xf6, 0xef, 0xe6]);
+  }, 30000);
 });

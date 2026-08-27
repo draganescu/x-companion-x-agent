@@ -63,8 +63,8 @@ export interface SurfacePromptEntry {
 const FLAT_SAMPLE = 'A flat close-up material sample that fills the entire frame edge to edge. No objects, no scene, no room, no furniture, no depth of field, no perspective, no directional lighting, no shadows of things';
 const CLASS_PHRASING: Record<SurfaceClass, string> = {
   field: `${FLAT_SAMPLE}. Even and uniform with no focal point and low internal contrast`,
-  pattern: `${FLAT_SAMPLE}. One repeating ornamental motif, flat frontal view, evenly lit, no vignette`,
-  frieze: 'A single horizontal ornamental border strip on a plain solid background, continuous and uniform left to right. Ornament only: no page, no document, no layout, no photograph, no scene, no objects',
+  pattern: 'A flat repeating ornamental motif, line-work and shapes only, flat frontal view, evenly lit. No vignette, no scene, no objects, no room, no depth, no photograph',
+  frieze: 'A single horizontal ornamental border strip, continuous and uniform left to right. Ornament only: no page, no document, no layout, no photograph, no scene, no objects',
   spot: 'A single discrete ornament, centered, nothing else in the frame',
   canvas: `${FLAT_SAMPLE}. Even and uniform with no focal point and low internal contrast`,
 };
@@ -95,9 +95,12 @@ export function buildSurfacePrompt(entry: SurfacePromptEntry, style?: string): s
     throw new Error(`surface prompt for class ${entry.class} has no band hexes — a surface is born on-palette or not at all`);
   }
   const parts = [entry.prompt_seed.trim(), CLASS_PHRASING[entry.class]];
-  if (entry.class === 'spot') {
-    const ground = entry.ground_baked ? entry.hexes[0] : entry.key_hex;
-    if (ground) parts.push(`on a solid uniform background of exactly ${ground}`);
+  // Every ornament class is born on its knockout ground: the computed chroma
+  // key for true-alpha assets, the band hex for a ground-baked spot.
+  if (entry.class === 'spot' && entry.ground_baked) {
+    if (entry.hexes[0]) parts.push(`on a solid uniform background of exactly ${entry.hexes[0]}`);
+  } else if (entry.key_hex && (entry.class === 'spot' || entry.class === 'pattern' || entry.class === 'frieze')) {
+    parts.push(`The ornament sits on a solid uniform background of exactly ${entry.key_hex}, which fills every gap between the motifs`);
   }
   const intensity = entry.intensity ? INTENSITY_PHRASING[entry.intensity] : '';
   if (intensity) parts.push(intensity);

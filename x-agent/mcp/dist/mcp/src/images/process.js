@@ -1,53 +1,79 @@
-/** JPEG quality per class; pattern and spot ship PNG (lossless / alpha). */
+/** JPEG quality for the ground classes; everything with alpha ships PNG. */
 const JPEG_QUALITY = {
     field: 0.8,
     canvas: 0.8,
     frieze: 0.85,
 };
-/** RGB distance under which a spot pixel counts as the key-color ground. */
-const CHROMA_TOLERANCE = 48;
+/** The soft knockout ramp: fully transparent inside NEAR, fully opaque past
+ *  FAR, smooth in between — hard cutoffs leave key-colored halos on fine
+ *  linework (the gilt-filigree field bug). */
+const CHROMA_NEAR = 30;
+const CHROMA_FAR = 90;
 /**
- * Intensity is a PIXEL OPERATION, not a vocabulary word: textural classes get
- * the band hex composited over them at intensity-scaled opacity before they
- * ship, collapsing the luminance range toward the band so the flat ink menus
- * nearly hold and a whisper actually whispers. Friezes and spots are
- * decoration at the edge, not grounds under text — they ship unveiled.
+ * Intensity is a PIXEL OPERATION, not a vocabulary word.
+ * Ground classes (field/canvas): the band hex is composited OVER the wash at
+ * intensity-scaled opacity (the veil), collapsing its luminance toward the
+ * band. Ornament classes: the ornament's own alpha is SCALED, so the band —
+ * the reservation itself — stays the ground under everything.
  */
 export const VEIL_ALPHA = {
     whisper: 0.85,
     present: 0.7,
     loud: 0.5,
 };
-const VEILED_CLASSES = new Set(['field', 'pattern', 'canvas']);
+const VEILED_CLASSES = new Set(['field', 'canvas']);
 export function veilFor(cls, intensity, bandHex) {
     if (!VEILED_CLASSES.has(cls) || !bandHex)
         return null;
     const alpha = VEIL_ALPHA[intensity ?? 'present'] ?? VEIL_ALPHA.present;
     return { hex: bandHex, alpha };
 }
+/** Ornament opacity per class and intensity — a whisper actually whispers. */
+export const ORNAMENT_ALPHA = {
+    pattern: { whisper: 0.25, present: 0.5, loud: 0.8 },
+    frieze: { whisper: 0.45, present: 0.7, loud: 1 },
+    spot: { whisper: 0.5, present: 0.85, loud: 1 },
+};
+export function alphaScaleFor(cls, intensity) {
+    const map = ORNAMENT_ALPHA[cls];
+    if (!map)
+        return null;
+    return map[intensity ?? 'present'] ?? map.present;
+}
 /**
- * The texture bound: how wide a processed asset's measured luminance range may
- * be, per class and intensity. The station MEASURES every asset at birth; this
- * is where the measurement becomes a gate — a "field" that came back as a
- * photograph of a room reads 0..1 and is mechanically detectable as not-a-wash.
- * null = unbounded (spots are chroma-keyed ornaments, not grounds).
+ * Deterministic taming: an ornament whose composite range exceeds its bound is
+ * not re-bought — its alpha is trimmed on the SAME bytes until the bound holds
+ * (composite range scales ~linearly with ornament opacity). Intensity is the
+ * ceiling; the bound is the law. Below the floor the ornament would be
+ * invisible — that is a reject (the raw was never a material), not a whisper.
+ */
+export function tamedAlpha(alpha, measuredRange, bound, floor = 0.08) {
+    if (measuredRange <= bound)
+        return alpha;
+    const tamed = Math.floor(alpha * (bound / measuredRange) * 0.95 * 100) / 100;
+    return tamed >= floor ? tamed : null;
+}
+/**
+ * The texture bound: how wide the measured luminance range may be, per class
+ * and intensity — measured on the COMPOSITE for alpha assets, so it rates
+ * exactly what renders. A "field" that came back as a photograph of a room
+ * reads 0..1 and is mechanically detectable as not-a-material.
+ * null = unbounded (a full-opacity spot is punctuation, not a ground).
  */
 export function textureBoundFor(cls, intensity) {
     if (cls === 'spot')
         return null;
-    // Friezes are unveiled edge ornament, not grounds under text: gilt linework
-    // on cream legitimately spans a wide range (the Vienna run rejected 4/4
-    // legitimate-looking briefs at 0.7), so the bound only has to refuse
-    // scenes and documents — those read essentially 0..1.
+    // Friezes are edge ornament, not grounds under text: the bound only has to
+    // refuse scenes and documents — those read essentially 0..1.
     if (cls === 'frieze')
         return 0.85;
     const bounds = { whisper: 0.2, present: 0.4, loud: 0.6 };
     return bounds[intensity ?? 'present'] ?? bounds.present;
 }
 /**
- * The chroma key a spot is generated on: the candidate farthest from every
- * palette color, so the knockout can never eat the ornament itself. Pure and
- * stable — the chosen hex is recorded in the manifest.
+ * The chroma key an ornament is generated on: the candidate farthest from
+ * every palette color, so the knockout can never eat the ornament itself.
+ * Pure and stable — the chosen hex is recorded in the manifest.
  */
 export function computeKeyHex(paletteHexes) {
     const candidates = ['#00b140', '#ff00ff', '#00ffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#000000', '#ffffff'];
@@ -82,11 +108,20 @@ export async function processAsset(session, input, inputMime, opts) {
             cls: opts.class,
             keyHex: opts.key_hex ?? null,
             veil: opts.veil ?? null,
+            alphaScale: opts.alpha_scale ?? null,
+            compositeHex: opts.composite_hex ?? null,
+            forcePng: opts.force_png === true,
             quality: JPEG_QUALITY[opts.class] ?? 0.85,
-            tolerance: CHROMA_TOLERANCE,
+            near: CHROMA_NEAR,
+            far: CHROMA_FAR,
         };
         const raw = (await page.evaluate(async (p) => {
             try {
+                const parseHex = (hex) => {
+                    const h = hex.replace('#', '');
+                    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+                    return [parseInt(full.slice(0, 2), 16), parseInt(full.slice(2, 4), 16), parseInt(full.slice(4, 6), 16)];
+                };
                 const img = new Image();
                 await new Promise((resolve, reject) => {
                     img.onload = () => resolve();
@@ -97,61 +132,92 @@ export async function processAsset(session, input, inputMime, opts) {
                 const h = img.naturalHeight;
                 if (!w || !h)
                     return { error: 'decoded image has no pixels' };
-                const canvas = document.createElement('canvas');
-                let mode;
-                if (p.cls === 'pattern') {
-                    mode = 'mirror-tile';
-                    canvas.width = 2 * w;
-                    canvas.height = 2 * h;
+                let canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                // 1. Knockout: soft tolerance ramp + de-contamination. A pixel at
+                //    distance d from the key is alpha = smoothstep(near, far, d); its
+                //    color is un-mixed from the key ground (c = a*ornament + (1-a)*key
+                //    solved for ornament), so edges carry no key-colored fringe.
+                if (p.keyHex) {
+                    const [kr, kg, kb] = parseHex(p.keyHex);
                     const g = canvas.getContext('2d');
-                    g.drawImage(img, 0, 0);
+                    const data = g.getImageData(0, 0, canvas.width, canvas.height);
+                    const px = data.data;
+                    for (let i = 0; i < px.length; i += 4) {
+                        const dr = px[i] - kr;
+                        const dg = px[i + 1] - kg;
+                        const db = px[i + 2] - kb;
+                        const d = Math.sqrt(dr * dr + dg * dg + db * db);
+                        let a = (d - p.near) / (p.far - p.near);
+                        a = a < 0 ? 0 : a > 1 ? 1 : a;
+                        a = a * a * (3 - 2 * a); // smoothstep
+                        if (a === 0) {
+                            px[i + 3] = 0;
+                        }
+                        else if (a < 1) {
+                            px[i] = Math.max(0, Math.min(255, Math.round((px[i] - (1 - a) * kr) / a)));
+                            px[i + 1] = Math.max(0, Math.min(255, Math.round((px[i + 1] - (1 - a) * kg) / a)));
+                            px[i + 2] = Math.max(0, Math.min(255, Math.round((px[i + 2] - (1 - a) * kb) / a)));
+                            px[i + 3] = Math.round(px[i + 3] * a);
+                        }
+                    }
+                    g.putImageData(data, 0, 0);
+                }
+                // 2. Patterns mirror-tile AFTER the knockout, alpha preserved.
+                if (p.cls === 'pattern') {
+                    const sheet = document.createElement('canvas');
+                    sheet.width = 2 * canvas.width;
+                    sheet.height = 2 * canvas.height;
+                    const g = sheet.getContext('2d');
+                    g.drawImage(canvas, 0, 0);
                     g.save();
                     g.scale(-1, 1);
-                    g.drawImage(img, -2 * w, 0);
+                    g.drawImage(canvas, -sheet.width, 0);
                     g.restore();
                     g.save();
                     g.scale(1, -1);
-                    g.drawImage(img, 0, -2 * h);
+                    g.drawImage(canvas, 0, -sheet.height);
                     g.restore();
                     g.save();
                     g.scale(-1, -1);
-                    g.drawImage(img, -2 * w, -2 * h);
+                    g.drawImage(canvas, -sheet.width, -sheet.height);
                     g.restore();
+                    canvas = sheet;
                 }
-                else {
-                    mode = p.cls === 'spot' ? 'chroma-key' : 'recompress';
-                    canvas.width = w;
-                    canvas.height = h;
-                    const g = canvas.getContext('2d');
-                    g.drawImage(img, 0, 0);
-                    if (p.cls === 'spot' && p.keyHex) {
-                        const hex = p.keyHex.replace('#', '');
-                        const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
-                        const kr = parseInt(full.slice(0, 2), 16);
-                        const kg = parseInt(full.slice(2, 4), 16);
-                        const kb = parseInt(full.slice(4, 6), 16);
-                        const data = g.getImageData(0, 0, w, h);
-                        const px = data.data;
-                        for (let i = 0; i < px.length; i += 4) {
-                            const dr = px[i] - kr;
-                            const dg = px[i + 1] - kg;
-                            const db = px[i + 2] - kb;
-                            if (Math.sqrt(dr * dr + dg * dg + db * db) <= p.tolerance)
-                                px[i + 3] = 0;
-                        }
-                        g.putImageData(data, 0, 0);
-                    }
-                }
+                // 3. The veil (ground classes): band hex OVER the wash.
                 if (p.veil) {
-                    // Intensity as pixels: the band hex over the material, deterministic.
                     const g = canvas.getContext('2d');
                     g.globalAlpha = p.veil.alpha;
                     g.fillStyle = p.veil.hex;
                     g.fillRect(0, 0, canvas.width, canvas.height);
                     g.globalAlpha = 1;
                 }
-                const final = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-                const px = final.data;
+                // 4. Intensity as ornament opacity: scale the alpha channel whole.
+                if (p.alphaScale !== null && p.alphaScale < 1) {
+                    const g = canvas.getContext('2d');
+                    const data = g.getImageData(0, 0, canvas.width, canvas.height);
+                    const px = data.data;
+                    for (let i = 3; i < px.length; i += 4) {
+                        px[i] = Math.round(px[i] * p.alphaScale);
+                    }
+                    g.putImageData(data, 0, 0);
+                }
+                // 5. Measure what RENDERS: the composite over the band hex for alpha
+                //    assets, the visible pixels otherwise.
+                let measured = canvas;
+                if (p.compositeHex) {
+                    const comp = document.createElement('canvas');
+                    comp.width = canvas.width;
+                    comp.height = canvas.height;
+                    const g = comp.getContext('2d');
+                    g.fillStyle = p.compositeHex;
+                    g.fillRect(0, 0, comp.width, comp.height);
+                    g.drawImage(canvas, 0, 0);
+                    measured = comp;
+                }
+                const px = measured.getContext('2d').getImageData(0, 0, measured.width, measured.height).data;
                 let lumMin = 1;
                 let lumMax = 0;
                 let seen = false;
@@ -173,14 +239,13 @@ export async function processAsset(session, input, inputMime, opts) {
                     lumMin = 0;
                     lumMax = 1;
                 }
-                const usePng = p.cls === 'pattern' || p.cls === 'spot';
+                const usePng = p.forcePng || p.keyHex !== null || p.cls === 'pattern' || p.cls === 'spot';
                 const dataUrl = usePng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', p.quality);
                 return {
                     out: dataUrl.slice(dataUrl.indexOf(',') + 1),
                     mime: usePng ? 'image/png' : 'image/jpeg',
                     lumMin: Math.round(lumMin * 1000) / 1000,
                     lumMax: Math.round(lumMax * 1000) / 1000,
-                    _mode: mode,
                 };
             }
             catch (e) {
@@ -190,11 +255,17 @@ export async function processAsset(session, input, inputMime, opts) {
         if (raw.error || !raw.out) {
             throw new Error(`asset post-processing failed: ${raw.error ?? 'no output'}`);
         }
-        const post = opts.class === 'pattern' ? 'mirror-tile' : opts.class === 'spot' ? 'chroma-key' : 'recompress';
+        const chain = [
+            opts.key_hex ? 'chroma-key' : null,
+            opts.class === 'pattern' ? 'mirror-tile' : null,
+            opts.veil ? `veil(${opts.veil.hex}@${opts.veil.alpha})` : null,
+            opts.alpha_scale !== null && opts.alpha_scale !== undefined && opts.alpha_scale < 1 ? `alpha(${opts.alpha_scale})` : null,
+            !opts.key_hex && opts.class !== 'pattern' ? 'recompress' : null,
+        ].filter(Boolean).join('+') || 'recompress';
         return {
             bytes: Buffer.from(raw.out, 'base64'),
             mime_type: raw.mime,
-            post_processing: post,
+            post_processing: chain,
             lum_min: raw.lumMin ?? 0,
             lum_max: raw.lumMax ?? 1,
         };

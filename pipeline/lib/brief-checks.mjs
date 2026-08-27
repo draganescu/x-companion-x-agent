@@ -101,6 +101,14 @@ function surfaceChecks(brief, textures) {
                     issues.push({ path: `/surfaces/${i}/ground_baked`, message: `spot "${s.id}" is ground-baked onto "${ref}", which carries a skin — ground-baked decor is only legal on skin-less flat bands; drop ground_baked (true-alpha spot) or attach it to an unskinned band` });
                 }
             }
+            // A baked ground matches exactly ONE color: attaching across bands
+            // of different values guarantees a visible rectangle on the rest
+            // (the filigree-spot field bug). True alpha has no such limit.
+            const bandOfRef = new Map((brief.pages ?? []).flatMap((p) => (p.sections ?? []).map((sec) => [`${p.slug}/${sec.id}`, sec.design?.band ?? 'base'])));
+            const bands = new Set((s.attach ?? []).map((ref) => bandOfRef.get(ref)).filter(Boolean));
+            if (bands.size > 1) {
+                issues.push({ path: `/surfaces/${i}/ground_baked`, message: `spot "${s.id}" is ground-baked but attaches across ${bands.size} different band colors (${[...bands].join(', ')}) — a baked ground matches exactly one; drop ground_baked for true alpha, or attach it to bands of one color` });
+            }
         }
         // A frieze is ornamental SEPARATION: it lives on dividers (and hero/cta
         // edges), never behind a content band's copy — the Vienna strapline
