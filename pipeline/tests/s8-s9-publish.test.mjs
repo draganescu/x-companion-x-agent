@@ -444,3 +444,64 @@ test('S8 rail skeleton: the designed rail part ships with area "rail" (theme-fac
     assert.ok(railWrite, 'the rail part was written with its area');
     assert.match(railWrite[1], /rail/);
 });
+
+test('S9 WIRING: the skeleton and rail width actually reach the audits (theme-factory M4)', async () => {
+    // A rail page: bands span the 1048px content column, the rail is 320px.
+    // Under the stacked audit this geometry FAILS; the wiring of
+    // state.theme.skeleton/rail_width into the screens is what passes it —
+    // the exact wiring a silent no-op edit once dropped (code-review catch).
+    const railVerify = () => {
+        const pc = 'body:nth-child(2) > main.wp-block-group:nth-child(2) > div.wp-block-group:nth-child(1) > div.wp-block-post-content:nth-child(1)';
+        return {
+            pass: true,
+            measured: { viewport: { width: 1440, height: 900 } },
+            box_tree: [
+                { selector_path: 'body:nth-child(2) > header.wp-block-template-part:nth-child(1)', block_name: 'core/template-part', box: { x: 0, y: 0, w: 1440, h: 80 } },
+                { selector_path: 'body:nth-child(2) > main.wp-block-group:nth-child(2)', block_name: 'core/group', box: { x: 0, y: 80, w: 1440, h: 920 } },
+                { selector_path: pc, block_name: 'core/post-content', box: { x: 0, y: 80, w: 1048, h: 900 } },
+                { selector_path: `${pc} > div.wp-block-group:nth-child(1)`, block_name: 'core/group', box: { x: 0, y: 80, w: 1048, h: 900 } },
+                { selector_path: 'body:nth-child(2) > main.wp-block-group:nth-child(2) > aside.wp-block-template-part:nth-child(2)', block_name: 'core/template-part', box: { x: 1120, y: 80, w: 320, h: 600 } },
+                { selector_path: 'body:nth-child(2) > footer.wp-block-template-part:nth-child(3)', block_name: 'core/template-part', box: { x: 0, y: 1000, w: 1440, h: 80 } },
+            ],
+            a11y_outline: [{ role: 'heading', name: 'H', level: 1 }],
+            images: [],
+        };
+    };
+    const mk = (theme) => ({
+        runDir: mkdtempSync(join(tmpdir(), 'x-pipeline-s9-rail-')),
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] }, ...(theme ? { theme } : {}) },
+        log: () => {},
+        call: async function (name) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: railVerify() };
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    });
+
+    // With the bespoke rail theme in state, the audits obey the skeleton: pass.
+    await s9.run(mk({ skeleton: 'rail', rail_width: '20rem' }));
+    // Without it (the stacked default), the same geometry fails — proving the
+    // options were genuinely passed through, not defaulted.
+    await assert.rejects(s9.run(mk(undefined)), (e) => e.code === 'gate_failed');
+});
+
+test('S9 WIRING: a sourced font that fell back to the stack fails the run (theme-factory M5)', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-font-'));
+    writeFileSync(join(runDir, 'tokens.json'), JSON.stringify({
+        typography: { families: [{ slug: 'display', name: 'Display', fontFamily: '"Playfair Display", serif', fontFace: [{ fontFamily: 'Playfair Display', fontStyle: 'normal', fontWeight: '400', src: ['http://x/uploads/fonts/p.woff2'] }] }] },
+    }));
+    const ctx = {
+        runDir,
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        log: () => {},
+        call: async (name) => {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') {
+                return { ok: true, data: { pass: true, box_tree: [], fonts: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [] } };
+            }
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed' && /Playfair Display.*fell back to the stack/.test(e.message));
+});
