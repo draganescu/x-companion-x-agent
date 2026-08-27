@@ -9,7 +9,21 @@ const fixture = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', imp
 
 test('M1 acceptance: S=3,B=1,P=1,I=2 => base 9 with F=2 furniture, ceiling 20', () => {
     const b = computeBudget(fixture);
-    assert.deepEqual(b, { S: 3, B: 1, P: 1, I: 2, F: 2, base: 9, ceiling: 20 });
+    assert.deepEqual(b, { S: 3, B: 1, P: 1, C: 2, U: 0, I: 2, F: 2, base: 9, ceiling: 20 });
+});
+
+test('I = C + U: surface births are metered once per unique dictionary asset', () => {
+    const brief = structuredClone(fixture);
+    brief.surfaces = [
+        { id: 'linen-wash', class: 'field', prompt_seed: 'Woven linen texture', intensity: 'whisper', attach: ['home/hero'] },
+        { id: 'deco-frieze', class: 'frieze', prompt_seed: 'Deco border strip', intensity: 'present', attach: ['home/what-we-bake'], edge: 'top' },
+        { id: 'deco-frieze', class: 'frieze', prompt_seed: 'Deco border strip', intensity: 'present', attach: ['home/signup'], edge: 'bottom' },
+    ];
+    const b = computeBudget(brief);
+    assert.equal(b.C, 2);
+    assert.equal(b.U, 2);
+    assert.equal(b.I, 4);
+    assert.equal(b.ceiling, 2 * 9 + 4);
 });
 
 test('M1 acceptance: the 21st generative call throws {code:"budget_exceeded"}', () => {

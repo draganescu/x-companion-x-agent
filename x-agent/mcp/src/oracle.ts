@@ -309,6 +309,22 @@ export interface TextContrastNode {
   color: string;
   background: string;
   sample: string;
+  /** Rendered font size in px — the caller's floor is size-aware (small text needs 4.5:1). */
+  font_px?: number;
+  /** true when the ground was rated from rendered pixels (text over imagery). */
+  sampled?: boolean;
+  ground_min?: number;
+  ground_max?: number;
+}
+
+/** Text whose ground is imagery: measured later from rendered pixels, never
+ *  skipped. box is in document coordinates (scroll pinned to 0 at capture). */
+export interface PendingGround {
+  selector_path: string;
+  box: { x: number; y: number; w: number; h: number };
+  color: string;
+  sample: string;
+  font_px?: number;
 }
 
 export interface ExtractResult {
@@ -316,6 +332,7 @@ export interface ExtractResult {
   a11y_outline: A11yNode[];
   stats: { candidates: number; named: number; named_ratio: number };
   text_contrast: TextContrastNode[];
+  pending_grounds: PendingGround[];
 }
 
 /**
@@ -541,8 +558,9 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
     // because the two authoring lanes can each produce readable-looking inputs
     // that render unreadable together (a block stylesheet spending a palette
     // slug that equals the band it lands on). Pairs under 4.5:1 are reported;
-    // policy (what fails a run) belongs to the caller. Text over images is
-    // skipped: there is no single ground to rate against.
+    // policy (what fails a run) belongs to the caller. Text over imagery is
+    // NOT skipped: it is collected as a pending ground and rated later from
+    // the rendered pixels (samplePendingGrounds) — the old blind spot is gone.
     const lumOf = (c: [number, number, number, number]): number => {
       const f = (v: number): number => {
         const s = v / 255;
@@ -557,7 +575,8 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
       const lo = Math.min(la, lb);
       return (hi + 0.05) / (lo + 0.05);
     };
-    const textContrast: { selector_path: string; ratio: number; color: string; background: string; sample: string }[] = [];
+    const textContrast: { selector_path: string; ratio: number; color: string; background: string; sample: string; font_px: number }[] = [];
+    const pendingGrounds: { selector_path: string; box: { x: number; y: number; w: number; h: number }; color: string; sample: string; font_px: number }[] = [];
     for (const el of Array.from(document.querySelectorAll('body *'))) {
       if (textContrast.length >= 100) break;
       const own = Array.from(el.childNodes)
@@ -587,7 +606,24 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
         }
         cur = cur.parentElement;
       }
-      if (overImage || !ground) continue;
+      if (overImage) {
+        if (pendingGrounds.length < 60) {
+          pendingGrounds.push({
+            selector_path: selectorPath(el),
+            box: {
+              x: rect.left + window.scrollX,
+              y: rect.top + window.scrollY,
+              w: rect.width,
+              h: rect.height,
+            },
+            color: cs.color,
+            sample: own.slice(0, 80),
+            font_px: Math.round(parsePx(cs.fontSize)),
+          });
+        }
+        continue;
+      }
+      if (!ground) continue;
       const ratio = contrastOf(ink, ground);
       if (ratio < 4.5) {
         textContrast.push({
@@ -596,6 +632,7 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
           color: cs.color,
           background: `rgb(${ground[0]}, ${ground[1]}, ${ground[2]})`,
           sample: own.slice(0, 80),
+          font_px: Math.round(parsePx(cs.fontSize)),
         });
       }
     }
@@ -605,8 +642,212 @@ export async function extractLayout(page: Page, nameByClass: Record<string, stri
       a11y_outline: outline,
       stats: { candidates, named, named_ratio: candidates === 0 ? 1 : named / candidates },
       text_contrast: textContrast,
+      pending_grounds: pendingGrounds,
     };
   }, nameByClass);
+}
+
+/* ---------------------------------------------------- pixel-sampled grounds */
+
+const CSS_RGB = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.%]+))?\s*\)/i;
+
+function relLuminance(rgb: [number, number, number]): number {
+  const f = (v: number): number => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]);
+}
+
+/**
+ * Rate every pending (text-over-imagery) ground from RENDERED PIXELS: hide the
+ * element's ink, clip-screenshot its box, read the ground's luminance range in
+ * an in-page canvas (a data: URL never taints), restore the ink, and rate the
+ * declared color against the WORST CASE of the range. These screenshots are
+ * instrument readings inside wp_verify, not run evidence — the one-screenshot
+ * rule refers to the terminal acceptance artifact and is untouched.
+ */
+export async function samplePendingGrounds(page: Page, pending: PendingGround[], cap = 40): Promise<TextContrastNode[]> {
+  if (pending.length === 0) return [];
+  await installEvalShims(page);
+  const findings: TextContrastNode[] = [];
+  for (const node of pending.slice(0, cap)) {
+    const inkMatch = CSS_RGB.exec(node.color);
+    if (!inkMatch) continue;
+    const inkLum = relLuminance([Number(inkMatch[1]), Number(inkMatch[2]), Number(inkMatch[3])]);
+    // The box is RE-MEASURED here, not trusted from extract time: eager-loading
+    // the images changes heights, so coordinates measured before it can point
+    // past the page and Playwright refuses the clip ("Clipped area is either
+    // empty or outside the resulting image" — the Vienna tea-salon field bug,
+    // which killed S9 after publish and let an unreadable site ship unflagged).
+    const hidden = (await page
+      .evaluate((sel: string) => {
+        const el = document.querySelector(sel) as HTMLElement | null;
+        if (!el) return null;
+        (el as HTMLElement & { __xPrev?: { color: string; textShadow: string } }).__xPrev = {
+          color: el.style.color,
+          textShadow: el.style.textShadow,
+        };
+        el.style.color = 'transparent';
+        el.style.textShadow = 'none';
+        const r = el.getBoundingClientRect();
+        const doc = document.documentElement;
+        return {
+          x: r.left + window.scrollX,
+          y: r.top + window.scrollY,
+          w: r.width,
+          h: r.height,
+          page_w: Math.max(doc.scrollWidth, doc.clientWidth),
+          page_h: Math.max(doc.scrollHeight, doc.clientHeight),
+        };
+      }, node.selector_path)
+      .catch(() => null)) as { x: number; y: number; w: number; h: number; page_w: number; page_h: number } | null;
+    if (!hidden) continue;
+    try {
+      const x = Math.min(Math.max(0, hidden.x), Math.max(0, hidden.page_w - 1));
+      const y = Math.min(Math.max(0, hidden.y), Math.max(0, hidden.page_h - 1));
+      const width = Math.round(Math.min(hidden.w, hidden.page_w - x));
+      const height = Math.round(Math.min(hidden.h, hidden.page_h - y));
+      if (width < 2 || height < 2) continue;
+      // One unphotographable node skips its reading; it never kills the run's
+      // whole verification (S9 must always reach a verdict on everything else).
+      let png: Buffer;
+      try {
+        png = await page.screenshot({ clip: { x, y, width, height }, type: 'png' });
+      } catch {
+        continue;
+      }
+      const range = (await page.evaluate(async (dataUrl: string) => {
+        try {
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('clip failed to decode'));
+            img.src = dataUrl;
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const g = canvas.getContext('2d')!;
+          g.drawImage(img, 0, 0);
+          const px = g.getImageData(0, 0, canvas.width, canvas.height).data;
+          const lin = (v: number): number => {
+            const s = v / 255;
+            return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          let min = 1;
+          let max = 0;
+          for (let i = 0; i < px.length; i += 16) {
+            const lum = 0.2126 * lin(px[i]!) + 0.7152 * lin(px[i + 1]!) + 0.0722 * lin(px[i + 2]!);
+            if (lum < min) min = lum;
+            if (lum > max) max = lum;
+          }
+          return { min: Math.round(min * 1000) / 1000, max: Math.round(max * 1000) / 1000 };
+        } catch (e) {
+          return { error: (e as Error).message };
+        }
+      }, `data:image/png;base64,${png.toString('base64')}`)) as { min?: number; max?: number; error?: string };
+      if (range.error || range.min === undefined || range.max === undefined) continue;
+      const vs = (ground: number): number => {
+        const hi = Math.max(inkLum, ground);
+        const lo = Math.min(inkLum, ground);
+        return (hi + 0.05) / (lo + 0.05);
+      };
+      const ratio = Math.min(vs(range.min), vs(range.max));
+      if (ratio < 4.5) {
+        findings.push({
+          selector_path: node.selector_path,
+          ratio: Math.round(ratio * 100) / 100,
+          color: node.color,
+          background: `sampled(${range.min}..${range.max})`,
+          sample: node.sample,
+          ...(node.font_px !== undefined ? { font_px: node.font_px } : {}),
+          sampled: true,
+          ground_min: range.min,
+          ground_max: range.max,
+        });
+      }
+    } finally {
+      await page
+        .evaluate((sel: string) => {
+          const el = document.querySelector(sel) as (HTMLElement & { __xPrev?: { color: string; textShadow: string } }) | null;
+          if (!el || !el.__xPrev) return;
+          el.style.color = el.__xPrev.color;
+          el.style.textShadow = el.__xPrev.textShadow;
+          delete el.__xPrev;
+        }, node.selector_path)
+        .catch(() => {});
+    }
+  }
+  return findings;
+}
+
+/* ------------------------------------------------------- surface presence */
+
+export interface SurfaceProbe {
+  selector_path: string;
+  url: string;
+  status: number;
+  ok: boolean;
+}
+
+/**
+ * Presence for surfaces, as loaded/natural_w is presence for content images:
+ * every computed background-image URL on the page, probed with the session's
+ * authenticated request context. A 404'd surface is a finding even though the
+ * flat band underneath keeps the page looking coherent.
+ */
+export async function collectSurfaces(page: Page): Promise<SurfaceProbe[]> {
+  await installEvalShims(page);
+  const found = (await page.evaluate(() => {
+    const path = (el: Element): string => {
+      const parts: string[] = [];
+      let cur: Element | null = el;
+      while (cur && cur !== document.documentElement) {
+        const parent: Element | null = cur.parentElement;
+        let idx = 1;
+        if (parent) {
+          let n = 0;
+          for (const sib of Array.from(parent.children)) {
+            n += 1;
+            if (sib === cur) {
+              idx = n;
+              break;
+            }
+          }
+        }
+        parts.unshift(`${cur.tagName.toLowerCase()}:nth-child(${idx})`);
+        cur = parent;
+      }
+      return parts.join(' > ') || 'body';
+    };
+    const out: { selector_path: string; url: string }[] = [];
+    const seen = new Set<string>();
+    for (const el of [document.body, ...Array.from(document.querySelectorAll('body *'))]) {
+      if (!el) continue;
+      const bg = getComputedStyle(el).backgroundImage;
+      if (!bg || bg === 'none') continue;
+      const m = /url\((['"]?)([^'")]+)\1\)/.exec(bg);
+      if (!m || !m[2] || m[2].startsWith('data:')) continue;
+      const url = new URL(m[2], document.baseURI).toString();
+      if (seen.has(url)) continue;
+      seen.add(url);
+      out.push({ selector_path: path(el), url });
+    }
+    return out;
+  })) as { selector_path: string; url: string }[];
+  const probes: SurfaceProbe[] = [];
+  for (const f of found) {
+    let status = 0;
+    try {
+      const res = await page.request.get(f.url);
+      status = res.status();
+    } catch {
+      status = 0;
+    }
+    probes.push({ ...f, status, ok: status >= 200 && status < 400 });
+  }
+  return probes;
 }
 
 /** Project the internal measurement onto the declared tool output shape. */

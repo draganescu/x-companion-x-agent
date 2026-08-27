@@ -227,6 +227,11 @@ directory plus WordPress's own plugin state; there is no private registry.
 Body: `DesignTokens` → `{ theme_json_written: bool, adapters_applied: string[], fingerprint }`
 Primary write path is the **user-origin global styles CPT** (`wp_global_styles`), because it works
 on read-only theme dirs and survives theme updates.
+The body may carry an optional `styles.background` (x-surfaces: the page canvas — a media-library
+background image written into global styles, WP >= 6.6, admin-undoable in the Styles UI). The
+response then carries `background_written: bool` and `background_rejected: [{target, reason}]`;
+capability is probed via `WP_Theme_JSON::VALID_STYLES['background']`
+(surfaced as `features.global_styles_background`), never assumed from a version number.
 
 ### `POST /snapshot/export` — extend
 `application/zip` stream containing exactly: `theme/`, `agent-blocks/`, `patterns.json`,

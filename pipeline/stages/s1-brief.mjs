@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { validateSchema } from '../lib/schema.mjs';
 import { computeBudget } from '../budget.mjs';
 import { crossChecks } from '../lib/brief-checks.mjs';
-import { loadStyles, matchPinnedStyles, seededShuffle, styleChecks, renderPinNote } from '../lib/styles.mjs';
+import { loadStyles, matchPinnedStyles, seededShuffle, styleChecks, renderPinNote, textureCueOf } from '../lib/styles.mjs';
 
 const schema = JSON.parse(readFileSync(new URL('../schemas/brief.schema.json', import.meta.url), 'utf8'));
 
@@ -28,6 +28,21 @@ would have been a custom block or a data feature becomes a fully designed static
 section carrying the same information (a beer list is a designed grid with styles and
 prices written in; a schedule is a designed table; a booking is the phone number,
 set beautifully).`;
+
+// The surfaces field's standing instruction. The roster texture cues are the
+// quantization source: the combo you choose carries a texture cue, and the
+// dictionary must realize it — mechanically cross-checked after the call.
+const TEXTURE_NOTE = `THE TEXTURE DECISION rides on the style combo you choose: its texture cue
+("damask, filigree borders"; "cracked glaze, patina"; "none — pure flat color planes") is
+quantized into the surfaces[] dictionary. Decoration is SUPPORT, not wallpaper — reach for
+it in this order: (1) divider bands and edge friezes that SEPARATE content, (2) spot
+ornaments that punctuate it, (3) at most one or two full-band skins per page, whisper by
+default. Only a whisper skin may touch a band whose role carries body text (features,
+pricing, faq, content, contact, testimonial) — both bounds are enforced mechanically. A
+big, image-like ground has exactly one legal home: a LOUD surface on a hero or cta, where
+it ships behind a core/cover veil, and it must earn its place in that section's
+design.notes. A cue that says none REQUIRES an empty array — that run is correct and
+complete, flat by design.`;
 
 function brochureChecks(brief) {
     const issues = [];
@@ -62,14 +77,19 @@ export async function run(ctx) {
             artistic_styles: seededShuffle(styles.artistic.map((e) => e.name), `${ctx.prompt}:artistic`).join(', '),
             ui_styles: seededShuffle(styles.ui.map((e) => e.name), `${ctx.prompt}:ui`).join(', '),
             style_pin_note: renderPinNote(pins),
+            texture_note: TEXTURE_NOTE,
         },
         // NOT passed as a structured-outputs contract: this schema compiles to
         // a grammar the API rejects as too large (field-tested 2026-08-25,
         // req_011CeQ6s…). The generate() contract knob works only for schemas
         // far smaller than the pipeline's real ones.
+        // The flatness rule reads the CANDIDATE's own combo: cue lookup is a
+        // mechanical roster read, so the check needs no second call.
         validate: (v) => [
             ...validateSchema(schema, v),
-            ...crossChecks(v),
+            ...crossChecks(v, {
+                textures: v?.style ? { artistic: textureCueOf(v.style.artistic, styles.artistic), ui: textureCueOf(v.style.ui, styles.ui) } : undefined,
+            }),
             ...styleChecks(v, { styles, pins }),
             ...(brochure ? brochureChecks(v) : []),
         ],
@@ -81,12 +101,14 @@ export async function run(ctx) {
     if (ctx.state.no_images) {
         // --no-images: the placeholder pixels still ship (minted free in S8, each
         // carrying its written imageIntent for a later fill); the metered
-        // generation pass is skipped, so its calls leave the bill.
+        // asset pass — BOTH lanes — is skipped, so its calls leave the bill.
+        budget.C = 0;
+        budget.U = 0;
         budget.I = 0;
         budget.ceiling = 2 * budget.base;
     }
     ctx.budget.setCeiling(budget.ceiling); // throws budget_exceeded if > hard cap — before call #2
     ctx.state.budget = budget;
     const modes = [brochure ? 'brochure mode, composition only' : '', ctx.state.no_images ? 'images skipped, placeholders stay' : ''].filter(Boolean).join('; ');
-    ctx.log(`this brief costs at most ${budget.ceiling} calls (S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I})${modes ? ` — ${modes}` : ''}`);
+    ctx.log(`this brief costs at most ${budget.ceiling} calls (S=${budget.S}, B=${budget.B}, P=${budget.P}, I=${budget.I}: C=${budget.C} content + U=${budget.U} surfaces)${modes ? ` — ${modes}` : ''}`);
 }

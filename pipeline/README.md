@@ -72,7 +72,7 @@ anything else.
 | `x-pipeline site prune` | delete the directories of already-stopped sites (each is ~120MB) |
 | `x-pipeline builds rm …` | delete build artifacts: by run id, or `--failed` / `--gone` / `--keep N` / `--all` |
 | `x-pipeline config init [--provider P] [--model M]` | write `pipeline.config.json` with the proven per-task temperatures; stores the provider key in `.x-agent.json` if missing |
-| `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips image generation and leaves the placeholder pixels in place |
+| `x-pipeline build "<prompt>"` | run the compiler; `--until STAGE` stops early, `--resume RUN_DIR` continues without re-spending, `--new-site` boots a site first, `--brochure` ships composition only — the brief may declare no custom blocks and no schema packages, `--no-images` skips the whole asset pass (content images AND surfaces), leaving placeholder pixels and flat bands in place |
 
 ## The style combo
 
@@ -92,7 +92,10 @@ into every writing call. A style the prompt itself names is detected in code and
 
 - `.x-agent.json` (repo root, gitignored, mode 0600) — site connection + provider API
   keys (`cerebras_api_key`, `gemini_api_key`, `anthropic_api_key`, `openai_api_key`;
-  `gemini_api_key` also drives the image pass).
+  `gemini_api_key` also drives the asset pass — content images AND the surface lane:
+  the brief's `surfaces[]` dictionary becomes band skins, edge friezes, spot
+  ornaments and the page canvas, applied through core background supports and
+  global styles, one metered call per unique asset however many bands wear it).
 - `pipeline.config.json` (gitignored) — task → `{provider, model, temperature}` routing.
   Swapping a provider is a config edit, never a code change.
 - `runs/<timestamp>/` — every artifact of a run: `brief.json`, `tokens.json`, `trees/`,

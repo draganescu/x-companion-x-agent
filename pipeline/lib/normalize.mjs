@@ -31,3 +31,37 @@ export function normalizeTreeBorders(tree) {
     (tree?.blocks ?? []).forEach(walk);
     return folded;
 }
+
+/**
+ * The furniture rescue: drop the attributes W_ATTR_UNKNOWN diagnostics point
+ * at. Losing one undeclared textAlign is strictly less destructive than
+ * throwing the whole designed part away for it (the Vienna field bug: a
+ * designed footer died on a single unknown attribute and the unstyled floor
+ * shipped). Deterministic, path-driven, one pass — the caller re-gates the
+ * result whole. Returns the attribute paths actually removed.
+ */
+export function stripUnknownAttrs(tree, diagnostics) {
+    const removed = [];
+    for (const d of diagnostics ?? []) {
+        if (d.code !== 'W_ATTR_UNKNOWN' || typeof d.path !== 'string') continue;
+        const m = /^\/blocks(.*)\/attributes\/([^/]+)$/.exec(d.path);
+        if (!m) continue;
+        const segs = (m[1] ?? '').split('/').filter(Boolean);
+        let nodes = tree?.blocks;
+        let node = null;
+        let ok = true;
+        for (const seg of segs) {
+            if (seg === 'innerBlocks') {
+                nodes = node?.innerBlocks;
+                continue;
+            }
+            const idx = Number(seg);
+            if (!Number.isInteger(idx) || !nodes?.[idx]) { ok = false; break; }
+            node = nodes[idx];
+        }
+        if (!ok || !node?.attributes || !(m[2] in node.attributes)) continue;
+        delete node.attributes[m[2]];
+        removed.push(d.path);
+    }
+    return removed;
+}

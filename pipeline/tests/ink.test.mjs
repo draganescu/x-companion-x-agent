@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveInkMenus } from '../lib/tokens.mjs';
+import { resolveInkMenus, resolveInkMenusFromLuminance } from '../lib/tokens.mjs';
 import { screenTreeInk, substituteInk } from '../lib/gates.mjs';
 
 // The Salon Regale field-bug palette: brass on bone measured 2.74:1 live.
@@ -86,4 +86,26 @@ test('substituteInk: swaps only failing DECLARED inks to the closest compliant s
 test('substituteInk: a clean tree yields zero changes — the rescue lane knows when it does not apply', () => {
     const tree = band({ backgroundColor: 'ink', textColor: 'base' }, [p('brass on dark is fine', { textColor: 'brass' })]);
     assert.deepEqual(substituteInk(tree, PALETTE), []);
+});
+
+test('resolveInkMenusFromLuminance: worst-case rating against a measured ground range', () => {
+    const APPLIED = [
+        { slug: 'pale', color: '#F6EFE6' },
+        { slug: 'espresso', color: '#3B2A1E' },
+        { slug: 'ember', color: '#D96C2C' },
+    ];
+    // A light canvas (lum 0.8-0.9): only the dark slug survives; the mid orange
+    // reads under 3:1 at worst case and lands in NEITHER menu.
+    const light = resolveInkMenusFromLuminance(0.8, 0.9, APPLIED);
+    assert.ok(light.safe_inks.includes('espresso'));
+    assert.ok(!light.safe_inks.includes('ember'));
+    assert.ok(!light.display_only_inks.includes('ember'));
+    assert.ok(!light.safe_inks.includes('pale'));
+    // A dark canvas (lum 0.02-0.05): pale is safe; ember clears 3:1 only at the
+    // dark end, so worst-case puts it display-only.
+    const dark = resolveInkMenusFromLuminance(0.02, 0.05, APPLIED);
+    assert.ok(dark.safe_inks.includes('pale'));
+    assert.ok(dark.display_only_inks.includes('ember'));
+    // No palette: both menus empty, never a throw.
+    assert.deepEqual(resolveInkMenusFromLuminance(0.5, 0.6, []), { safe_inks: [], display_only_inks: [] });
 });

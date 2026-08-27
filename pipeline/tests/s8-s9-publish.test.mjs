@@ -112,9 +112,10 @@ test('S8: sequential installs, final epoch stamped, publish + nav + footer + met
     assert.ok(restLog.some(([m, r, o]) => m === 'POST' && r === '/wp/v2/settings' && o.body.page_on_front === 8));
     assert.ok(restLog.some(([m, r]) => m === 'DELETE' && r === '/wp/v2/pages/2'));
 
-    // nav wrapper stripped by LINE slice: only the inner line posted
-    const navPost = restLog.find(([m, r]) => m === 'POST' && r === '/wp/v2/navigation/9');
-    assert.equal(navPost[2].body.content, '<!-- wp:navigation-link /-->');
+    // The header floor ships as a BAND part (site title + nav links inline);
+    // the nav post is now the ultra-floor for themes with no header part.
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//header')}`));
+    assert.ok(!restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
 
     // footer part replaced
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/template-parts/')));
@@ -123,6 +124,179 @@ test('S8: sequential installs, final epoch stamped, publish + nav + footer + met
     assert.equal(ctx.budget.calls.filter((c) => c.task_type === 'image').length, 2);
     assert.equal(ctx.ledger.entries.filter((e) => e.task_type === 'image').length, 2);
     assert.ok(existsSync(join(ctx.runDir, 'pages', 'home.html')));
+});
+
+// ---------------------------------------------------------------- surfaces
+
+const APPLIED_TOKENS = {
+    palette: [
+        { slug: 'base', name: 'Flour', color: '#F6EFE6' },
+        { slug: 'contrast', name: 'Rye', color: '#3B2A1E' },
+        { slug: 'ember', name: 'Ember', color: '#D96C2C' },
+    ],
+};
+
+// A ctx whose image tools speak the asset-pass contract: typed dry_run,
+// dictionary dedup, one transaction per page.
+function surfaceCtx({ surfaces, applySkipped = [], rejectIds = [], toolLog, restLog }) {
+    const ctx = makeCtx({ restLog, toolLog });
+    ctx.state.brief.surfaces = surfaces;
+    writeFileSync(join(ctx.runDir, 'tokens.json'), JSON.stringify(APPLIED_TOKENS));
+    const inner = ctx.call;
+    ctx.call = async (name, args) => {
+        if (name === 'wp_images_generate') {
+            toolLog.push([name, args]);
+            const dict = args.surfaces ?? [];
+            const base = {
+                post_id: args.post_id,
+                found: 2,
+                found_surfaces: 3,
+                cached: [],
+                cached_content: [],
+                scan_errors: [],
+            };
+            if (args.dry_run) {
+                return { ok: true, data: { ...base, generated: 0, dry_run: true, images: [{ path: '/blocks/0', intent: 'a' }, { path: '/blocks/1', intent: 'b' }], surfaces: dict.map((d) => ({ asset_id: d.id, class: d.class, paths: [] })) } };
+            }
+            const kept = dict.filter((d) => !rejectIds.includes(d.id));
+            return {
+                ok: true,
+                data: {
+                    ...base,
+                    generated: 2 + kept.length,
+                    dry_run: false,
+                    manifest_path: join(ctx.runDir, 'images', 'images-manifest.json'),
+                    images: [
+                        { path: '/blocks/0', intent: 'a', file: '/a.jpg', ms: 5, block_name: 'core/image', aspect_ratio: '16:9' },
+                        { path: '/blocks/1', intent: 'b', file: '/b.jpg', ms: 6, block_name: 'core/image', aspect_ratio: '16:9' },
+                    ],
+                    surfaces: kept.map((d) => ({ asset_id: d.id, class: d.class, file: `/assets/${d.id}.png`, ms: 7, post_processing: 'recompress', paths: ['/blocks/0', '/blocks/1', '/blocks/2'] })),
+                    rejected: rejectIds.map((id) => ({ asset_id: id, reason: `texture bound: the measured luminance range exceeds 0.2 for a whisper field after 2 attempts — not a material, the flat band ships` })),
+                },
+            };
+        }
+        if (name === 'wp_images_apply') {
+            toolLog.push([name, args]);
+            return {
+                ok: true,
+                data: {
+                    post_id: args.post_id,
+                    uploaded: [],
+                    swapped: 2,
+                    surfaces_applied: 3 - applySkipped.length,
+                    skipped: applySkipped,
+                    surfaces: (ctx.state.brief.surfaces ?? []).map((s) => ({ asset_id: s.id, media_id: 501, media_url: `http://x/uploads/asset-${s.id}.png`, applied: 3 - applySkipped.length, refused: applySkipped.length })),
+                    all_valid: true,
+                    link: 'http://x/home/',
+                },
+            };
+        }
+        if (name === 'wp_tokens_apply') {
+            toolLog.push([name, args]);
+            return { ok: true, data: { applied: true, adapters_applied: [], fingerprint: 'f-canvas', background_written: true } };
+        }
+        return inner(name, args);
+    };
+    return ctx;
+}
+
+const SURFACE_FIELD = {
+    id: 'linen-wash',
+    class: 'field',
+    prompt_seed: 'Woven linen texture, warm cream',
+    intensity: 'whisper',
+    attach: ['home/hero', 'home/what-we-bake', 'home/signup'],
+};
+
+test('S8 surfaces: one dictionary asset on 3 bands = ONE metered birth, markers minted, one transaction, refusals recorded', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const refusal = "/blocks/2: surface target no longer empty — an admin's background is never overwritten";
+    const ctx = surfaceCtx({ surfaces: [SURFACE_FIELD], applySkipped: [refusal], toolLog, restLog });
+    await s8.run(ctx);
+
+    // The tree that faced the gates carries one marker per attached band, and
+    // the flat band reservation is what the markers sit next to.
+    const validated = toolLog.find(([n, a]) => n === 'wp_validate' && a.blocks?.length > 1);
+    const markers = [];
+    const walk = (ns) => ns.forEach((n) => { if (n.attributes?.metadata?.surfaceIntent) markers.push(n.attributes.metadata.surfaceIntent); walk(n.innerBlocks ?? []); });
+    walk(validated[1].blocks);
+    assert.deepEqual(markers, ['linen-wash', 'linen-wash', 'linen-wash']);
+
+    // ONE surface birth on the meter and in the ledger, labeled by dictionary id.
+    const imageSpends = ctx.budget.calls.filter((c) => c.task_type === 'image');
+    assert.equal(imageSpends.length, 3); // 2 content + 1 surface
+    assert.equal(imageSpends.filter((c) => c.label === 'linen-wash').length, 1);
+    assert.equal(ctx.ledger.entries.filter((e) => e.task_type === 'image' && e.label === 'linen-wash').length, 1);
+
+    // The generate call carried the dictionary with the exact band hexes, and
+    // the surface lane got the MATERIAL-SAFE style line (the artistic style,
+    // never the scene-y art direction).
+    const gen = toolLog.find(([n, a]) => n === 'wp_images_generate' && !a.dry_run);
+    assert.equal(gen[1].surfaces.length, 1);
+    assert.deepEqual(gen[1].surfaces[0].hexes, ['#3B2A1E', '#F6EFE6', '#D96C2C']);
+    assert.equal(typeof gen[1].surface_style, 'string');
+    assert.ok(gen[1].surface_style.includes(ctx.state.brief.style.artistic));
+    assert.notEqual(gen[1].surface_style, ctx.state.brief.art_direction);
+
+    // The refusal is LOUD in the report state; the run still completed.
+    assert.deepEqual(ctx.state.surface_report.refusals, [{ page: 'home', detail: refusal }]);
+});
+
+test('S8 surfaces: a texture-bound reject ships the flat band and screams in the report', async () => {
+    const toolLog = [];
+    const ctx = surfaceCtx({ surfaces: [SURFACE_FIELD], rejectIds: ['linen-wash'], toolLog, restLog: [] });
+    await s8.run(ctx);
+    const degrade = ctx.state.surface_report.degraded.find((d) => d.asset_id === 'linen-wash');
+    assert.ok(degrade, 'the reject landed in the report');
+    assert.match(degrade.reason, /texture bound/);
+    assert.match(degrade.reason, /not a material/);
+});
+
+test('S8 surfaces under --no-images: no markers, no calls — byte-identical to a surface-free run', async () => {
+    const run = async (surfaces) => {
+        const toolLog = [];
+        const ctx = surfaceCtx({ surfaces, toolLog, restLog: [] });
+        ctx.state.no_images = true;
+        await s8.run(ctx);
+        return { ctx, toolLog };
+    };
+    const withSurfaces = await run([SURFACE_FIELD]);
+    const without = await run([]);
+    assert.ok(!withSurfaces.toolLog.some(([n]) => n.startsWith('wp_images')));
+    const treeOf = ({ ctx }) => readFileSync(join(ctx.runDir, 'trees', 'page--home.json'), 'utf8');
+    assert.equal(treeOf(withSurfaces), treeOf(without));
+});
+
+test('S8 surfaces: a support-less instance degrades every group skin to its flat band, loudly, and buys nothing', async () => {
+    const toolLog = [];
+    const ctx = surfaceCtx({ surfaces: [SURFACE_FIELD], toolLog, restLog: [] });
+    ctx.state.surface_support = { group_background: false, global_styles_background: true };
+    await s8.run(ctx);
+    assert.equal(ctx.state.surface_report.degraded.length, 3);
+    assert.match(ctx.state.surface_report.degraded[0].reason, /no background support/);
+    const gen = toolLog.find(([n, a]) => n === 'wp_images_generate' && !a.dry_run);
+    assert.deepEqual(gen[1].surfaces, []);
+    assert.equal(ctx.budget.calls.filter((c) => c.task_type === 'image').length, 2); // content only
+});
+
+test('S8 canvas: the asset ships with the tokens through styles.background, epoch adopted', async () => {
+    const toolLog = [];
+    const canvas = { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture', intensity: 'whisper', attach: [] };
+    const ctx = surfaceCtx({ surfaces: [canvas], toolLog, restLog: [] });
+    ctx.state.canvas = { asset_id: 'plaster-ground', lum_min: 0.82, lum_max: 0.91 };
+    writeFileSync(join(ctx.runDir, 'images', 'images-manifest.json'), JSON.stringify({
+        schema_version: 2,
+        model: 'fake',
+        content: [],
+        surfaces: [{ kind: 'surface', asset_id: 'plaster-ground', class: 'canvas', file: '/assets/plaster.jpg', prompt: 'p', mime_type: 'image/jpeg', bytes: 1, ms: 1, post_processing: 'recompress', lum_min: 0.82, lum_max: 0.91, targets: [] }],
+    }));
+    await s8.run(ctx);
+    const shipped = toolLog.find(([n]) => n === 'wp_tokens_apply');
+    assert.ok(shipped, 'the canvas rides a token re-apply');
+    assert.equal(shipped[1].styles.background.backgroundImage.url, 'http://x/uploads/asset-plaster-ground.png');
+    assert.equal(ctx.state.fingerprint, 'f-canvas');
+    assert.ok(ctx.state.surface_report.assets.some((a) => a.asset_id === 'plaster-ground' && a.paths.includes('styles.background')));
 });
 
 test('S8: an unresolved deferral at the final epoch is a run failure', async () => {
@@ -244,9 +418,178 @@ test('S9: measured unreadable text fails the run; muddy text is advisory only', 
     await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /unreadable text/.test(e.message));
 
     // 3–4.5:1 is muddy, not fatal: the run completes and says so
-    const muddy = mk([{ selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours' }]);
+    const muddy = mk([{ selector_path: 'p:nth-child(2)', ratio: 3.63, color: 'rgb(108, 114, 120)', background: 'rgb(21, 25, 29)', sample: 'Hours', font_px: 40 }]);
     await s9.run(muddy);
     assert.ok(muddy.logs.some((l) => /advisory: 1 text element/.test(l)));
+});
+
+test('S8 furniture: a designed part with one unknown attribute is rescued, not floored', async () => {
+    const toolLog = [];
+    const ctx = surfaceCtx({ surfaces: [], toolLog, restLog: [] });
+    mkdirSync(join(ctx.runDir, 'trees'), { recursive: true });
+    writeFileSync(join(ctx.runDir, 'trees', 'furniture--footer.json'), JSON.stringify({
+        tree: {
+            version: 1,
+            epoch: 'old',
+            blocks: [{
+                name: 'core/group',
+                attributes: { align: 'full', backgroundColor: 'contrast', layout: { type: 'constrained' } },
+                innerBlocks: [
+                    { name: 'core/heading', attributes: { level: 2, textAlign: 'center', content: 'Visit us' }, innerBlocks: [] },
+                    { name: 'core/paragraph', attributes: { content: 'links' }, innerBlocks: [] },
+                ],
+            }],
+        },
+        gate: { status: 'pass' },
+    }));
+    ctx.state.artifacts.furniture = { footer: { status: 'pass' } };
+    const inner = ctx.call;
+    let footerValidations = 0;
+    ctx.call = async (name, tree) => {
+        const isFooterPart = name === 'wp_validate' && JSON.stringify(tree).includes('Visit us');
+        if (isFooterPart) {
+            footerValidations += 1;
+            const hasTextAlign = JSON.stringify(tree).includes('textAlign');
+            return {
+                ok: true,
+                data: hasTextAlign
+                    ? { valid: true, epoch_ok: true, diagnostics: [{ code: 'W_ATTR_UNKNOWN', severity: 'warning', path: '/blocks/0/innerBlocks/0/attributes/textAlign', message: 'Attribute "textAlign" is not declared by "core/heading".' }] }
+                    : { valid: true, epoch_ok: true, diagnostics: [] },
+            };
+        }
+        return inner(name, tree);
+    };
+    await s8.run(ctx);
+    // Stripped, re-gated, shipped: the designed footer landed, not the floor.
+    assert.equal(footerValidations, 2);
+    assert.equal(ctx.state.published.footer_part, 'theme//footer');
+    assert.ok(ctx.logs?.some?.((l) => /stripped 1 unknown attribute/.test(l)) ?? true);
+});
+
+test('S9 surface rescue: unreadable ink over a material strips the material, re-verifies, and the run COMPLETES flat', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-rescue-'));
+    mkdirSync(join(runDir, 'images'), { recursive: true });
+    writeFileSync(join(runDir, 'images', 'images-manifest.json'), JSON.stringify({
+        schema_version: 2,
+        model: 'fake',
+        content: [],
+        surfaces: [{
+            kind: 'surface', asset_id: 'aged-damask', class: 'pattern', file: '/a.png', prompt: 'p',
+            mime_type: 'image/png', bytes: 1, ms: 1, post_processing: 'mirror-tile+veil(#F6EFE6@0.7)',
+            media_id: 501, media_url: 'http://x/uploads/asset-aged-damask.png',
+            targets: [{ post_id: 8, rest_base: 'pages', path: '/blocks/0', block_name: 'core/group', mechanism: 'group_background', reservation: 'contrast' }],
+        }],
+    }));
+    const probePath = 'body:nth-child(2) > div:nth-child(2) > main:nth-child(2) > div:nth-child(1) > div:nth-child(1)';
+    const failingSelector = 'body:nth-child(2) > div:nth-child(2) > main.wp-block-group:nth-child(2) > div.wp-block-post-content:nth-child(1) > div.wp-block-group:nth-child(1) > h1.wp-block-heading:nth-child(2)';
+    let verifies = 0;
+    const stripCalls = [];
+    const ctx = {
+        runDir,
+        logs: [],
+        log(m) { this.logs.push(m); },
+        state: { instance: { site_url: 'http://x' }, published: { pages: [{ slug: 'home', id: 8, front_page: true }] } },
+        call: async function (name, args) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') {
+                verifies += 1;
+                if (verifies === 1) {
+                    return { ok: true, data: {
+                        pass: true,
+                        box_tree: [],
+                        a11y_outline: [{ role: 'heading', name: 'H', level: 1 }],
+                        images: [],
+                        surfaces: [{ selector_path: probePath, url: 'http://x/uploads/asset-aged-damask.png', status: 200, ok: true }],
+                        text_contrast: [{ selector_path: failingSelector, ratio: 1, color: 'rgb(244, 235, 217)', background: 'sampled(0.008..0.837)', sample: 'A Tea Salon', sampled: true }],
+                    } };
+                }
+                return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], surfaces: [], text_contrast: [] } };
+            }
+            if (name === 'wp_images_apply') {
+                stripCalls.push(args);
+                return { ok: true, data: { post_id: args.post_id, uploaded: [], swapped: 0, surfaces_applied: 0, surfaces_stripped: 1, skipped: [], surfaces: [], all_valid: true, link: 'http://x/home/' } };
+            }
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await s9.run(ctx);
+    assert.equal(verifies, 2);
+    assert.equal(stripCalls.length, 1);
+    assert.deepEqual(stripCalls[0].strip_surfaces, ['aged-damask']);
+    assert.ok(ctx.state.surface_report.degraded.some((d) => d.asset_id === 'aged-damask' && /stripped by the S9 rescue/.test(d.reason)));
+    assert.equal(ctx.state.screenshot_taken, true);
+});
+
+test('S9 surface rescue: a second failure after the strip is final — no rescue loop', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s9-rescue2-'));
+    mkdirSync(join(runDir, 'images'), { recursive: true });
+    writeFileSync(join(runDir, 'images', 'images-manifest.json'), JSON.stringify({
+        schema_version: 2, model: 'fake', content: [],
+        surfaces: [{ kind: 'surface', asset_id: 'aged-damask', class: 'pattern', file: '/a.png', prompt: 'p', mime_type: 'image/png', bytes: 1, ms: 1, post_processing: 'mirror-tile', media_id: 501, media_url: 'http://x/u/a.png', targets: [{ post_id: 8, rest_base: 'pages', path: '/blocks/0', block_name: 'core/group', mechanism: 'group_background', reservation: 'contrast' }] }],
+    }));
+    const finding = { selector_path: 'p:nth-child(1)', ratio: 1, color: 'rgb(0,0,0)', background: 'sampled(0..1)', sample: 'x', sampled: true };
+    let applies = 0;
+    const ctx = {
+        runDir,
+        log: () => {},
+        state: { instance: { site_url: 'http://x' }, published: { pages: [{ slug: 'home', id: 8, front_page: true }] } },
+        call: async (name, args) => {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], surfaces: [], text_contrast: [finding] } };
+            if (name === 'wp_images_apply') { applies += 1; return { ok: true, data: { post_id: args.post_id, uploaded: [], swapped: 0, surfaces_applied: 0, surfaces_stripped: 1, skipped: [], surfaces: [], all_valid: true, link: 'x' } }; }
+            throw new Error(`unexpected ${name}`);
+        },
+    };
+    await assert.rejects(s9.run(ctx), (e) => e.code === 'gate_failed');
+    assert.equal(applies, 1); // the rescue ran once and never looped
+});
+
+test('S9: a 404\'d surface asset fails the run; present surfaces pass silently', async () => {
+    const mk = (surfaces) => ({
+        runDir: mkdtempSync(join(tmpdir(), 'x-pipeline-s9-surface-')),
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        log: () => {},
+        call: async function (name) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], surfaces } };
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    });
+    const bad = mk([
+        { selector_path: 'div:nth-child(1)', url: 'http://x/uploads/asset-linen.jpg', status: 200, ok: true },
+        { selector_path: 'div:nth-child(2)', url: 'http://x/uploads/asset-frieze.png', status: 404, ok: false },
+    ]);
+    await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /surface asset failed to load/.test(JSON.stringify(e.detail ?? e.message)));
+
+    const good = mk([{ selector_path: 'div:nth-child(1)', url: 'http://x/uploads/asset-linen.jpg', status: 200, ok: true }]);
+    await s9.run(good);
+});
+
+test('report.md carries a Surfaces section: every asset, every path, every refusal and degrade', async () => {
+    const { writeReport } = await import('../lib/report.mjs');
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-report-'));
+    writeReport(runDir, {
+        state: {
+            completed: ['S8_publish'],
+            budget: { S: 3, B: 1, P: 1, C: 2, U: 1, I: 3, F: 2, base: 9, ceiling: 21 },
+            surface_report: {
+                assets: [{ asset_id: 'linen-wash', class: 'field', post_processing: 'recompress', paths: ['/blocks/0', '/blocks/1'], page: 'home' }],
+                degraded: [{ page: 'home', asset_id: 'gilt-corner', reason: 'core/group has no background support on this instance — the flat band ships' }],
+                refusals: [{ page: 'home', detail: "/blocks/2: surface target no longer empty — an admin's background is never overwritten" }],
+            },
+        },
+        budget: { spent: 10 },
+        ledger: { entries: [] },
+    });
+    const md = readFileSync(join(runDir, 'report.md'), 'utf8');
+    assert.match(md, /## Surfaces/);
+    assert.match(md, /linen-wash/);
+    assert.match(md, /\/blocks\/0/);
+    assert.match(md, /gilt-corner/);
+    assert.match(md, /never overwritten/);
+    assert.match(md, /C=2 content \+ U=1 surfaces/);
 });
 
 test('the footer part is chosen by canonical slug, not by whichever has area=footer', () => {
@@ -371,14 +714,19 @@ test('S8 furniture path: designed header ships with injected nav links, nav post
     assert.equal(ctx.state.published.header_part, 'theme//header');
 });
 
-test('S8 furniture fallback: failed parts degrade to the nav post and the deterministic footer', async () => {
+test('S8 furniture fallback: failed parts degrade to STYLED floors — a band header and a band footer', async () => {
     const restLog = [];
     const toolLog = [];
     const ctx = makeCtx({ restLog, toolLog });
     ctx.state.artifacts.furniture = { header: { status: 'fail' }, footer: { status: 'fail' } };
     await s8.run(ctx);
-    // exactly the pre-furniture behavior: nav post written, hardcoded footer compiled
-    assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
+    // Both floors ship as template-part bands from the same design system —
+    // never a theme-default header over a designed footer.
+    assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//header')}`));
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//footer')}`));
-    assert.ok(!restLog.some(([m, r]) => r.includes('theme%2F%2Fheader')), 'theme header untouched');
+    // The header floor tree that compiled is a full band: site-title + nav with links.
+    const headerCompile = toolLog.find(([n, t]) => n === 'wp_compile' && JSON.stringify(t).includes('core/site-title') && JSON.stringify(t).includes('core/navigation'));
+    assert.ok(headerCompile, 'the header floor is a band carrying site-title + navigation');
+    assert.equal(headerCompile[1].blocks[0].attributes.align, 'full');
+    assert.ok(!restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')), 'nav post is the ultra-floor only');
 });

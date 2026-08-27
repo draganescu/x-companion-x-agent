@@ -1,7 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
+import { sha256 } from '../lib/hash.mjs';
 import { deriveThemeSpacing, deriveThemeLayout, tokenChecks } from '../lib/tokens.mjs';
+import { surfaceHexes, surfaceStyleLine } from '../lib/surfaces.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../../contract/schemas/design-tokens.schema.json', import.meta.url), 'utf8'));
@@ -117,4 +119,52 @@ The token system is where the combo becomes real: the palette carries the artist
     ctx.state.instance.fingerprint = applied.data.fingerprint;
     writeFileSync(join(ctx.runDir, 'instance.json'), JSON.stringify(ctx.state.instance, null, 2));
     ctx.log(`design tokens applied to the theme — ${tokens.palette.length} colours, ${tokens.typography.families.length} font families; the site fingerprint moved to ${String(applied.data.fingerprint).slice(0, 8)}…`);
+
+    // The canvas is born HERE, with the tokens (x-surfaces M6): its measured
+    // luminance range constrains every canvas band's ink menus at S4, so the
+    // asset must exist before any tree does. Born on-palette against the
+    // final applied hexes; metered like every birth; a failed birth degrades
+    // to the flat ground with a LOUD report entry — the run never dies for a
+    // texture. S8 uploads the file and ships styles.background.
+    const canvasEntry = (brief.surfaces ?? []).find((s) => s.class === 'canvas');
+    if (canvasEntry && !ctx.state.no_images) {
+        ctx.state.surface_report = ctx.state.surface_report ?? { assets: [], degraded: [], refusals: [] };
+        ctx.budget.spend('image', canvasEntry.id);
+        const started = Date.now();
+        const born = await ctx.call('wp_images_generate', {
+            assets_only: true,
+            surfaces: [{
+                id: canvasEntry.id,
+                class: 'canvas',
+                prompt_seed: canvasEntry.prompt_seed,
+                intensity: canvasEntry.intensity,
+                hexes: surfaceHexes(canvasEntry, brief, tokens.palette),
+            }],
+            style: brief.art_direction,
+            surface_style: surfaceStyleLine(brief),
+            out_dir: join(ctx.runDir, 'images'),
+        });
+        const asset = born.ok ? (born.data.surfaces ?? []).find((s) => s.asset_id === canvasEntry.id) : null;
+        ctx.ledger.record({
+            task_type: 'image',
+            label: canvasEntry.id,
+            provider: 'gemini',
+            model: 'wp_images_generate',
+            prompt_hash: sha256(canvasEntry.id),
+            payload_hash: sha256(canvasEntry.id),
+            usage: { input_tokens: 0, output_tokens: 0 },
+            attempt: 1,
+            outcome: asset?.file ? 'ok' : 'error',
+            started_at: started,
+            ms: asset?.ms ?? 0,
+        });
+        if (asset?.file) {
+            ctx.state.canvas = { asset_id: canvasEntry.id, file: asset.file, lum_min: asset.lum_min, lum_max: asset.lum_max };
+            ctx.log(`page canvas "${canvasEntry.id}" born with the tokens — luminance ${asset.lum_min}..${asset.lum_max} constrains every canvas band's ink`);
+        } else {
+            const reason = born.ok ? 'the canvas birth returned no asset' : `the canvas birth failed (${born.data.message})`;
+            ctx.state.surface_report.degraded.push({ asset_id: canvasEntry.id, reason: `${reason} — canvas bands ship on the flat page ground` });
+            ctx.log(`surface degraded: ${reason} — canvas bands ship on the flat page ground`);
+        }
+    }
 }

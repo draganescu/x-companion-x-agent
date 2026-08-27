@@ -39,6 +39,21 @@ export async function run(ctx) {
     ctx.state.instance = instance;
     ctx.state.fingerprint = connect.data.fingerprint;
 
+    // Surface capability is PROBED, never assumed (x-surfaces): a site whose
+    // core/group lacks the background support degrades every group-skin
+    // surface to none — loudly, in the report, never as an error and never as
+    // a CSS fallback. Absence of the features section reads as available on a
+    // 'latest' Playground; the group support itself is the authority.
+    const groupSupports = (manifest.data.blocks ?? {})['core/group']?.supports ?? {};
+    const features = manifest.data.features ?? {};
+    ctx.state.surface_support = {
+        group_background: groupSupports.background?.backgroundImage === true,
+        global_styles_background: features.global_styles_background?.available !== false,
+    };
+    if ((ctx.state.brief.surfaces ?? []).length > 0 && !ctx.state.surface_support.group_background) {
+        ctx.log('this instance\'s core/group has no background-image support — every group-skin surface will ship as its flat band (recorded in the report)');
+    }
+
     const sections = [];
     for (const page of ctx.state.brief.pages) {
         for (const section of page.sections) {

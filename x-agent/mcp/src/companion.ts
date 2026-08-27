@@ -87,6 +87,9 @@ export interface TokensResult {
   /** interfaces v2 (rung-5 css): present when the request carried a css section. */
   css_written?: boolean;
   css_rejected?: { target: string; reason: string }[];
+  /** x-surfaces: present when the request carried styles.background (the page canvas). */
+  background_written?: boolean;
+  background_rejected?: { target: string; reason: string }[];
 }
 
 export interface CompanionStats {

@@ -16,18 +16,47 @@ export function toApiAspect(attr) {
     }
     return '16:9';
 }
-export function findPlaceholders(blocks) {
-    const out = [];
+/** Blocks whose background a surface may become, per mechanism. */
+const SURFACE_BLOCKS = {
+    'core/group': 'group_background',
+    'core/cover': 'cover',
+};
+/**
+ * ONE walk returning typed refs for both lanes. Content refs are exactly what
+ * findPlaceholders always returned; surface refs are surfaceIntent markers on
+ * groups and covers. A cover carrying both intent kinds is a schema error, not
+ * a runtime surprise — it lands in errors and joins neither lane.
+ */
+export function scanRefs(blocks) {
+    const content = [];
+    const surfaces = [];
+    const errors = [];
     const walk = (nodes, prefix) => {
         nodes.forEach((node, i) => {
             const path = `${prefix}/${i}`;
             const attrs = (node.attributes ?? {});
             const meta = attrs.metadata;
             const intent = typeof meta?.imageIntent === 'string' ? meta.imageIntent.trim() : '';
+            const surfaceIntent = typeof meta?.surfaceIntent === 'string' ? meta.surfaceIntent.trim() : '';
             const names = attrNames(node.name);
             const url = typeof attrs[names.url] === 'string' ? attrs[names.url] : '';
-            if (intent !== '' && PLACEHOLDER_URL.test(url)) {
-                out.push({
+            const contentMatch = intent !== '' && PLACEHOLDER_URL.test(url);
+            if (surfaceIntent !== '' && intent !== '') {
+                errors.push(`${path}: carries both imageIntent and surfaceIntent — one intent kind per node`);
+            }
+            else if (surfaceIntent !== '') {
+                const mechanism = SURFACE_BLOCKS[node.name];
+                if (!mechanism) {
+                    errors.push(`${path}: surfaceIntent on ${node.name} — a surface lands only on core/group or core/cover`);
+                }
+                else {
+                    const reservation = typeof attrs.backgroundColor === 'string' ? attrs.backgroundColor : null;
+                    surfaces.push({ kind: 'surface', path, block_name: node.name, asset_id: surfaceIntent, mechanism, reservation });
+                }
+            }
+            else if (contentMatch) {
+                content.push({
+                    kind: 'content',
                     path,
                     block_name: node.name,
                     intent,
@@ -43,7 +72,10 @@ export function findPlaceholders(blocks) {
         });
     };
     walk(blocks, '/blocks');
-    return out;
+    return { content, surfaces, errors };
+}
+export function findPlaceholders(blocks) {
+    return scanRefs(blocks).content.map(({ kind: _kind, ...ref }) => ref);
 }
 /** Resolve a /blocks/... pointer back to its node, or undefined. */
 export function nodeAt(blocks, path) {
@@ -81,6 +113,87 @@ export function applyImage(blocks, ref, media) {
         return false;
     attrs[ref.url_attr] = media.url;
     attrs[ref.id_attr] = media.id;
+    node.attributes = attrs;
+    return true;
+}
+/** The exact style.background object per asset class — a genuine block
+ *  support, visible in the core Background inspector panel. */
+function backgroundFor(media, opts) {
+    const image = { backgroundImage: { url: media.url, id: media.id } };
+    switch (opts.class) {
+        case 'pattern':
+            return { ...image, backgroundRepeat: 'repeat', backgroundSize: opts.size ?? 'auto' };
+        case 'frieze':
+            return { ...image, backgroundRepeat: 'repeat-x', backgroundPosition: opts.position ?? 'top', backgroundSize: opts.size ?? 'auto' };
+        case 'spot':
+            // A spot is punctuation, not a mural: without an explicit size it ships
+            // bounded (the Vienna field bug: a cartouche at natural size filled a
+            // whole FAQ band behind its text).
+            return { ...image, backgroundRepeat: 'no-repeat', backgroundPosition: opts.position ?? 'top right', backgroundSize: opts.size ?? '180px' };
+        default:
+            return { ...image, backgroundSize: 'cover' };
+    }
+}
+/**
+ * Take a surface BACK off its target node — the S9 rescue's instrument: when
+ * the pixel oracle rates ink over an applied material unreadable, the material
+ * comes off and the flat band underneath (never touched) simply shows again.
+ * Only OUR application is removed: the url must match the media we uploaded,
+ * so an admin's own later background is never stripped.
+ */
+export function stripSurface(blocks, target, mediaUrl) {
+    const node = nodeAt(blocks, target.path);
+    if (!node || node.name !== target.block_name)
+        return false;
+    const attrs = (node.attributes ?? {});
+    if (target.mechanism === 'cover') {
+        if (attrs.url !== mediaUrl)
+            return false;
+        delete attrs.url;
+        delete attrs.id;
+        node.attributes = attrs;
+        return true;
+    }
+    const style = (attrs.style ?? {});
+    const background = (style.background ?? {});
+    const image = background.backgroundImage;
+    const url = typeof image === 'string' ? image : image?.url;
+    if (url !== mediaUrl)
+        return false;
+    delete style.background;
+    attrs.style = style;
+    node.attributes = attrs;
+    return true;
+}
+/**
+ * Write a surface onto its target node. The refusal is the contract: a group
+ * whose style.background.backgroundImage is no longer empty, or a cover whose
+ * url is no longer empty, belongs to an admin now and is never overwritten —
+ * the flat band underneath is the reservation and the fallback either way.
+ * backgroundColor is NEVER touched.
+ */
+export function applySurface(blocks, target, media, opts) {
+    const node = nodeAt(blocks, target.path);
+    if (!node || node.name !== target.block_name)
+        return false;
+    const attrs = (node.attributes ?? {});
+    if (target.mechanism === 'cover') {
+        const url = attrs.url;
+        if (typeof url === 'string' && url.trim() !== '' && !PLACEHOLDER_URL.test(url))
+            return false;
+        attrs.url = media.url;
+        attrs.id = media.id;
+        node.attributes = attrs;
+        return true;
+    }
+    const style = (attrs.style ?? {});
+    const background = (style.background ?? {});
+    const existing = background.backgroundImage;
+    const existingUrl = typeof existing === 'string' ? existing : existing?.url;
+    if (typeof existingUrl === 'string' && existingUrl.trim() !== '')
+        return false;
+    style.background = backgroundFor(media, opts);
+    attrs.style = style;
     node.attributes = attrs;
     return true;
 }

@@ -81,10 +81,11 @@ final class X_Companion_Theme_Tokens {
 			);
 		}
 
-		$settings = self::compile( $tokens );
-		$css      = self::compile_css( $tokens );
-		$written  = self::write_global_styles( $settings, $css['styles'] );
-		$file     = self::maybe_write_theme_file( $settings );
+		$settings   = self::compile( $tokens );
+		$css        = self::compile_css( $tokens );
+		$background = self::compile_background( $tokens );
+		$written    = self::write_global_styles( $settings, array_merge( $css['styles'], $background['styles'] ) );
+		$file       = self::maybe_write_theme_file( $settings );
 
 		$applied = array();
 		$notes   = array();
@@ -119,6 +120,87 @@ final class X_Companion_Theme_Tokens {
 			'settings'           => $settings,
 			'css_written'        => array() !== $css['styles'],
 			'css_rejected'       => $css['rejected'],
+			'background_written' => array() !== $background['styles'],
+			'background_rejected' => $background['rejected'],
+		);
+	}
+
+	/**
+	 * DesignTokens `styles.background` -> a theme.json `styles` fragment.
+	 *
+	 * The x-surfaces page canvas: a media-library asset applied through
+	 * WP_Theme_JSON's own styles.background (WP >= 6.6), admin-undoable in the
+	 * Styles UI. Capability is PROBED, never assumed — the house pattern is
+	 * constant contents, not version numbers — and every rejection is
+	 * itemized, never silently dropped. Only http(s) media urls pass.
+	 *
+	 * @param array $tokens DesignTokens (may carry `styles.background`).
+	 * @return array{styles:array,rejected:array<int,array{target:string,reason:string}>}
+	 */
+	public static function compile_background( array $tokens ): array {
+		$background = $tokens['styles']['background'] ?? null;
+		if ( ! is_array( $background ) ) {
+			return array(
+				'styles'   => array(),
+				'rejected' => array(),
+			);
+		}
+
+		$valid = array();
+		if ( class_exists( 'WP_Theme_JSON' ) && defined( 'WP_Theme_JSON::VALID_STYLES' ) ) {
+			$valid = (array) constant( 'WP_Theme_JSON::VALID_STYLES' );
+		}
+		// Offline (bootstrap-lite) there is no WP_Theme_JSON at all; treat the
+		// capability as present so the pure compile stays testable. A live
+		// site without the key degrades with an itemized note.
+		if ( class_exists( 'WP_Theme_JSON' ) && ! array_key_exists( 'background', $valid ) ) {
+			return array(
+				'styles'   => array(),
+				'rejected' => array(
+					array(
+						'target' => 'background',
+						'reason' => 'this WordPress has no styles.background support (WP >= 6.6) — the page canvas stays the flat ground',
+					),
+				),
+			);
+		}
+
+		$url = $background['backgroundImage']['url'] ?? null;
+		$url = is_string( $url ) ? ( function_exists( 'esc_url_raw' ) ? esc_url_raw( $url, array( 'http', 'https' ) ) : $url ) : '';
+		if ( ! is_string( $url ) || '' === $url || ! preg_match( '#^https?://#i', $url ) ) {
+			return array(
+				'styles'   => array(),
+				'rejected' => array(
+					array(
+						'target' => 'background',
+						'reason' => 'backgroundImage.url must be an http(s) media url',
+					),
+				),
+			);
+		}
+
+		$image = array( 'url' => $url );
+		if ( isset( $background['backgroundImage']['id'] ) && is_numeric( $background['backgroundImage']['id'] ) ) {
+			$image['id'] = (int) $background['backgroundImage']['id'];
+		}
+		$fragment = array( 'backgroundImage' => $image );
+		foreach ( array(
+			'backgroundSize'       => array( 'cover', 'contain', 'auto' ),
+			'backgroundRepeat'     => array( 'no-repeat', 'repeat', 'repeat-x', 'repeat-y' ),
+			'backgroundAttachment' => array( 'scroll', 'fixed' ),
+		) as $knob => $allowed ) {
+			if ( isset( $background[ $knob ] ) && in_array( $background[ $knob ], $allowed, true ) ) {
+				$fragment[ $knob ] = $background[ $knob ];
+			}
+		}
+		if ( isset( $background['backgroundPosition'] ) && is_string( $background['backgroundPosition'] )
+			&& preg_match( '/^[a-z0-9% .-]+$/i', $background['backgroundPosition'] ) ) {
+			$fragment['backgroundPosition'] = $background['backgroundPosition'];
+		}
+
+		return array(
+			'styles'   => array( 'background' => $fragment ),
+			'rejected' => array(),
 		);
 	}
 

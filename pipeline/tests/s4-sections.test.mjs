@@ -42,12 +42,43 @@ const FURNITURE_TREES = {
 };
 
 function treeFor(label, extra = {}) {
+    // Grammar-compliant model output: explicit level + the mapped fontSize
+    // (the test scale has one size, so every level maps to 'display'), and
+    // grid sections carry their EXACTLY ONE alignwide container. The signup
+    // section breaks the axis (fixture axis_break), so its heading declares
+    // the flipped anchor the axis gate demands.
+    const heading = {
+        name: 'core/heading',
+        attributes: {
+            content: label,
+            level: 2,
+            fontSize: 'display',
+            ...(label.includes('signup') ? { style: { typography: { textAlign: 'center' } } } : {}),
+        },
+    };
+    const inner = label.includes('what-we-bake')
+        ? [{ name: 'core/group', attributes: { align: 'wide' }, innerBlocks: [heading] }]
+        : [heading];
     return {
         version: 1,
         epoch: EPOCH,
-        blocks: [{ name: 'core/group', attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } }, innerBlocks: [{ name: 'core/heading', attributes: { content: label } }] }],
+        blocks: [{ name: 'core/group', attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } }, innerBlocks: inner }],
         ...extra,
     };
+}
+
+// The scripted ctx.call keys tool responses off the section label, which
+// lives on the first content-bearing node wherever the grammar nests it.
+function labelOf(tree) {
+    const walk = (ns) => {
+        for (const n of ns ?? []) {
+            if (n.attributes?.content) return n.attributes.content;
+            const hit = walk(n.innerBlocks);
+            if (hit) return hit;
+        }
+        return null;
+    };
+    return walk(tree.blocks) ?? '?';
 }
 
 function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
@@ -90,7 +121,7 @@ function makeCtx({ treesByLabel, validateByKey, compileByKey = {} }) {
         log: () => {},
         peak: () => peak,
         call: async (name, tree) => {
-            const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
+            const key = labelOf(tree);
             if (name === 'wp_compile') {
                 return { ok: true, data: compileByKey[key] ?? { markup: '<!-- wp:group /-->', all_valid: true, invalid: [], content_lost: [] } };
             }
@@ -170,7 +201,7 @@ test('content the save() ignores fails the artifact at the compile-parity gate',
                 name: 'core/group',
                 attributes: { align: 'full', backgroundColor: 'base', layout: { type: 'constrained' } },
                 innerBlocks: [
-                    { name: 'core/heading', attributes: { content: 'home/hero' } },
+                    { name: 'core/heading', attributes: { content: 'home/hero', level: 2, fontSize: 'display' } },
                     { name: 'core/quote', attributes: { value: '<p>the quote text</p>', citation: 'someone' }, innerBlocks: [] },
                 ],
             }],
@@ -264,7 +295,7 @@ test('a tool error in one lane is fatal to the run, but no sibling lane is aband
     const ctx = makeCtx({ treesByLabel, validateByKey: {} });
     const inner = ctx.call;
     ctx.call = async (name, tree) => {
-        const key = tree.blocks[0].innerBlocks?.[0]?.attributes?.content ?? '?';
+        const key = labelOf(tree);
         if (name === 'wp_validate' && key === 'home/hero') {
             return { ok: false, data: { code: 'companion_unreachable', message: 'net::ERR_ABORTED (scripted)' } };
         }
@@ -280,4 +311,63 @@ test('a tool error in one lane is fatal to the run, but no sibling lane is aband
     assert.equal(ctx.state.artifacts.furniture.header.status, 'pass');
     assert.equal(ctx.state.artifacts.furniture.footer.status, 'pass');
     assert.equal(ctx.state.artifacts.trees['home--hero'], undefined); // the failed lane never recorded a verdict
+});
+
+test('every section is told its band\'s skin state before it writes a word on it', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+    ctx.state.brief.surfaces = [
+        { id: 'linen-wash', class: 'field', prompt_seed: 'Woven linen texture', intensity: 'whisper', attach: ['home/hero'] },
+    ];
+    await s4.run(ctx);
+    const hero = ctx.payloads['home/hero'];
+    assert.equal(hero.design.skinned, true);
+    assert.equal(ctx.payloads['home/what-we-bake'].design.skinned, false);
+    const plan = hero.page_plan;
+    assert.equal(plan.find((p) => p.id === 'hero').skinned, true);
+    assert.equal(plan.find((p) => p.id === 'what-we-bake').skinned, false);
+});
+
+test('canvas bands: menus from the measured canvas luminance, base fallback without one', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const withCanvas = (state) => {
+        const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+        ctx.state.brief.surfaces = [
+            { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture', intensity: 'whisper', attach: [] },
+        ];
+        ctx.state.brief.pages[0].sections[0].design.band = 'canvas';
+        // The per-section entry file is what the payload reads its design from.
+        const heroFile = join(ctx.runDir, 'sections', 'home--hero.json');
+        const entry = JSON.parse(readFileSync(heroFile, 'utf8'));
+        entry.section.design.band = 'canvas';
+        writeFileSync(heroFile, JSON.stringify(entry));
+        Object.assign(ctx.state, state);
+        return ctx;
+    };
+
+    // Measured canvas (light range): no backgroundColor on the band, and only
+    // the dark slug clears the worst-case bar.
+    const measured = withCanvas({ canvas: { asset_id: 'plaster-ground', lum_min: 0.8, lum_max: 0.9 } });
+    await s4.run(measured);
+    const bc = measured.payloads['home/hero'].band_colors;
+    assert.equal(bc.background, null);
+    assert.ok(bc.safe_inks.includes('contrast'));
+    assert.ok(!bc.safe_inks.includes('ember'));
+    assert.equal(bc.text, 'contrast');
+
+    // No measured canvas (e.g. --no-images): the band still ships bare, rated
+    // against the flat page ground it actually sits on.
+    const fallback = withCanvas({});
+    await s4.run(fallback);
+    const fb = fallback.payloads['home/hero'].band_colors;
+    assert.equal(fb.background, null);
+    assert.ok(fb.safe_inks.length > 0);
 });

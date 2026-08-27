@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { ConnectionArgsShape, defineTool } from './_shared.js';
 import { XError } from '../errors.js';
 import { DesignSpecIRSchema } from '../schemas.js';
-import { DEFAULT_VIEWPORT, classNameMap, collectImages, diffAgainstSpec, eagerLoadImages, extractLayout, prepareTarget, resolveTolerances, toBoxTree, } from '../oracle.js';
+import { DEFAULT_VIEWPORT, classNameMap, collectImages, collectSurfaces, diffAgainstSpec, eagerLoadImages, extractLayout, prepareTarget, resolveTolerances, samplePendingGrounds, toBoxTree, } from '../oracle.js';
 const ViewportSchema = z.object({ width: z.number().gt(0), height: z.number().gt(0) });
 const BoxSchema = z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() });
 const InputSchema = z.looseObject({
@@ -62,8 +62,12 @@ const OutputSchema = z.object({
         color: z.string(),
         background: z.string(),
         sample: z.string(),
+        font_px: z.number().optional(),
+        sampled: z.boolean().optional(),
+        ground_min: z.number().optional(),
+        ground_max: z.number().optional(),
     }))
-        .describe('Every element with its OWN text whose computed ink reads under 4.5:1 against the nearest painted ancestor background (capped at 100; text over images skipped). Measured, not inferred — this is where invisible text surfaces regardless of which authoring layer produced it.'),
+        .describe('Every element with its OWN text whose ink reads under 4.5:1 against its rendered ground (capped). Flat grounds are computed; text over imagery is PIXEL-SAMPLED (sampled:true, ratio = worst case against the measured luminance range with the ink hidden for the reading). Measured, not inferred — invisible text surfaces here regardless of which authoring layer produced it.'),
     images: z
         .array(z.object({
         selector_path: z.string(),
@@ -75,6 +79,9 @@ const OutputSchema = z.object({
         src: z.string(),
     }))
         .describe('Every <img> on the page, including inside composite blocks (media-text). loaded:false, or a tiny natural size under a large rendered box, is a finding.'),
+    surfaces: z
+        .array(z.object({ selector_path: z.string(), url: z.string(), status: z.number(), ok: z.boolean() }))
+        .describe('Every computed background-image URL on the page, probed for presence with the authenticated session (dedup by URL). ok:false — the asset 404d or never resolved — is a finding even though the flat band underneath keeps the page coherent.'),
     diffs: z.array(z.object({
         region_id: z.string(),
         kind: z.enum(['position', 'size', 'gap', 'font_size', 'color', 'missing', 'extra']),
@@ -135,6 +142,12 @@ export const wpVerify = defineTool({
             // sees perfectly well, and a long page fails its own verification.
             await eagerLoadImages(target.page);
             const images = await collectImages(target.page);
+            // Text over imagery: rated from rendered pixels AFTER eager-load (the
+            // grounds are painted, scroll is pinned back to 0,0). These clip shots
+            // are instrument readings, not run evidence — the one-screenshot rule
+            // refers to the terminal acceptance artifact.
+            const sampled = await samplePendingGrounds(target.page, extracted.pending_grounds);
+            const surfaces = await collectSurfaces(target.page);
             let diffs = [];
             let pass = true;
             let matches = [];
@@ -153,8 +166,9 @@ export const wpVerify = defineTool({
             return {
                 box_tree: toBoxTree(extracted.nodes),
                 a11y_outline: extracted.a11y_outline,
-                text_contrast: extracted.text_contrast,
+                text_contrast: [...extracted.text_contrast, ...sampled],
                 images,
+                surfaces,
                 diffs,
                 pass,
                 measured: {

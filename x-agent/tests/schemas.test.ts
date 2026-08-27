@@ -269,6 +269,10 @@ const CASES: { name: string; jsonSchema: JsonSchema; zod: { safeParse(v: unknown
       { label: 'missing layout', doc: omit(minimalTokens(), 'layout'), expectValid: false },
       { label: 'extra top-level key', doc: { ...minimalTokens(), shadows: [] }, expectValid: false },
       { label: 'family missing fontFamily', doc: tokensWith({ typography: { families: [{ slug: 'b', name: 'B' }], sizes: [] } }), expectValid: false },
+      { label: 'styles.background — the page canvas (x-surfaces)', doc: { ...minimalTokens(), styles: { background: { backgroundImage: { url: 'http://x/uploads/canvas.jpg', id: 7 }, backgroundSize: 'cover' } } }, expectValid: true },
+      { label: 'styles.background without an image url', doc: { ...minimalTokens(), styles: { background: { backgroundSize: 'cover' } } }, expectValid: false },
+      { label: 'rogue styles key beyond background', doc: { ...minimalTokens(), styles: { shadows: [] } }, expectValid: false },
+      { label: 'bad backgroundSize keyword', doc: { ...minimalTokens(), styles: { background: { backgroundImage: { url: 'http://x/c.jpg' }, backgroundSize: 'stretch' } } }, expectValid: false },
     ],
   },
   {

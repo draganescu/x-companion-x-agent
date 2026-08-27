@@ -39,6 +39,42 @@ test('free-form extra keys are rejected (additionalProperties:false throughout)'
     assert.ok(validateSchema(schema, bad).some((i) => i.path === '/creative_notes'));
 });
 
+test('the surface dictionary: required, typed, small by design', () => {
+    const missing = structuredClone(fixture);
+    delete missing.surfaces;
+    assert.ok(validateSchema(schema, missing).some((i) => /surfaces/.test(i.message)));
+
+    const good = structuredClone(fixture);
+    good.surfaces = [
+        {
+            id: 'linen-wash',
+            class: 'field',
+            prompt_seed: 'Woven linen texture, warm cream, soft slubs',
+            intensity: 'whisper',
+            attach: ['home/hero'],
+        },
+    ];
+    assert.deepEqual(validateSchema(schema, good), []);
+
+    const badClass = structuredClone(good);
+    badClass.surfaces[0].class = 'wash';
+    assert.ok(validateSchema(schema, badClass).some((i) => i.path.endsWith('/class')));
+
+    const tooMany = structuredClone(good);
+    tooMany.surfaces = Array.from({ length: 5 }, (_, i) => ({ ...good.surfaces[0], id: `asset-${i}` }));
+    assert.ok(validateSchema(schema, tooMany).some((i) => i.path === '/surfaces'));
+});
+
+test('canvas band and divider role are vocabulary now', () => {
+    const canvas = structuredClone(fixture);
+    canvas.pages[0].sections[0].design.band = 'canvas';
+    assert.deepEqual(validateSchema(schema, canvas), []);
+
+    const divider = structuredClone(fixture);
+    divider.pages[0].sections[1].role = 'divider';
+    assert.deepEqual(validateSchema(schema, divider), []);
+});
+
 test('design is required per section; bad band fails; array image_intent is valid', () => {
     const noDesign = structuredClone(fixture);
     delete noDesign.pages[0].sections[0].design;

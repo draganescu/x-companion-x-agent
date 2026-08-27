@@ -198,6 +198,61 @@
           }
         }
       }
+    },
+    "styles": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "x-surfaces: the ONE sanctioned styles fragment — a global-styles background image (the page canvas), a media-library asset applied through WP_Theme_JSON styles.background (WP >= 6.6; probed, never assumed). Admin-undoable in the Styles UI.",
+      "properties": {
+        "background": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "backgroundImage"
+          ],
+          "properties": {
+            "backgroundImage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "number"
+                }
+              }
+            },
+            "backgroundSize": {
+              "enum": [
+                "cover",
+                "contain",
+                "auto"
+              ]
+            },
+            "backgroundRepeat": {
+              "enum": [
+                "no-repeat",
+                "repeat",
+                "repeat-x",
+                "repeat-y"
+              ]
+            },
+            "backgroundPosition": {
+              "type": "string"
+            },
+            "backgroundAttachment": {
+              "enum": [
+                "scroll",
+                "fixed"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

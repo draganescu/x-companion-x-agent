@@ -2,10 +2,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit, settleAll } from '../lib/limit.mjs';
-import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity } from '../lib/gates.mjs';
-import { resolveBandColors, annotatePalette, resolveInkMenus } from '../lib/tokens.mjs';
+import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity, screenTreeType, screenTreeWidths, screenTreeKit, screenTreeAxis } from '../lib/gates.mjs';
+import { sectionGrammar, sizePxMap } from '../lib/grammar.mjs';
+import { resolveBandColors, annotatePalette, resolveInkMenus, resolveInkMenusFromLuminance } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
-import { normalizeTreeBorders } from '../lib/normalize.mjs';
+import { normalizeTreeBorders, stripUnknownAttrs } from '../lib/normalize.mjs';
 import { sectionImageIntents } from '../budget.mjs';
 
 export const id = 'S4_sections';
@@ -44,6 +45,30 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
     // Pre-axis briefs named the axis inside the layout enum; both legacy values
     // meant the single-column composition.
     const composition = (l) => ({ centered: 'stack', 'left-aligned': 'stack' }[l] ?? l ?? 'stack');
+    // The surface dictionary's skin map (x-surfaces sequencing): which bands
+    // carry a field/pattern skin, decided in the brief BEFORE any tree exists.
+    // Every section is told its own state and every sibling's, because
+    // ground-baked decor and dense ornament are only legal on skin-less bands.
+    const skinnedKeys = new Set((brief.surfaces ?? [])
+        .filter((s) => s.class === 'field' || s.class === 'pattern')
+        .flatMap((s) => s.attach ?? []));
+    // The loudest skin per band: a LOUD material means the section's ground is
+    // a core/cover with the band's veil — the model is told to author one.
+    const intensityRank = { whisper: 1, present: 2, loud: 3 };
+    const skinIntensity = new Map();
+    for (const s of (brief.surfaces ?? []).filter((x) => x.class === 'field' || x.class === 'pattern')) {
+        for (const ref of s.attach ?? []) {
+            const cur = skinIntensity.get(ref);
+            if (!cur || (intensityRank[s.intensity] ?? 0) > (intensityRank[cur] ?? 0)) skinIntensity.set(ref, s.intensity);
+        }
+    }
+    // The section grammar: one level->fontSize map and one width recipe for
+    // every call, derived from the applied type scale — the shared discipline
+    // that makes independent section calls read as one site.
+    const grammar = sectionGrammar(tokens.typography);
+    const sizes = sizePxMap(tokens.typography);
+    // One separator treatment for the whole site, aligned on the site axis.
+    const separatorKit = { ...(axis.anchor === 'center' ? { align: 'center' } : {}) };
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -52,12 +77,27 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
         layout: composition(sec.design?.layout),
         axis: sectionAnchor(sec),
         images: sectionImageIntents(sec).length,
+        skinned: skinnedKeys.has(`${p.slug}/${sec.id}`),
     }))]));
     ctx.state.artifacts = ctx.state.artifacts ?? {};
     ctx.state.artifacts.trees = ctx.state.artifacts.trees ?? {};
     // The band pair plus its measured ink menus: the choice is constrained
     // before it is judged, so the ink screen below almost never fires.
+    // A canvas band has NO backgroundColor — it sits on the page canvas — so
+    // its menus come from the canvas asset's MEASURED luminance range (born at
+    // S3, before any tree). Without one (--no-images, or the birth failed and
+    // the run degraded) it is rated against the flat base ground it will
+    // actually sit on.
     const bandColors = (band) => {
+        if (band === 'canvas') {
+            const canvas = ctx.state.canvas;
+            if (canvas && canvas.lum_min !== undefined) {
+                const menus = resolveInkMenusFromLuminance(canvas.lum_min, canvas.lum_max, tokens.palette);
+                return { background: null, text: menus.safe_inks[0] ?? menus.display_only_inks[0] ?? null, ...menus };
+            }
+            const pair = resolveBandColors('base', brief.palette, tokens.palette);
+            return { background: null, text: pair.text, ...resolveInkMenus(pair.background, tokens.palette) };
+        }
         const pair = resolveBandColors(band, brief.palette, tokens.palette);
         return { ...pair, ...resolveInkMenus(pair.background, tokens.palette) };
     };
@@ -79,6 +119,8 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
         const design = { band: 'base', layout: 'stack', ...(section.design ?? {}) };
         design.layout = composition(design.layout);
+        design.skinned = skinnedKeys.has(`${s.page}/${section.id}`);
+        design.surface_intensity = skinIntensity.get(`${s.page}/${section.id}`) ?? null;
         const payload = {
             section,
             page: entry.page,
@@ -101,6 +143,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             epoch,
             image_note: imageNote,
             heading_rule: headingRule,
+            grammar: { ...(grammar ?? { note: 'no parseable type scale — set heading sizes from token_slugs.font_sizes, largest for h1, consistently' }), separator: separatorKit, axis_align: sectionAnchor(section) },
         };
         let tree;
         try {
@@ -115,8 +158,16 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                     if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
-                    const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
+                    const ink = screenTreeInk(v, { palette: tokens.palette, sizes }).failures;
                     if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
+                    const type = screenTreeType(v, { grammar });
+                    if (type.length > 0) return type.map((f) => ({ path: f.path, message: f.message }));
+                    const widths = screenTreeWidths(v, { layout: design.layout });
+                    if (widths.length > 0) return widths.map((f) => ({ path: f.path ?? '/blocks/0', message: f.message }));
+                    const kit = screenTreeKit(v, { role: section.role, separator: separatorKit });
+                    if (kit.length > 0) return kit.map((f) => ({ path: f.path, message: f.message }));
+                    const axisIssues = screenTreeAxis(v, { anchor: sectionAnchor(section) });
+                    if (axisIssues.length > 0) return axisIssues.map((f) => ({ path: f.path, message: f.message }));
                     return screenImageGeometry(v).map((f) => ({ path: f.path, message: f.message }));
                 },
             }));
@@ -151,7 +202,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
         screen.status = screen.failures.length === 0 ? 'pass' : 'fail';
         // Muddy-but-legal pairs (3–4.5:1) ride into the record like S5's style
         // advisories: visible in the report, never fatal (S9 mirrors this).
-        const inkAdvisories = screenTreeInk(tree, { palette: tokens.palette }).advisories;
+        const inkAdvisories = screenTreeInk(tree, { palette: tokens.palette, sizes }).advisories;
         if (inkAdvisories.length > 0) {
             ctx.log(`section ${s.key}: ${inkAdvisories.length} ink pair(s) between 3:1 and 4.5:1 — legible but muddy, kept as advisory`);
         }
@@ -221,7 +272,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
                     if (band.length > 0) return band.map((f) => ({ path: f.path, message: f.message }));
                     const literals = screenTreeLiterals(v).map((f) => ({ path: f.path, message: f.message }));
                     if (literals.length > 0) return literals;
-                    const ink = screenTreeInk(v, { palette: tokens.palette }).failures;
+                    const ink = screenTreeInk(v, { palette: tokens.palette, sizes }).failures;
                     if (ink.length > 0) return ink.map((f) => ({ path: f.path, message: f.message }));
                     return part === 'header' ? headerShape(v) : [];
                 },
@@ -233,11 +284,26 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             return;
         }
         normalizeTreeBorders(tree);
-        const res = await ctx.call('wp_validate', tree);
+        let res = await ctx.call('wp_validate', tree);
         if (!res.ok) {
             throw new PipelineError(res.data.code ?? 'companion_error', `wp_validate errored for the ${part} part: ${res.data.message}`, res.data.hint ?? '');
         }
-        const screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+        let screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+        // One deterministic rescue before the floor (the Vienna footer bug:
+        // BOTH parts died on a stray textAlign): when every failure is an
+        // unknown attribute, strip exactly those and re-gate whole.
+        if (screen.failures.length > 0 && screen.failures.every((f) => f.code === 'W_ATTR_UNKNOWN')) {
+            const removed = stripUnknownAttrs(tree, res.data.diagnostics ?? []);
+            if (removed.length > 0) {
+                res = await ctx.call('wp_validate', tree);
+                if (res.ok) {
+                    screen = screenTreeDiagnostics(res.data, { allowedUnknown: new Set() });
+                    if (screen.failures.length === 0) {
+                        ctx.log(`${part} template part: stripped ${removed.length} unknown attribute(s) (${removed.join(', ')}) — the designed ${part} ships without them`);
+                    }
+                }
+            }
+        }
         // The same compile-parity gate the sections pass: a footer quote with
         // its text in a dead sourced attribute must degrade to the
         // deterministic floor, never ship an empty blockquote on every page.
