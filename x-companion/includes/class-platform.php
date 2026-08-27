@@ -438,15 +438,21 @@ final class X_Companion_Platform {
 	 * @return array<string, array{available:bool,detail:string}>
 	 */
 	public static function features(): array {
-		$per_block_css = false;
+		$per_block_css     = false;
+		$styles_background = false;
 		if ( class_exists( 'WP_Theme_JSON' ) ) {
-			// styles.css entered VALID_STYLES in 6.2; detect the constant's
-			// contents rather than the version number.
-			$valid         = (array) ( defined( 'WP_Theme_JSON::VALID_STYLES' ) ? constant( 'WP_Theme_JSON::VALID_STYLES' ) : array() );
-			$per_block_css = array_key_exists( 'css', $valid );
+			// styles.css entered VALID_STYLES in 6.2; styles.background in 6.6.
+			// Detect the constant's contents rather than the version number.
+			$valid             = (array) ( defined( 'WP_Theme_JSON::VALID_STYLES' ) ? constant( 'WP_Theme_JSON::VALID_STYLES' ) : array() );
+			$per_block_css     = array_key_exists( 'css', $valid );
+			$styles_background = array_key_exists( 'background', $valid );
 		}
 
 		return array(
+			'global_styles_background' => array(
+				'available' => $styles_background,
+				'detail'    => 'WP_Theme_JSON::VALID_STYLES[background]',
+			),
 			'block_bindings'    => array(
 				'available' => class_exists( 'WP_Block_Bindings_Registry' ),
 				'detail'    => 'WP_Block_Bindings_Registry',

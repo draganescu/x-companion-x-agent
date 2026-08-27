@@ -10,6 +10,7 @@ const InputSchema = z.object({
     typography: DesignTokensSchema.shape.typography,
     layout: DesignTokensSchema.shape.layout,
     css: DesignTokensSchema.shape.css.describe('Rung 5 of the expression ladder: custom css into global styles ({global?, blocks?: {block name: css}}). Only after supports, tokens, block styles and variations have failed — cite the failure. Rejected entries come back itemized in css_rejected.'),
+    styles: DesignTokensSchema.shape.styles.describe('x-surfaces: {background: {backgroundImage: {url, id?}, backgroundSize?, backgroundRepeat?, backgroundPosition?, backgroundAttachment?}} — the page canvas, shipped through global styles (WP >= 6.6; probe manifest features.global_styles_background first). Admin-undoable in the Styles UI. Rejections come back itemized in background_rejected.'),
     dry_run: z
         .boolean()
         .optional()
@@ -28,6 +29,11 @@ const OutputSchema = z.object({
         .array(z.object({ target: z.string(), reason: z.string() }))
         .optional()
         .describe('Itemized css rejections (markup in css, unknown block). Never silently dropped.'),
+    background_written: z.boolean().optional(),
+    background_rejected: z
+        .array(z.object({ target: z.string(), reason: z.string() }))
+        .optional()
+        .describe('Itemized page-canvas rejections (bad url, no styles.background support on this WordPress). Never silently dropped.'),
 });
 export const wpTokensApply = defineTool({
     name: 'wp_tokens_apply',
@@ -43,6 +49,7 @@ export const wpTokensApply = defineTool({
             typography: args.typography,
             layout: args.layout,
             ...(args.css !== undefined ? { css: args.css } : {}),
+            ...(args.styles !== undefined ? { styles: args.styles } : {}),
         });
         const preview = emitThemeJsonSettings(tokens);
         const live = ctx.runtime.ctx(connectionArgs(input));
@@ -85,6 +92,8 @@ export const wpTokensApply = defineTool({
             diff_against_instance: diff,
             ...(res.css_written !== undefined ? { css_written: Boolean(res.css_written) } : {}),
             ...(Array.isArray(res.css_rejected) ? { css_rejected: res.css_rejected } : {}),
+            ...(res.background_written !== undefined ? { background_written: Boolean(res.background_written) } : {}),
+            ...(Array.isArray(res.background_rejected) ? { background_rejected: res.background_rejected } : {}),
         };
     },
 });

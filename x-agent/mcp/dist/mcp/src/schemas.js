@@ -174,6 +174,20 @@ export const CssTokensSchema = z
     blocks: z.record(z.string(), z.string()).optional(),
 })
     .strict();
+export const StylesTokensSchema = z
+    .object({
+    background: z
+        .object({
+        backgroundImage: z.object({ url: z.string(), id: z.number().optional() }).strict(),
+        backgroundSize: z.enum(['cover', 'contain', 'auto']).optional(),
+        backgroundRepeat: z.enum(['no-repeat', 'repeat', 'repeat-x', 'repeat-y']).optional(),
+        backgroundPosition: z.string().optional(),
+        backgroundAttachment: z.enum(['scroll', 'fixed']).optional(),
+    })
+        .strict()
+        .optional(),
+})
+    .strict();
 export const DesignTokensSchema = z
     .object({
     palette: PaletteSchema,
@@ -182,6 +196,8 @@ export const DesignTokensSchema = z
     layout: LayoutTokensSchema,
     /** interfaces v2, rung 5: custom css into global styles. Requires the cited failure of rungs 1-4. */
     css: CssTokensSchema.optional(),
+    /** x-surfaces: the page canvas — a global-styles background image (WP >= 6.6, probed never assumed). */
+    styles: StylesTokensSchema.optional(),
 })
     .strict();
 export const REGION_ROLES = [

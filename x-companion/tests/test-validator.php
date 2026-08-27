@@ -594,6 +594,41 @@ x_test(
 	}
 );
 
+x_test(
+	'compile_background: the x-surfaces page canvas — sanitized url, itemized rejection, silent when absent',
+	function () {
+		$out = X_Companion_Theme_Tokens::compile_background(
+			array(
+				'styles' => array(
+					'background' => array(
+						'backgroundImage' => array(
+							'url' => 'http://example.test/wp-content/uploads/asset-plaster.jpg',
+							'id'  => 42,
+						),
+						'backgroundSize'  => 'cover',
+					),
+				),
+			)
+		);
+		$bg = $out['styles']['background'] ?? null;
+		x_assert( is_array( $bg ), 'a styles fragment came back' );
+		x_assert_same( 'http://example.test/wp-content/uploads/asset-plaster.jpg', $bg['backgroundImage']['url'] ?? null, 'url survives sanitization' );
+		x_assert_same( 42, $bg['backgroundImage']['id'] ?? null, 'attachment id rides along' );
+		x_assert_same( 'cover', $bg['backgroundSize'] ?? null, 'size knob rides along' );
+		x_assert_same( array(), $out['rejected'], 'nothing rejected' );
+
+		$bad = X_Companion_Theme_Tokens::compile_background(
+			array( 'styles' => array( 'background' => array( 'backgroundImage' => array( 'url' => 'javascript:alert(1)' ) ) ) )
+		);
+		x_assert_same( array(), $bad['styles'], 'a non-http url produces no fragment' );
+		x_assert_same( 1, count( $bad['rejected'] ), 'the rejection is itemized, never silent' );
+
+		$none = X_Companion_Theme_Tokens::compile_background( array( 'palette' => array() ) );
+		x_assert_same( array(), $none['styles'], 'no styles section, no fragment' );
+		x_assert_same( array(), $none['rejected'], 'and nothing to reject' );
+	}
+);
+
 if ( ! X_COMPANION_LITE ) {
 	x_test(
 		'live: validate_request runs against the real registry',
