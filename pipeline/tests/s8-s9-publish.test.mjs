@@ -21,7 +21,7 @@ function sectionTree(key, extraBlocks = []) {
     };
 }
 
-function makeCtx({ restLog, toolLog, validateResult }) {
+function makeCtx({ restLog, toolLog, validateResult, theme, furniture, sectionPanes = {} }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s8-'));
     for (const d of ['trees', 'pages', 'images']) mkdirSync(join(runDir, d), { recursive: true });
     const sections = [];
@@ -31,7 +31,9 @@ function makeCtx({ restLog, toolLog, validateResult }) {
             const extra = section.image_intent
                 ? [{ name: 'core/image', attributes: { url: '', metadata: { imageIntent: section.image_intent } }, innerBlocks: [] }]
                 : [];
-            writeFileSync(join(runDir, 'trees', `${key}.json`), JSON.stringify(sectionTree(key, extra)));
+            const st = sectionTree(key, extra);
+            if (sectionPanes[key]) st.tree.blocks[0].attributes.metadata = { pane: sectionPanes[key] };
+            writeFileSync(join(runDir, 'trees', `${key}.json`), JSON.stringify(st));
             sections.push({ key, page: page.slug, id: section.id, file: join('sections', `${key}.json`) });
         }
     }
@@ -50,7 +52,9 @@ function makeCtx({ restLog, toolLog, validateResult }) {
                 trees: {},
                 blocks: { 'signup-banner': { status: 'pass', zip_path: '/z/block.zip' } },
                 packages: { newsletter: { status: 'pass', zip_path: '/z/schema.zip' } },
+                ...(furniture ? { furniture } : {}),
             },
+            ...(theme ? { theme } : {}),
         },
         log: () => {},
         call: async (name, args) => {
@@ -78,7 +82,7 @@ function makeCtx({ restLog, toolLog, validateResult }) {
             if (method === 'DELETE' && route.startsWith('/wp/v2/pages/')) return {};
             if (method === 'GET' && route === '/wp/v2/navigation') return [{ id: 9 }];
             if (method === 'POST' && route === '/wp/v2/navigation/9') return { id: 9 };
-            if (method === 'GET' && route === '/wp/v2/template-parts') return [{ id: 'theme//header', area: 'header' }, { id: 'theme//footer', area: 'footer' }];
+            if (method === 'GET' && route === '/wp/v2/template-parts') return [{ id: 'theme//header', area: 'header' }, { id: 'theme//footer', area: 'footer' }, { id: 'theme//rail', area: 'rail' }];
             if (method === 'POST' && route.startsWith('/wp/v2/template-parts/')) return {};
             throw new Error(`unexpected rest ${method} ${route}`);
         },
@@ -381,4 +385,62 @@ test('S8 furniture fallback: failed parts degrade to the nav post and the determ
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r.startsWith('/wp/v2/navigation')));
     assert.ok(restLog.some(([m, r]) => m === 'POST' && r === `/wp/v2/template-parts/${encodeURIComponent('theme//footer')}`));
     assert.ok(!restLog.some(([m, r]) => r.includes('theme%2F%2Fheader')), 'theme header untouched');
+});
+
+test('assembleSplitPage: panes routed by declaration, order preserved, one full frame', async () => {
+    const { assembleSplitPage, SPLIT_SECONDARY_SIZE } = await import('../lib/skeleton.mjs');
+    const block = (id, pane) => ({ name: 'core/group', attributes: { ...(pane ? { metadata: { pane } } : {}) }, innerBlocks: [{ name: 'core/heading', attributes: { content: id } }] });
+    const out = assembleSplitPage([block('a', 'primary'), block('b', 'secondary'), block('c', 'primary'), block('d')]);
+    assert.equal(out.length, 1);
+    const frame = out[0];
+    assert.equal(frame.attributes.align, 'full');
+    assert.equal(frame.attributes.className, 'x-split-frame');
+    const [primary, secondary] = frame.innerBlocks;
+    assert.equal(primary.attributes.className, 'x-pane-primary');
+    assert.equal(secondary.attributes.className, 'x-pane-secondary');
+    assert.equal(secondary.attributes.style.layout.flexSize, SPLIT_SECONDARY_SIZE);
+    // a, c, and undeclared d in primary (brief order); b in secondary
+    assert.deepEqual(primary.innerBlocks.map((b) => b.innerBlocks[0].attributes.content), ['a', 'c', 'd']);
+    assert.deepEqual(secondary.innerBlocks.map((b) => b.innerBlocks[0].attributes.content), ['b']);
+});
+
+test('S8 split skeleton: the published page tree is ONE two-pane frame (theme-factory M4)', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({ restLog, toolLog, theme: { skeleton: 'split' } });
+    // Real S4 trees are ONE root per section (the band-root gate); rewrite the
+    // mold's synthetic multi-root fixtures into that shape, panes declared.
+    const paneTree = (key, pane) => ({
+        tree: { version: 1, epoch: 'old', blocks: [{ name: 'core/group', attributes: { metadata: { pane } }, innerBlocks: [{ name: 'core/heading', attributes: { content: key } }] }] },
+        gate: { status: 'pass' },
+    });
+    writeFileSync(join(ctx.runDir, 'trees', 'home--hero.json'), JSON.stringify(paneTree('home--hero', 'primary')));
+    writeFileSync(join(ctx.runDir, 'trees', 'home--what-we-bake.json'), JSON.stringify(paneTree('home--what-we-bake', 'secondary')));
+    writeFileSync(join(ctx.runDir, 'trees', 'home--signup.json'), JSON.stringify(paneTree('home--signup', 'primary')));
+    await s8.run(ctx);
+    const validated = toolLog.find(([n, a]) => n === 'wp_validate' && a.blocks?.[0]?.attributes?.className === 'x-split-frame');
+    assert.ok(validated, 'the assembled page tree is the split frame');
+    const frame = validated[1].blocks[0];
+    assert.equal(validated[1].blocks.length, 1);
+    const [primary, secondary] = frame.innerBlocks;
+    assert.equal(primary.innerBlocks.length, 2);
+    assert.equal(secondary.innerBlocks.length, 1);
+});
+
+test('S8 rail skeleton: the designed rail part ships with area "rail" (theme-factory M4)', async () => {
+    const restLog = [];
+    const toolLog = [];
+    const ctx = makeCtx({
+        restLog, toolLog,
+        theme: { skeleton: 'rail' },
+        furniture: { rail: { status: 'pass' } },
+    });
+    writeFileSync(join(ctx.runDir, 'trees', 'furniture--rail.json'), JSON.stringify({
+        tree: { version: 1, epoch: 'old', blocks: [{ name: 'core/group', attributes: { layout: { type: 'default' } }, innerBlocks: [{ name: 'core/site-title', attributes: {}, innerBlocks: [] }] }] },
+        gate: { status: 'pass' },
+    }));
+    await s8.run(ctx);
+    const railWrite = restLog.find(([m, r, o]) => m === 'POST' && r.startsWith('/wp/v2/template-parts/') && o?.body?.area === 'rail');
+    assert.ok(railWrite, 'the rail part was written with its area');
+    assert.match(railWrite[1], /rail/);
 });

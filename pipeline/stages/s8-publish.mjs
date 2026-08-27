@@ -5,6 +5,7 @@ import { sha256 } from '../lib/hash.mjs';
 import { screenTreeDiagnostics } from '../lib/gates.mjs';
 import { mixHex, toneOf } from '../lib/tokens.mjs';
 import { createRest, readConnection } from '../lib/rest.mjs';
+import { assembleSplitPage } from '../lib/skeleton.mjs';
 
 export const id = 'S8_publish';
 export const kind = 'deterministic';
@@ -75,13 +76,17 @@ export async function run(ctx) {
         return mixHex(bandHex, toneOf(bandHex) === 'light' ? '#000000' : '#FFFFFF', 0.12);
     };
 
-    // 4. Assemble, gate, compile, publish each page.
+    // 4. Assemble, gate, compile, publish each page. Under a split skeleton
+    // the sections are routed into the deterministic two-pane frame first —
+    // each root declared its pane at S4; the frame is assembly, not authorship.
+    const skeleton = ctx.state.theme?.skeleton ?? 'stacked';
     for (const page of brief.pages) {
-        const blocks = [];
+        let blocks = [];
         for (const s of ctx.state.sections.filter((x) => x.page === page.slug)) {
             const rec = JSON.parse(readFileSync(join(ctx.runDir, 'trees', `${s.key}.json`), 'utf8'));
             blocks.push(...rec.tree.blocks);
         }
+        if (skeleton === 'split') blocks = assembleSplitPage(blocks);
         const tree = { version: 1, epoch, blocks };
 
         const mints = [];
@@ -278,6 +283,18 @@ export async function run(ctx) {
         const footerCompiled = await toolOrThrow(ctx, 'wp_compile', footerTree, 'wp_compile footer');
         if (!(await writePart('footer', footerCompiled.markup))) {
             ctx.log('this theme has no footer template part — footer skipped');
+        }
+    }
+
+    // Rail: the third furniture part, rail-skeleton bespoke themes only. The
+    // theme's own static rail part is the floor — the designed part ships when
+    // it survived S4 and the final-epoch gate, exactly like header and footer.
+    if (skeleton === 'rail' && furniture.rail?.status === 'pass') {
+        const markup = await compilePart('rail', { ...furnitureTree('rail'), epoch });
+        if (markup && (await writePart('rail', markup))) {
+            ctx.log('rail template part shipped from the design lane');
+        } else {
+            ctx.log("designed rail could not ship — the theme's own rail part is the floor");
         }
     }
 

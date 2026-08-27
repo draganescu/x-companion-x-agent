@@ -29,3 +29,42 @@ export function screenPaneDeclaration(tree) {
     }
     return [];
 }
+
+/**
+ * The deterministic split frame: sections (already gated, each root declaring
+ * its pane) are routed into two persistent pane columns inside ONE full-width
+ * flex row. Pure assembly — no authorship: brief order is preserved within
+ * each pane, and a root with no declaration lands in primary (an S7 pattern
+ * baseline substituted late has no pane; primary is the honest default).
+ * The secondary pane is a fixed supporting column; the frame constant is
+ * code's, like the rail width.
+ */
+export const SPLIT_SECONDARY_SIZE = '34%';
+
+export function assembleSplitPage(rootBlocks) {
+    const primary = [];
+    const secondary = [];
+    for (const block of rootBlocks ?? []) {
+        (block?.attributes?.metadata?.pane === 'secondary' ? secondary : primary).push(block);
+    }
+    return [{
+        name: 'core/group',
+        attributes: {
+            align: 'full',
+            className: 'x-split-frame',
+            layout: { type: 'flex', flexWrap: 'nowrap', verticalAlignment: 'top' },
+        },
+        innerBlocks: [
+            {
+                name: 'core/group',
+                attributes: { className: 'x-pane-primary', style: { layout: { selfStretch: 'fill', flexSize: null } }, layout: { type: 'default' } },
+                innerBlocks: primary,
+            },
+            {
+                name: 'core/group',
+                attributes: { className: 'x-pane-secondary', style: { layout: { selfStretch: 'fixed', flexSize: SPLIT_SECONDARY_SIZE } }, layout: { type: 'default' } },
+                innerBlocks: secondary,
+            },
+        ],
+    }];
+}
