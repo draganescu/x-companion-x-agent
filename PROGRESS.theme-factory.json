@@ -11,6 +11,16 @@
     "decisions": [
         {
             "when": "2026-08-27",
+            "what": "The bespoke theme owns flush bands structurally: S3's SEAM_RESET selectors ride into theme.json styles.css byte-for-byte, so root block-gap seams measure zero at the build gate while blockGap stays declared for inner layout rhythm. S3's stage-authored reset remains as belt.",
+            "why": "The spec's physics line: 'blockGap (declared, owned — the seam-reset apparatus becomes belt, not load-bearing)'. Zeroing global blockGap instead would collapse rhythm inside every layout; leaving the root gap live would fail the build gate's 'root block-gap seams zero'."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The build gate's wide-band expectation is pane-aware from birth: expected = min(declared wideSize, the content column's CONTENT box). Verified live — under the rail skeleton a wide band correctly clamps to the column (1048px of a 1440px viewport), and a border-box comparison was wrong by exactly the root padding.",
+            "why": "'Full means the pane the skeleton assigns, not the viewport' applies inside the sandbox too; the first live rail run failed on a viewport-shaped expectation, which is the same bug S9's pane-aware audit exists to prevent."
+        },
+        {
+            "when": "2026-08-27",
             "what": "ThemeSpec.physics carries only what varies (blockGap, rootPadding); useRootPaddingAwareAlignments, appearanceTools and fluid typography are scaffolder constants, always on.",
             "why": "The theme carries only what a call cannot decide — a constant is code's to decide, and a model asked to author a constant is a model invited to vary it."
         },

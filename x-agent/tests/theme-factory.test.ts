@@ -8,18 +8,25 @@
  * theme.json), never in a template, part, or PHP file.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
 import {
+  MAX_THEME_PACKAGE_BYTES,
   THEME_RAIL_WIDTH,
+  THEME_SMOKE_RUNNER_SOURCE,
   ThemeSpecSchema,
   buildThemeJson,
+  inspectThemePackage,
+  packageTheme,
   scaffoldTheme,
+  themeProbePhp,
   themeTemplateDir,
   type ThemeSpec,
 } from '../mcp/src/themeFactory.js';
+import { loadAdmZip } from '../mcp/src/factory.js';
 import { isXError, type XError } from '../mcp/src/errors.js';
 
 let WS: string;
@@ -198,6 +205,81 @@ describe('poison containment — model strings only where the spec carries them'
   });
 });
 
+describe('packaging — the install policy asserted by reading the zip back', () => {
+  it('packageTheme: one top-level dir named after the slug, deterministic bytes', () => {
+    const r = scaffoldTheme(spec(), { dir: path.join(WS, 'pack'), force: true });
+    const zipA = packageTheme(r.dir, path.join(WS, 'pack-a.zip'));
+    const zipB = packageTheme(r.dir, path.join(WS, 'pack-b.zip'));
+    expect(fs.readFileSync(zipA).equals(fs.readFileSync(zipB))).toBe(true);
+    const Zip = loadAdmZip();
+    const entries = new Zip(zipA).getEntries().map((e) => e.entryName);
+    expect(entries.every((e) => e.startsWith('salon-regale/'))).toBe(true);
+    expect(entries).toContain('salon-regale/style.css');
+    expect(entries).toContain('salon-regale/templates/page-no-title.html');
+    const report = inspectThemePackage(zipA);
+    expect(report.ok).toBe(true);
+    expect(report.slug).toBe('salon-regale');
+  });
+
+  it('inspectThemePackage names every policy violation', () => {
+    const Zip = loadAdmZip();
+
+    const noIndex = new Zip();
+    noIndex.addFile('theme-x/style.css', Buffer.from('/*\nTheme Name: X Theme\n*/\n'));
+    const noIndexPath = path.join(WS, 'no-index.zip');
+    noIndex.writeZip(noIndexPath);
+    const r1 = inspectThemePackage(noIndexPath);
+    expect(r1.ok).toBe(false);
+    expect(r1.reasons.join(' ')).toContain('templates/index.html');
+
+    const noHeader = new Zip();
+    noHeader.addFile('theme-x/style.css', Buffer.from('body {}'));
+    noHeader.addFile('theme-x/templates/index.html', Buffer.from('<!-- wp:post-content /-->'));
+    const noHeaderPath = path.join(WS, 'no-header.zip');
+    noHeader.writeZip(noHeaderPath);
+    expect(inspectThemePackage(noHeaderPath).reasons.join(' ')).toContain('Theme Name');
+
+    const twoRoots = new Zip();
+    twoRoots.addFile('a/style.css', Buffer.from('x'));
+    twoRoots.addFile('b/style.css', Buffer.from('x'));
+    const twoRootsPath = path.join(WS, 'two-roots.zip');
+    twoRoots.writeZip(twoRootsPath);
+    expect(inspectThemePackage(twoRootsPath).reasons.join(' ')).toContain('one top-level directory');
+
+    const badJson = new Zip();
+    badJson.addFile('theme-x/style.css', Buffer.from('/*\nTheme Name: X Theme\n*/\n'));
+    badJson.addFile('theme-x/templates/index.html', Buffer.from('<!-- wp:post-content /-->'));
+    badJson.addFile('theme-x/theme.json', Buffer.from('{nope'));
+    const badJsonPath = path.join(WS, 'bad-json.zip');
+    badJson.writeZip(badJsonPath);
+    expect(inspectThemePackage(badJsonPath).reasons.join(' ')).toContain('theme.json does not parse');
+
+    const oversize = new Zip();
+    oversize.addFile('theme-x/style.css', Buffer.from('/*\nTheme Name: X Theme\n*/\n'));
+    oversize.addFile('theme-x/templates/index.html', Buffer.from('<!-- wp:post-content /-->'));
+    oversize.addFile('theme-x/blob.bin', crypto.randomBytes(MAX_THEME_PACKAGE_BYTES + 1));
+    const oversizePath = path.join(WS, 'oversize.zip');
+    oversize.writeZip(oversizePath);
+    expect(inspectThemePackage(oversizePath).reasons.join(' ')).toMatch(/cap is/);
+  });
+});
+
+describe('the sandbox runner and probes', () => {
+  it('the theme runner mounts the themes path and activates by folder name', () => {
+    expect(THEME_SMOKE_RUNNER_SOURCE).toContain("'/wordpress/wp-content/themes/' + cfg.themeSlug");
+    expect(THEME_SMOKE_RUNNER_SOURCE).toContain("step: 'activateTheme'");
+    expect(THEME_SMOKE_RUNNER_SOURCE).not.toContain('activatePlugin');
+  });
+
+  it('the roster probe asserts page-no-title by name and reads allowed areas', () => {
+    const php = themeProbePhp('salon-regale', true);
+    expect(php).toContain("'page-no-title'");
+    expect(php).toContain('get_allowed_block_template_part_areas');
+    expect(php).toContain("'rail'");
+    expect(themeProbePhp('salon-regale', false)).not.toContain("'rail'");
+  });
+});
+
 describe('buildThemeJson — the physics and presets land at the verified v3 paths', () => {
   it('maps every ThemeSpec field to its theme.json v3 home', () => {
     const t = buildThemeJson(spec()) as Record<string, any>;
@@ -205,6 +287,8 @@ describe('buildThemeJson — the physics and presets land at the verified v3 pat
     expect(t.settings.layout).toEqual({ contentSize: '70ch', wideSize: '90ch' });
     expect(t.settings.spacing.blockGap).toBe(true);
     expect(t.styles.spacing.blockGap).toBe('1.5rem');
+    expect(t.styles.css).toContain('.wp-site-blocks > * + * { margin-block-start: 0; }');
+    expect(t.styles.css).toContain('.wp-block-post-content > * + * { margin-block-start: 0; }');
     expect(t.styles.spacing.padding).toEqual({ top: '0px', right: '24px', bottom: '0px', left: '24px' });
     expect(t.settings.useRootPaddingAwareAlignments).toBe(true);
     expect(t.settings.appearanceTools).toBe(true);
