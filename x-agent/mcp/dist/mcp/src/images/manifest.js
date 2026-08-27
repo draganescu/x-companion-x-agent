@@ -12,6 +12,7 @@
  */
 import * as fs from 'node:fs';
 export const MANIFEST_SCHEMA_VERSION = 2;
+export const MANIFEST_FILENAME = 'images-manifest.json';
 export function emptyManifest(model, style) {
     const m = { schema_version: 2, model, content: [], surfaces: [] };
     if (style !== undefined)
@@ -66,5 +67,27 @@ export function mergeManifest(existing, incoming) {
 }
 export function saveManifest(path, m) {
     fs.writeFileSync(path, JSON.stringify(m, null, 2));
+}
+/**
+ * Dedup and replay in one decision: one image call per unique dictionary
+ * asset per run, and none at all for an asset the manifest already holds with
+ * its file still on disk — a resumed run replays assets instead of re-buying
+ * them. Applications are free; only births are metered.
+ */
+export function planSurfaceCalls(dictionary, manifest, fileExists = fs.existsSync) {
+    const generate = [];
+    const cached = [];
+    const seen = new Set();
+    for (const entry of dictionary) {
+        if (seen.has(entry.id))
+            continue;
+        seen.add(entry.id);
+        const prior = manifest?.surfaces.find((s) => s.asset_id === entry.id);
+        if (prior && fileExists(prior.file))
+            cached.push(entry.id);
+        else
+            generate.push(entry);
+    }
+    return { generate, cached };
 }
 //# sourceMappingURL=manifest.js.map

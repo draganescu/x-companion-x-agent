@@ -6,6 +6,8 @@
  * the layout was built; `buildImagePrompt` composes that with an optional
  * per-run style line so every image in one pass shares a look.
  */
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { GoogleGenAI } from '@google/genai';
 /** Aspect ratios the image API accepts. Attribute "3/4" maps to "3:4". */
 export const ASPECT_RATIOS = new Set(['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9']);
@@ -19,6 +21,58 @@ export function buildImagePrompt(intent, style) {
         parts.push(`Style: ${style.trim()}`);
     parts.push('No text, no watermarks, no logos, no borders.');
     return parts.join('. ').replace(/\.\./g, '.');
+}
+/** What each asset class must look like, said the same way every run. The
+ *  model is never trusted with seamlessness or alpha — these phrasings only
+ *  set up the deterministic post-processing that guarantees them. */
+const CLASS_PHRASING = {
+    field: 'Even, uniform surface texture with no focal point and low internal contrast, edge-to-edge',
+    pattern: 'A single repeating motif tile, flat frontal view, evenly lit, no vignette',
+    frieze: 'A horizontally uniform ornamental strip, continuous left to right',
+    spot: 'A single discrete ornament, centered',
+    canvas: 'Even, uniform surface texture with no focal point and low internal contrast, edge-to-edge',
+};
+const INTENSITY_PHRASING = {
+    whisper: 'Very subtle, faint, low contrast',
+    present: '',
+    loud: 'Rich and pronounced',
+};
+/** Aspect each class is generated at; friezes take the widest the API has. */
+export function aspectForClass(cls) {
+    if (cls === 'frieze')
+        return '21:9';
+    if (cls === 'pattern' || cls === 'spot')
+        return '1:1';
+    return '16:9';
+}
+/** Compose a surface prompt: the dictionary seed, the class phrasing, the
+ *  EXACT hexes of every band the asset touches, and the run's one style line.
+ *  A surface prompt without its hexes is a bug, so it throws. */
+export function buildSurfacePrompt(entry, style) {
+    if (!entry.hexes || entry.hexes.length === 0) {
+        throw new Error(`surface prompt for class ${entry.class} has no band hexes — a surface is born on-palette or not at all`);
+    }
+    const parts = [entry.prompt_seed.trim(), CLASS_PHRASING[entry.class]];
+    if (entry.class === 'spot') {
+        const ground = entry.ground_baked ? entry.hexes[0] : entry.key_hex;
+        if (ground)
+            parts.push(`on a solid uniform background of exactly ${ground}`);
+    }
+    const intensity = entry.intensity ? INTENSITY_PHRASING[entry.intensity] : '';
+    if (intensity)
+        parts.push(intensity);
+    parts.push(`Palette: exactly these colors — ${entry.hexes.join(', ')}`);
+    if (style && style.trim())
+        parts.push(`Style: ${style.trim()}`);
+    parts.push('No text, no watermarks, no logos, no borders.');
+    return parts.join('. ').replace(/\.\./g, '.');
+}
+/** Where a replayed image fixture for (prompt, aspect) lives: content-addressed
+ *  by the prompt so identical briefs replay identical bytes — the determinism
+ *  lane for fake-provider runs. */
+export function fixturePathFor(dir, prompt, aspect) {
+    const key = createHash('sha256').update(`${prompt}|${aspect}`).digest('hex').slice(0, 16);
+    return { jpg: join(dir, `${key}.jpg`), png: join(dir, `${key}.png`) };
 }
 export class GeminiImages {
     ai;

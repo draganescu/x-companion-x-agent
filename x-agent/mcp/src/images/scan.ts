@@ -168,3 +168,66 @@ export function applyImage(blocks: BlockNode[], ref: PlaceholderRef, media: { id
   node.attributes = attrs;
   return true;
 }
+
+export interface SurfaceStyleOpts {
+  class: 'field' | 'pattern' | 'frieze' | 'spot' | 'canvas';
+  position?: string;
+  size?: string;
+}
+
+interface SurfaceTargetRef {
+  path: string;
+  block_name: string;
+  mechanism: SurfaceMechanism;
+}
+
+/** The exact style.background object per asset class — a genuine block
+ *  support, visible in the core Background inspector panel. */
+function backgroundFor(media: { id: number; url: string }, opts: SurfaceStyleOpts): Record<string, unknown> {
+  const image = { backgroundImage: { url: media.url, id: media.id } };
+  switch (opts.class) {
+    case 'pattern':
+      return { ...image, backgroundRepeat: 'repeat', backgroundSize: opts.size ?? 'auto' };
+    case 'frieze':
+      return { ...image, backgroundRepeat: 'repeat-x', backgroundPosition: opts.position ?? 'top', backgroundSize: opts.size ?? 'auto' };
+    case 'spot':
+      return { ...image, backgroundRepeat: 'no-repeat', backgroundPosition: opts.position ?? 'top right', backgroundSize: opts.size ?? 'auto' };
+    default:
+      return { ...image, backgroundSize: 'cover' };
+  }
+}
+
+/**
+ * Write a surface onto its target node. The refusal is the contract: a group
+ * whose style.background.backgroundImage is no longer empty, or a cover whose
+ * url is no longer empty, belongs to an admin now and is never overwritten —
+ * the flat band underneath is the reservation and the fallback either way.
+ * backgroundColor is NEVER touched.
+ */
+export function applySurface(
+  blocks: BlockNode[],
+  target: SurfaceTargetRef,
+  media: { id: number; url: string },
+  opts: SurfaceStyleOpts,
+): boolean {
+  const node = nodeAt(blocks, target.path);
+  if (!node || node.name !== target.block_name) return false;
+  const attrs = (node.attributes ?? {}) as Record<string, unknown>;
+  if (target.mechanism === 'cover') {
+    const url = attrs.url;
+    if (typeof url === 'string' && url.trim() !== '' && !PLACEHOLDER_URL.test(url)) return false;
+    attrs.url = media.url;
+    attrs.id = media.id;
+    node.attributes = attrs;
+    return true;
+  }
+  const style = (attrs.style ?? {}) as Record<string, unknown>;
+  const background = (style.background ?? {}) as Record<string, unknown>;
+  const existing = background.backgroundImage as { url?: string } | string | undefined;
+  const existingUrl = typeof existing === 'string' ? existing : existing?.url;
+  if (typeof existingUrl === 'string' && existingUrl.trim() !== '') return false;
+  style.background = backgroundFor(media, opts);
+  attrs.style = style;
+  node.attributes = attrs;
+  return true;
+}

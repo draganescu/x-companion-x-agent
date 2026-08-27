@@ -12,10 +12,12 @@
  */
 import * as fs from 'node:fs';
 import type { ContentRef, SurfaceMechanism } from './scan.js';
+import type { SurfaceClass, SurfacePromptEntry } from './gemini.js';
 
 export const MANIFEST_SCHEMA_VERSION = 2;
+export const MANIFEST_FILENAME = 'images-manifest.json';
 
-export type SurfaceClass = 'field' | 'pattern' | 'frieze' | 'spot' | 'canvas';
+export type { SurfaceClass } from './gemini.js';
 
 export interface ManifestContentEntry extends ContentRef {
   post_id: number;
@@ -52,6 +54,13 @@ export interface ManifestSurfaceEntry {
   lum_min?: number;
   lum_max?: number;
   post_processing: string;
+  /** Application knobs carried from the dictionary entry. */
+  intensity?: string;
+  position?: string;
+  size?: string;
+  /** Set on first upload so ONE attachment serves every target and every post. */
+  media_id?: number;
+  media_url?: string;
   targets: ManifestSurfaceTarget[];
 }
 
@@ -125,4 +134,39 @@ export function mergeManifest(existing: ManifestV2 | null, incoming: ManifestV2)
 
 export function saveManifest(path: string, m: ManifestV2): void {
   fs.writeFileSync(path, JSON.stringify(m, null, 2));
+}
+
+export interface SurfaceCallSpec extends SurfacePromptEntry {
+  id: string;
+  position?: string;
+  size?: string;
+}
+
+export interface SurfaceCallPlan {
+  generate: SurfaceCallSpec[];
+  cached: string[];
+}
+
+/**
+ * Dedup and replay in one decision: one image call per unique dictionary
+ * asset per run, and none at all for an asset the manifest already holds with
+ * its file still on disk — a resumed run replays assets instead of re-buying
+ * them. Applications are free; only births are metered.
+ */
+export function planSurfaceCalls(
+  dictionary: SurfaceCallSpec[],
+  manifest: ManifestV2 | null,
+  fileExists: (file: string) => boolean = fs.existsSync,
+): SurfaceCallPlan {
+  const generate: SurfaceCallSpec[] = [];
+  const cached: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of dictionary) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    const prior = manifest?.surfaces.find((s) => s.asset_id === entry.id);
+    if (prior && fileExists(prior.file)) cached.push(entry.id);
+    else generate.push(entry);
+  }
+  return { generate, cached };
 }
