@@ -662,8 +662,11 @@ export function screenTreeLiterals(tree) {
 export function screenFontFamilies({ box_tree, fonts } = {}, families = []) {
     const failures = [];
     const promised = families.filter((f) => (f.fontFace ?? []).length > 0);
+    const judged = new Set(); // two token slugs may lead with one face; judge each face once
     for (const family of promised) {
         const name = String(family.fontFace[0].fontFamily);
+        if (judged.has(name.toLowerCase())) continue;
+        judged.add(name.toLowerCase());
         const entry = (fonts ?? []).find((f) => String(f.family).toLowerCase() === name.toLowerCase());
         const loaded = entry?.status === 'loaded';
         const rendered = (box_tree ?? []).some((n) => {

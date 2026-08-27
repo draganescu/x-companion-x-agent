@@ -199,6 +199,17 @@ export function buildThemeJson(spec: ThemeSpec): Record<string, unknown> {
         blockGap: spec.physics.blockGap,
         padding: { ...spec.physics.rootPadding },
       },
+      // The typography SLOTS (measured live: a sourced font nobody renders
+      // stays document.fonts "unloaded" and S9 rightly fails the promise).
+      // The theme declares NO fonts — it wires body text and headings to the
+      // conventional token preset slugs ('body', 'heading'), the same
+      // convention the palette pins with base/contrast. The tokens gate
+      // requires those family slugs on bespoke runs; until tokens apply, an
+      // undefined var() simply inherits the browser default.
+      typography: { fontFamily: 'var(--wp--preset--font-family--body)' },
+      elements: {
+        heading: { typography: { fontFamily: 'var(--wp--preset--font-family--heading)' } },
+      },
     },
     customTemplates: [
       { name: 'page-no-title', title: 'Page (No Title)', postTypes: ['page'] },

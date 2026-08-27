@@ -326,3 +326,29 @@ test('a font-lane failure fails the run before any apply — the promise is not 
     await assert.rejects(() => s3.run(ctx), (e) => e.code === 'font_failed');
     assert.equal(ctx.calls.length, 1, 'only the dry run happened; the world was never mutated');
 });
+
+test('a bespoke run requires the body and heading family slugs — the slots the ground wires', async () => {
+    const { tokenChecks, deriveThemeSpacing, deriveThemeLayout } = await import('../lib/tokens.mjs');
+    const theme = { spacing: { spacingSizes: [{ slug: '40', size: '1rem' }] }, layout: { contentSize: '640px', wideSize: '1200px' } };
+    const tokens = {
+        palette: [
+            { slug: 'base', name: 'Cream', color: '#f7f2e9' },
+            { slug: 'contrast', name: 'Ink', color: '#1a140e' },
+        ],
+        spacing: deriveThemeSpacing(theme),
+        typography: { families: [{ slug: 'display', name: 'Display', fontFamily: 'Georgia, serif' }], sizes: [] },
+        layout: deriveThemeLayout(theme),
+    };
+    const opts = { theme_spacing: deriveThemeSpacing(theme), theme_layout: deriveThemeLayout(theme), briefPalette: [] };
+
+    assert.deepEqual(tokenChecks(structuredClone(tokens), opts), [], 'non-bespoke runs are untouched');
+    const issues = tokenChecks(structuredClone(tokens), { ...opts, bespoke: true });
+    assert.ok(issues.some((i) => /"body"/.test(i.message)));
+    assert.ok(issues.some((i) => /"heading"/.test(i.message)));
+
+    tokens.typography.families = [
+        { slug: 'body', name: 'Body', fontFamily: 'Georgia, serif' },
+        { slug: 'heading', name: 'Heading', fontFamily: '"Playfair Display", serif', source: { provider: 'google', family: 'Playfair Display', weights: [700] } },
+    ];
+    assert.deepEqual(tokenChecks(tokens, { ...opts, bespoke: true }), []);
+});

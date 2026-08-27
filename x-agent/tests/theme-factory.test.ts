@@ -374,6 +374,10 @@ describe('buildThemeJson — the physics and presets land at the verified v3 pat
     expect(t.settings.spacing.blockGap).toBe(true);
     expect(t.styles.spacing.blockGap).toBe('1.5rem');
     expect(t.styles.css).toContain('.wp-site-blocks > * + * { margin-block-start: 0; }');
+    // The typography SLOTS: the theme declares no fonts, only where the token
+    // family presets land (body text + headings) — the rendered-promise fix.
+    expect(t.styles.typography.fontFamily).toBe('var(--wp--preset--font-family--body)');
+    expect(t.styles.elements.heading.typography.fontFamily).toBe('var(--wp--preset--font-family--heading)');
     expect(t.styles.css).toContain('.wp-block-post-content > * + * { margin-block-start: 0; }');
     expect(t.styles.spacing.padding).toEqual({ top: '0px', right: '24px', bottom: '0px', left: '24px' });
     expect(t.settings.useRootPaddingAwareAlignments).toBe(true);

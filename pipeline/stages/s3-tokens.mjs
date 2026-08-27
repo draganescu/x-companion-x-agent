@@ -44,7 +44,7 @@ The token system is where the combo becomes real: the palette carries the artist
         task_type: 'tokens',
         label: 'tokens',
         payload,
-        validate: (v) => tokenChecks(v, { theme_spacing, theme_layout, briefPalette: brief.palette }),
+        validate: (v) => tokenChecks(v, { theme_spacing, theme_layout, briefPalette: brief.palette, bespoke: ctx.state.bespoke === true }),
     });
     // wp_tokens_apply's input validation is its own copy of the shape and
     // rejects keys the contract tolerates (a live run died on sizes[].name).
