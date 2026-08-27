@@ -17,8 +17,8 @@
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M4_skeleton_aware_verification": {
-            "status": "pending",
-            "evidence": "",
+            "status": "done",
+            "evidence": "Fixture-level per the milestone's own 'asserted by fixture' clauses. S4 (s4-sections.test.mjs 9 tests): every payload carries the skeleton, split roots must declare metadata.pane (a missing pane burns the schema retry and the correction ships), rail adds the furniture/rail call + artifact with its own railShape gate (no align:full — a rail never fights its pane). S8 (s8-s9-publish tests): split pages assemble into ONE deterministic two-pane frame (x-pane-primary fill / x-pane-secondary 34%), the rail part ships with area 'rail', stacked rest-call sequence unchanged. S9 (gates.test.mjs M4 block): split bands audited against their pane's measured box — the stacked audit is provably BLIND inside panes, so pane-awareness is added coverage, not relabeling; per-pane seam chains return clean on the side-by-side trap fixture a naive y-sort would fail; the rail is audited against its declared width (rem resolved mechanically) and exempted from the header/footer width pairing; stacked outputs byte-identical with and without the skeleton option.",
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M5_font_library_lane": {
@@ -33,6 +33,16 @@
         }
     },
     "decisions": [
+        {
+            "when": "2026-08-27",
+            "what": "Split-frame constants are code's: the frame is one align:full flex row, x-pane-primary fills, x-pane-secondary is fixed at 34%; an undeclared root (an S7 pattern baseline substituted late) lands in primary. Rail seam audits judge the footer against the MAIN ROW, never the column's last band (the flex row's bottom is whichever pane is tallest).",
+            "why": "Pane widths and fallbacks are assembly, not authorship — same altitude as the rail width constant; and a rail taller or shorter than its column must not fake a footer seam."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "Two M4 fixture clauses were reworded to what the geometry actually proves: pane bands are GRANDCHILDREN of post-content, so the stacked audit does not reject them — it cannot see them. The load-bearing property of the pane-aware audit is COVERAGE (a band clamped inside its pane, a seam inside a pane column — both invisible to the stacked audit, both caught by the split one), plus the arithmetic fact that a viewport expectation would reject every healthy pane-width band.",
+            "why": "The spec imagined 'a viewport-width assertion would fail' the split fixture; structurally the old audit passes it blind. Asserting blindness + added coverage is the honest form of the same protection."
+        },
         {
             "when": "2026-08-27",
             "what": "The themes/install route's returned fingerprint is BEST EFFORT and says so: a theme's init-time contributions (block style variations from theme.json partials and friends) only register on the NEXT request, and no cache bust re-runs init — measured live as a deterministic one-request epoch drift. The authoritative epoch is the post-install manifest refresh wp_theme_install performs; the live suite asserts the steady-state epoch moved and is stable, never in-request exactness.",

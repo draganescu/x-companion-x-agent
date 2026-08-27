@@ -322,3 +322,102 @@ test('screenContentParity: content_lost entries fail with their path; a clean co
     assert.deepEqual(screenContentParity({ all_valid: true, invalid: [], content_lost: [] }), []);
     assert.deepEqual(screenContentParity({ all_valid: true, invalid: [] }), []);
 });
+
+// ---------------------------------------------------------------- theme-factory M4: pane-aware audits
+
+const node = (path, box, block_name) => ({ selector_path: path, box, ...(block_name ? { block_name } : {}), computed: {} });
+
+function splitBoxTree({ bandW = 950, gapBetween = 0 } = {}) {
+    const pc = 'body > main > div.wp-block-post-content';
+    const frame = `${pc} > div.wp-block-group.x-split-frame.alignfull`;
+    const primary = `${frame} > div.wp-block-group.x-pane-primary`;
+    const secondary = `${frame} > div.wp-block-group.x-pane-secondary`;
+    return [
+        node('body > header.wp-block-template-part', { x: 0, y: 0, w: 1440, h: 80 }, 'core/template-part'),
+        node(pc, { x: 0, y: 80, w: 1440, h: 800 }, 'core/post-content'),
+        node(frame, { x: 0, y: 80, w: 1440, h: 800 }, 'core/group'),
+        node(primary, { x: 0, y: 80, w: 950, h: 800 }, 'core/group'),
+        node(secondary, { x: 950, y: 80, w: 490, h: 800 }, 'core/group'),
+        node(`${primary} > div.wp-block-group.band-a`, { x: 0, y: 80, w: bandW, h: 400 }, 'core/group'),
+        node(`${primary} > div.wp-block-group.band-b`, { x: 0, y: 480 + gapBetween, w: bandW, h: 400 - gapBetween }, 'core/group'),
+        node(`${secondary} > div.wp-block-group.side`, { x: 950, y: 80, w: 490, h: 300 }, 'core/group'),
+        node('body > footer.wp-block-template-part', { x: 0, y: 880, w: 1440, h: 80 }, 'core/template-part'),
+    ];
+}
+
+test('M4: split bands are measured against pane widths — the viewport-shaped audit cannot even see them', () => {
+    const clean = splitBoxTree();
+    assert.deepEqual(screenBandWidths(clean, { viewportWidth: 1440, skeleton: 'split' }), []);
+    // The load-bearing coverage: a band clamped INSIDE its pane is invisible to
+    // the stacked audit (pane bands are grandchildren of post-content) and
+    // caught only by the pane-aware one. A viewport assertion on these bands
+    // would reject every healthy split page (950px < 1440px - slack) — the
+    // audit measures against the pane instead.
+    const clamped = splitBoxTree({ bandW: 700 });
+    assert.deepEqual(screenBandWidths(clamped, { viewportWidth: 1440, skeleton: 'stacked' }), [], 'the stacked audit is blind inside panes');
+    assert.ok(screenBandWidths(clamped, { viewportWidth: 1440, skeleton: 'split' }).some((f) => f.code === 'band_width'));
+    assert.ok(950 < 1440 - 48, 'a viewport expectation would reject a healthy pane-width band');
+});
+
+test('M4: a band clamped inside its pane fails naming the pane', () => {
+    const failures = screenBandWidths(splitBoxTree({ bandW: 700 }), { viewportWidth: 1440, skeleton: 'split' });
+    assert.ok(failures.some((f) => /inside its pane/.test(f.message) && /950px pane/.test(f.message)));
+});
+
+test('M4: split seams audit per pane column — side-by-side panes fake no seams', () => {
+    // The clean fixture is the trap: the secondary band ends at y380, the next
+    // primary band starts at y480 — a naive y-sort across BOTH panes would
+    // invent a 100px seam between neighbors that never touch. Per-pane chains
+    // return clean.
+    const clean = splitBoxTree();
+    assert.deepEqual(screenBandSeams(clean, { skeleton: 'split' }), []);
+    // And a REAL gap inside one pane's column still fails — the stacked chain
+    // is blind to it (pane children are not post-content children).
+    const gapped = splitBoxTree({ gapBetween: 30 });
+    assert.deepEqual(screenBandSeams(gapped, { skeleton: 'stacked' }), [], 'the stacked audit is blind inside panes');
+    assert.ok(screenBandSeams(gapped, { skeleton: 'split' }).some((f) => /30px of page background/.test(f.message)));
+});
+
+function railBoxTree({ railW = 320, bandW = 1048 } = {}) {
+    const pc = 'body > main.wp-block-group.alignfull > div.wp-block-group > div.wp-block-post-content';
+    return [
+        node('body > header.wp-block-template-part', { x: 0, y: 0, w: 1440, h: 80 }, 'core/template-part'),
+        node('body > main.wp-block-group.alignfull', { x: 0, y: 80, w: 1440, h: 920 }, 'core/group'),
+        node(pc, { x: 0, y: 80, w: 1048, h: 900 }, 'core/post-content'),
+        node(`${pc} > div.wp-block-group.band-a`, { x: 0, y: 80, w: bandW, h: 500 }, 'core/group'),
+        node(`${pc} > div.wp-block-group.band-b`, { x: 0, y: 580, w: bandW, h: 400 }, 'core/group'),
+        node('body > main.wp-block-group.alignfull > aside.wp-block-template-part', { x: 1120, y: 80, w: railW, h: 600 }, 'core/template-part'),
+        node('body > footer.wp-block-template-part', { x: 0, y: 1000, w: 1440, h: 80 }, 'core/template-part'),
+    ];
+}
+
+test('M4: the rail is audited against its declared width and exempt from the header/footer pairing', () => {
+    assert.deepEqual(screenBandWidths(railBoxTree(), { viewportWidth: 1440, skeleton: 'rail', railWidth: '20rem' }), []);
+    const off = screenBandWidths(railBoxTree({ railW: 260 }), { viewportWidth: 1440, skeleton: 'rail', railWidth: '20rem' });
+    assert.ok(off.some((f) => /rail renders at 260px.*declared width is 320px/.test(f.message)));
+    // The stacked audit would reject the same clean fixture outright.
+    assert.ok(screenBandWidths(railBoxTree(), { viewportWidth: 1440, skeleton: 'stacked' }).length > 0);
+});
+
+test('M4: rail bands span their column; a clamped one fails naming the column', () => {
+    const failures = screenBandWidths(railBoxTree({ bandW: 700 }), { viewportWidth: 1440, skeleton: 'rail', railWidth: '20rem' });
+    assert.ok(failures.some((f) => /inside its column/.test(f.message) && /1048px content column/.test(f.message)));
+});
+
+test('M4: rail seams judge the bookends against the main row — a short rail fakes no footer seam', () => {
+    assert.deepEqual(screenBandSeams(railBoxTree(), { skeleton: 'rail' }), []);
+});
+
+test('M4: the stacked audits are byte-identical with and without the explicit skeleton option', () => {
+    const tree = [
+        node('body > header.wp-block-template-part', { x: 0, y: 0, w: 1440, h: 80 }, 'core/template-part'),
+        node('body > main > div.wp-block-post-content', { x: 0, y: 80, w: 1440, h: 500 }, 'core/post-content'),
+        node('body > main > div.wp-block-post-content > div.wp-block-group.hero', { x: 0, y: 80, w: 1200, h: 480 }, 'core/group'),
+        node('body > footer.wp-block-template-part', { x: 0, y: 600, w: 1440, h: 80 }, 'core/template-part'),
+    ];
+    assert.deepEqual(
+        screenBandWidths(tree, { viewportWidth: 1440 }),
+        screenBandWidths(tree, { viewportWidth: 1440, skeleton: 'stacked' }),
+    );
+    assert.deepEqual(screenBandSeams(tree), screenBandSeams(tree, { skeleton: 'stacked' }));
+});
