@@ -1,7 +1,12 @@
+import { isTextureNone } from './styles.mjs';
+
 // Mechanical cross-checks beyond the JSON Schema — violations ride the same
 // validate() lane so they trigger the one metered schema-retry.
-export function crossChecks(brief) {
+// opts.textures, when provided by S1, carries the chosen combo's texture cues
+// ({artistic, ui}) so the flatness rule can be enforced mechanically.
+export function crossChecks(brief, { textures } = {}) {
     const issues = [];
+    issues.push(...surfaceChecks(brief, textures));
     const blockSlugs = new Set((brief.custom_blocks ?? []).map((b) => b.slug));
     const pageSlugs = new Set((brief.pages ?? []).map((p) => p.slug));
     (brief.pages ?? []).forEach((p, pi) => {
@@ -58,5 +63,73 @@ export function crossChecks(brief) {
     };
     dupSlugs(brief.custom_blocks, 'custom_blocks');
     dupSlugs(brief.schema_packages, 'schema_packages');
+    return issues;
+}
+
+// The x-surfaces sequencing rules: the dictionary is fixed BEFORE section
+// trees are authored, so every violation here is caught while it is still one
+// schema-retry away from correct — never a runtime surprise on a published page.
+function surfaceChecks(brief, textures) {
+    const issues = [];
+    const surfaces = brief.surfaces ?? [];
+    const sectionKeys = new Set((brief.pages ?? []).flatMap((p) => (p.sections ?? []).map((s) => `${p.slug}/${s.id}`)));
+    const attachedBy = (predicate) => {
+        const keys = new Set();
+        for (const s of surfaces) {
+            if (!predicate(s)) continue;
+            for (const ref of s.attach ?? []) keys.add(ref);
+        }
+        return keys;
+    };
+    // skinned = a field or pattern lands on the band; the sequencing anchor.
+    const skinned = attachedBy((s) => s.class === 'field' || s.class === 'pattern');
+    const decorated = attachedBy((s) => s.class === 'frieze' || s.class === 'field');
+
+    surfaces.forEach((s, i) => {
+        for (const ref of s.attach ?? []) {
+            if (!sectionKeys.has(ref)) {
+                issues.push({ path: `/surfaces/${i}/attach`, message: `surface "${s.id}" attaches to "${ref}" but no page/section matches — attach refs are "page_slug/section_id"` });
+            }
+        }
+        if (s.class === 'canvas' && (s.attach ?? []).length > 0) {
+            issues.push({ path: `/surfaces/${i}/attach`, message: `the canvas asset is site-wide — it sits behind every canvas band; attach must be empty` });
+        }
+        if (s.class === 'spot' && s.ground_baked === true) {
+            for (const ref of s.attach ?? []) {
+                if (skinned.has(ref)) {
+                    issues.push({ path: `/surfaces/${i}/ground_baked`, message: `spot "${s.id}" is ground-baked onto "${ref}", which carries a skin — ground-baked decor is only legal on skin-less flat bands; drop ground_baked (true-alpha spot) or attach it to an unskinned band` });
+                }
+            }
+        }
+    });
+
+    const hasCanvasAsset = surfaces.some((s) => s.class === 'canvas');
+    (brief.pages ?? []).forEach((p, pi) => {
+        (p.sections ?? []).forEach((s, si) => {
+            const key = `${p.slug}/${s.id}`;
+            if (s.design?.band === 'canvas') {
+                if (!hasCanvasAsset) {
+                    issues.push({ path: `/pages/${pi}/sections/${si}/design/band`, message: `section "${s.id}" plans a canvas band but a canvas band needs a canvas asset in surfaces[] — declare one (class "canvas", attach []) or use band "base"` });
+                }
+                if (skinned.has(key)) {
+                    issues.push({ path: `/pages/${pi}/sections/${si}/design/band`, message: `section "${s.id}" is a canvas band AND carries a skin — canvas bands sit bare on the page canvas; move the skin to a flat band or change the band` });
+                }
+            }
+            if (s.role === 'divider' && !decorated.has(key)) {
+                issues.push({ path: `/pages/${pi}/sections/${si}/role`, message: `divider "${s.id}" has no frieze or field surface attached — a divider's only job is its skin; attach one in surfaces[] or use role "section"` });
+            }
+        });
+    });
+    if (hasCanvasAsset) {
+        const anyCanvasBand = (brief.pages ?? []).some((p) => (p.sections ?? []).some((s) => s.design?.band === 'canvas'));
+        if (!anyCanvasBand) {
+            const i = surfaces.findIndex((s) => s.class === 'canvas');
+            issues.push({ path: `/surfaces/${i}`, message: `a canvas asset is invisible without at least one canvas band (flush opaque bands hide the page ground) — remove it or declare a canvas band` });
+        }
+    }
+
+    if (textures && surfaces.length > 0 && (isTextureNone(textures.artistic) || isTextureNone(textures.ui))) {
+        issues.push({ path: '/surfaces', message: `the chosen style's texture cue is "none" — flatness honored IS the style; surfaces must be an empty array (an empty dictionary is the correct, complete realization)` });
+    }
     return issues;
 }
