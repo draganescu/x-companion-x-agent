@@ -667,8 +667,12 @@ export function screenFontFamilies({ box_tree, fonts } = {}, families = []) {
         const name = String(family.fontFace[0].fontFamily);
         if (judged.has(name.toLowerCase())) continue;
         judged.add(name.toLowerCase());
-        const entry = (fonts ?? []).find((f) => String(f.family).toLowerCase() === name.toLowerCase());
-        const loaded = entry?.status === 'loaded';
+        // A family loads FACE BY FACE and a page rarely spends every weight:
+        // an installed-but-unused 300 sits "unloaded" forever while 400 serves
+        // the whole page (measured live — the .find()-first-face version of
+        // this screen failed a healthy site on exactly that).
+        const entries = (fonts ?? []).filter((f) => String(f.family).toLowerCase() === name.toLowerCase());
+        const loaded = entries.some((f) => f.status === 'loaded');
         const rendered = (box_tree ?? []).some((n) => {
             const head = String(n.computed?.fontFamily ?? '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
             return head.toLowerCase() === name.toLowerCase();
@@ -676,7 +680,7 @@ export function screenFontFamilies({ box_tree, fonts } = {}, families = []) {
         if (!loaded || !rendered) {
             failures.push({
                 code: 'font',
-                message: `sourced font "${name}" never rendered (${loaded ? 'loaded but no measured element leads with it' : entry ? `document.fonts status "${entry.status}"` : 'absent from document.fonts'}) — the promise fell back to the stack; an uninstalled font is an unloaded image`,
+                message: `sourced font "${name}" never rendered (${loaded ? 'loaded but no measured element leads with it' : entries.length > 0 ? `no face of it loaded (statuses: ${entries.map((f) => f.status).join(', ')})` : 'absent from document.fonts'}) — the promise fell back to the stack; an uninstalled font is an unloaded image`,
             });
         }
     }

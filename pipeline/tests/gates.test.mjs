@@ -435,7 +435,18 @@ test('M5: a loaded and rendered sourced font passes; silence in either channel f
     assert.deepEqual(screenFontFamilies(verifyClean, PROMISED), []);
 
     const unloaded = { ...verifyClean, fonts: [{ family: 'Playfair Display', style: 'normal', weight: '400', status: 'unloaded' }] };
-    assert.ok(screenFontFamilies(unloaded, PROMISED).some((f) => f.code === 'font' && /status "unloaded"/.test(f.message)));
+    assert.ok(screenFontFamilies(unloaded, PROMISED).some((f) => f.code === 'font' && /no face of it loaded/.test(f.message)));
+
+    // Measured live (tf-m6): an installed-but-unused weight sits 'unloaded'
+    // while another weight serves the page — the family counts as loaded.
+    const partial = {
+        ...verifyClean,
+        fonts: [
+            { family: 'Playfair Display', style: 'normal', weight: '300', status: 'unloaded' },
+            { family: 'Playfair Display', style: 'normal', weight: '400', status: 'loaded' },
+        ],
+    };
+    assert.deepEqual(screenFontFamilies(partial, PROMISED), []);
 
     const neverRendered = {
         box_tree: [{ selector_path: 'h1', box: { x: 0, y: 0, w: 100, h: 10 }, computed: { fontFamily: 'Georgia, serif' } }],
