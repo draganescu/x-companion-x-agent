@@ -1,0 +1,28 @@
+{
+    "spec": "specs/theme-factory.spec.json",
+    "milestones": {
+        "M1_spec_and_scaffolder": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
+        "M2_build_test_and_install": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
+        "M3_stage_and_budget": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
+        "M4_skeleton_aware_verification": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
+        "M5_font_library_lane": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" },
+        "M6_end_to_end": { "status": "pending", "evidence": "", "updated_at": "2026-08-27T00:00:00Z" }
+    },
+    "decisions": [
+        {
+            "when": "2026-08-27",
+            "what": "ThemeSpec.physics carries only what varies (blockGap, rootPadding); useRootPaddingAwareAlignments, appearanceTools and fluid typography are scaffolder constants, always on.",
+            "why": "The theme carries only what a call cannot decide — a constant is code's to decide, and a model asked to author a constant is a model invited to vary it."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "The measure sanity gate compares contentSize < wideSize only when the units match; mismatched units fail with 'use the same unit for both'.",
+            "why": "px, ch and rem are not mechanically commensurable without a rendering context; a gate that guesses a conversion is a gate that lies."
+        },
+        {
+            "when": "2026-08-27",
+            "what": "theme-spec.schema.json is written strictly inside pipeline/lib/schema.mjs's draft-07 keyword subset, and the theme-spec test walks the schema refusing any unsupported keyword.",
+            "why": "The subset validator silently ignores unknown keywords — a contract leaning on $ref or anyOf would be decorative, and a decorative gate is worse than none."
+        }
+    ]
+}

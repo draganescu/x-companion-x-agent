@@ -1,0 +1,105 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ThemeSpec",
+    "description": "The parameter object a bespoke block theme is compiled from. The model authors THIS and nothing else; the scaffolder owns every byte on disk. Structure only: no patterns, no block styles, no fonts.",
+    "type": "object",
+    "required": ["version", "identity", "skeleton", "measure", "physics", "presets"],
+    "additionalProperties": false,
+    "properties": {
+        "version": { "const": 1 },
+        "identity": {
+            "type": "object",
+            "required": ["name", "slug", "description"],
+            "additionalProperties": false,
+            "properties": {
+                "name": { "type": "string", "minLength": 3 },
+                "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,48}$" },
+                "description": { "type": "string", "minLength": 10 }
+            }
+        },
+        "skeleton": { "enum": ["stacked", "split", "rail"] },
+        "measure": {
+            "type": "object",
+            "required": ["contentSize", "wideSize"],
+            "additionalProperties": false,
+            "properties": {
+                "contentSize": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|ch|rem)$" },
+                "wideSize": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|ch|rem)$" }
+            }
+        },
+        "physics": {
+            "type": "object",
+            "required": ["blockGap", "rootPadding"],
+            "additionalProperties": false,
+            "properties": {
+                "blockGap": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em)$" },
+                "rootPadding": {
+                    "type": "object",
+                    "required": ["top", "right", "bottom", "left"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "top": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|vw|%)$" },
+                        "right": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|vw|%)$" },
+                        "bottom": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|vw|%)$" },
+                        "left": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|vw|%)$" }
+                    }
+                }
+            }
+        },
+        "presets": {
+            "type": "object",
+            "required": ["shadows", "gradients", "duotones", "custom"],
+            "additionalProperties": false,
+            "properties": {
+                "shadows": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "required": ["slug", "name", "shadow"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                            "name": { "type": "string", "minLength": 1 },
+                            "shadow": { "type": "string", "minLength": 3 }
+                        }
+                    }
+                },
+                "gradients": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "required": ["slug", "name", "gradient"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                            "name": { "type": "string", "minLength": 1 },
+                            "gradient": { "type": "string", "minLength": 10 }
+                        }
+                    }
+                },
+                "duotones": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "required": ["slug", "name", "colors"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                            "name": { "type": "string", "minLength": 1 },
+                            "colors": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+                            }
+                        }
+                    }
+                },
+                "custom": { "type": "object" }
+            }
+        }
+    }
+}
