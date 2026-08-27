@@ -38,7 +38,7 @@ function goodTokens() {
     };
 }
 
-function makeCtx({ outputs, dryDiff = [], dryOk = true }) {
+function makeCtx({ outputs, dryDiff = [], dryOk = true, rest, fetchImpl }) {
     const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-s3-'));
     const budget = new BudgetMeter({});
     budget.setCeiling(16);
@@ -50,6 +50,8 @@ function makeCtx({ outputs, dryDiff = [], dryOk = true }) {
         llm: createLlm({ providers: new Map([['tokens', { provider, model: 'm' }]]), promptsDir: PROMPTS_DIR, budget, ledger }),
         state: { brief: structuredClone(brief), instance: { theme_tokens: THEME_TOKENS, fingerprint: 'f1' } },
         log: () => {},
+        ...(rest ? { rest } : {}),
+        ...(fetchImpl ? { fetchImpl } : {}),
         call: async (name, args) => {
             calls.push([name, args]);
             assert.equal(name, 'wp_tokens_apply');
@@ -242,4 +244,85 @@ test('a sourced family is legal; a model-authored fontFace is not; the face must
     const trailing = base();
     trailing.typography.families[0].fontFamily = 'Georgia, serif';
     assert.ok(tokenChecks(trailing, opts).some((i) => /LEAD with the sourced family/.test(i.message)));
+});
+
+// ---- the S3 font hook (theme-factory M5): install BEFORE apply, activation rides the write
+
+const CSS2_STUB = `@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 400; src: url(https://fonts.gstatic.com/s/playfairdisplay/v39/abc400.woff2) format('woff2'); }`;
+
+function fontFetchStub() {
+    return async (url) => {
+        if (url.startsWith('https://fonts.googleapis.com/css2')) return { ok: true, status: 200, text: async () => CSS2_STUB };
+        if (url.startsWith('https://fonts.google.com/metadata')) return { ok: true, status: 200, text: async () => JSON.stringify({ license: 'OFL' }) };
+        if (url.includes('raw.githubusercontent.com')) return { ok: true, status: 200, text: async () => 'OFL text' };
+        const buf = Buffer.from('wOF2-stub-bytes');
+        return { ok: true, status: 200, arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) };
+    };
+}
+
+function sourcedTokens() {
+    const t = goodTokens();
+    t.typography.families = [{
+        slug: 'serif-display',
+        name: 'Serif Display',
+        fontFamily: '"Playfair Display", Georgia, serif',
+        source: { provider: 'google', family: 'Playfair Display', weights: [400] },
+    }];
+    return t;
+}
+
+test('a sourced family installs BEFORE the real apply, which carries fontFace and never source', async () => {
+    const restCalls = [];
+    const rest = async (method, route, opts = {}) => {
+        restCalls.push([method, route]);
+        if (method === 'GET' && route === '/wp/v2/font-families') return [];
+        if (method === 'POST' && route === '/wp/v2/font-families') return { id: 5 };
+        if (method === 'GET' && route === '/wp/v2/font-families/5/font-faces') return [];
+        if (method === 'POST' && route === '/wp/v2/font-families/5/font-faces') {
+            return { font_face_settings: { fontWeight: '400', src: 'http://x/wp-content/uploads/fonts/pd-400.woff2' } };
+        }
+        throw new Error(`unexpected ${method} ${route}`);
+    };
+    const ctx = makeCtx({ outputs: [JSON.stringify(sourcedTokens())], rest, fetchImpl: fontFetchStub() });
+    // isolate the cache per test run
+    const { mkdtempSync: mkTmp } = await import('node:fs');
+    const cwd = process.cwd();
+    process.chdir(mkTmp(join(tmpdir(), 'x-pipeline-fontcwd-')));
+    try {
+        await s3.run(ctx);
+    } finally {
+        process.chdir(cwd);
+    }
+
+    // dry run happened before the first font REST call; the real apply after the last
+    assert.equal(ctx.calls.length, 2);
+    assert.ok(restCalls.length > 0, 'the font lane ran');
+    const applied = ctx.calls[1][1];
+    assert.equal(applied.dry_run, undefined);
+    const fam = applied.typography.families[0];
+    assert.equal(fam.source, undefined, 'source never reaches the tool');
+    assert.deepEqual(fam.fontFace, [{ fontFamily: 'Playfair Display', fontStyle: 'normal', fontWeight: '400', src: ['http://x/wp-content/uploads/fonts/pd-400.woff2'] }]);
+
+    // the record: state.fonts for the report, ZERO font entries in the ledger
+    assert.equal(ctx.state.fonts.length, 1);
+    assert.equal(ctx.state.fonts[0].family, 'Playfair Display');
+    assert.ok(ctx.ledger.entries.every((e) => e.task_type === 'tokens'), 'the ledger contains no font entries');
+    // tokens.json (the applied record) carries the activation
+    const record = JSON.parse(readFileSync(join(ctx.runDir, 'tokens.json'), 'utf8'));
+    assert.ok(record.typography.families[0].fontFace);
+});
+
+test('a sourceless run never touches the font lane (byte-identical behavior)', async () => {
+    const rest = async () => { throw new Error('the font lane must not run'); };
+    const ctx = makeCtx({ outputs: [JSON.stringify(goodTokens())], rest });
+    await s3.run(ctx);
+    assert.equal(ctx.state.fonts, undefined);
+});
+
+test('a font-lane failure fails the run before any apply — the promise is not optional', async () => {
+    const rest = async () => { throw new Error('unreachable'); };
+    const failingFetch = async () => ({ ok: false, status: 404, text: async () => '' });
+    const ctx = makeCtx({ outputs: [JSON.stringify(sourcedTokens())], rest, fetchImpl: failingFetch });
+    await assert.rejects(() => s3.run(ctx), (e) => e.code === 'font_failed');
+    assert.equal(ctx.calls.length, 1, 'only the dry run happened; the world was never mutated');
 });

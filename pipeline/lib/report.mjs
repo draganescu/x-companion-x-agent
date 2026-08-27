@@ -33,6 +33,17 @@ export function writeReport(runDir, { state, budget, ledger }) {
     }
     lines.push('');
 
+    // The font lane's record: downloads and installs live HERE, never in the
+    // ledger — a ledger entry means a metered model call and fonts are neither.
+    if ((state.fonts ?? []).length > 0) {
+        lines.push('## Fonts — installed locally, never metered', '');
+        lines.push('| family | version | license | weights | bytes | cache |', '|---|---|---|---|---|---|');
+        for (const f of state.fonts) {
+            lines.push(`| ${f.family} | ${f.version} | ${f.license} | ${f.weights.join(', ')} | ${f.bytes} | ${f.cache} |`);
+        }
+        lines.push('');
+    }
+
     const arts = state.artifacts ?? {};
     const rows = [];
     for (const kind of ['trees', 'blocks', 'packages']) {
