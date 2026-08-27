@@ -119,7 +119,16 @@ async function birthImage(gemini, prompt, aspect) {
     if (!gemini) {
         throw new XError('invalid_input', 'No Gemini API key configured, and generating images needs one.', 'Add "gemini_api_key" to .x-agent.json (or set GEMINI_API_KEY). Keys: https://aistudio.google.com/apikey');
     }
-    return gemini.generate(prompt, aspect);
+    const result = await gemini.generate(prompt, aspect);
+    // Capture lane for deterministic replays: a real run can mint the fixture
+    // set a fake run replays byte-for-byte (X_AGENT_IMAGE_FIXTURES_CAPTURE).
+    const captureDir = process.env.X_AGENT_IMAGE_FIXTURES_CAPTURE;
+    if (captureDir && captureDir.trim() !== '') {
+        fs.mkdirSync(captureDir, { recursive: true });
+        const target = fixturePathFor(captureDir, prompt, aspect);
+        fs.writeFileSync(result.mimeType === 'image/png' ? target.png : target.jpg, result.data);
+    }
+    return result;
 }
 export const wpImagesGenerate = defineTool({
     name: 'wp_images_generate',

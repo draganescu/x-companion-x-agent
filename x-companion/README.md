@@ -183,6 +183,9 @@ Read it before writing a client. Summary only:
 - Shared JSON Schemas (`TreeIR`, `Diagnostics`, `Manifest`, `DesignTokens`) are authored once in
   `contract/schemas/` and vendored byte-identically into `x-companion/fixtures/schemas/` and
   `x-agent/schemas/`.
+- `POST /theme/tokens` optionally accepts `styles.background` (x-surfaces: the page canvas —
+  a media-library background image written into global styles, WP ≥ 6.6, admin-undoable in the
+  Styles UI); capability is probed via `features.global_styles_background`, never assumed.
 
 | tier | capability | routes |
 |---|---|---|

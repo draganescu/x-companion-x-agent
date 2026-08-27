@@ -2,38 +2,38 @@
   "spec": "specs/surfaces.spec.json",
   "milestones": {
     "M1_typed_scan_and_manifest": {
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "x-agent vitest green: images-scan.test.ts 12/12 — a fixture tree with a surface-carrying group and a cover scans to typed refs (kind content|surface, mechanism group_background|cover, reservation = the band slug), the image INSIDE the surface group is found as a content ref, a cover carrying both intent kinds is a scan error not a runtime surprise; images-manifest.test.ts 5/5 — schema_version 2 round-trip, v1 migration, content merged by (post_id, path), surfaces merged by asset_id with targets unioned (one file, many target paths). dry_run reports both kinds and spends nothing: wp_images_generate returns found/found_surfaces/cached/cached_content before any key check, and the pipeline meters only after dry (s8-s9-publish.test.mjs 19/19).",
       "updated_at": "2026-08-27T00:00:00Z"
     },
     "M2_group_skin_apply": {
-      "status": "pending",
-      "evidence": "",
+      "status": "in_progress",
+      "evidence": "Unit-green, live transaction not yet run. Offline acceptance: 'S8 surfaces: one dictionary asset on 3 bands = ONE metered birth' — exactly 1 image spend + 1 ledger entry labeled by dictionary id, 3 surfaceIntent markers minted into the gated tree, the exact band hexes on the generate call, and a refusal ('surface target no longer empty — an admin's background is never overwritten') recorded in surface_report while the run completes; images-apply.test.ts 7/7 — style.background written per class, backgroundColor reservation never touched, style merged not clobbered, drifted/claimed targets refused; '--no-images: no markers, no calls — byte-identical to a surface-free run' (assembled page trees compared byte-for-byte). Deferred to the live script (surfaces-m7.sh): one recompile + all_valid on a real instance's save().",
       "updated_at": "2026-08-27T00:00:00Z"
     },
     "M3_brief_dictionary_and_sequencing": {
-      "status": "pending",
-      "evidence": "",
+      "status": "in_progress",
+      "evidence": "Unit-green, live model authorship not yet exercised. brief-schema.test.mjs 7/7 (surfaces[] required + typed + maxItems 4, canvas band, divider role); surfaces-checks.test.mjs 7/7 — canvas bands and canvas assets require each other, attach refs resolve, ground-baked decor rejected on skinned bands WITH the exact correction, dividers need their skin, a texture-cue-none combo forbids a non-empty dictionary (empty stays green); budget.test.mjs — I = C + U with U counted per unique id (deepEqual {S:3,B:1,P:1,C:2,U:0,I:2,F:2,base:9,ceiling:20}); s1-brief.test.mjs — the post-S1 line prints 'I=2: C=2 content + U=0 surfaces' and the ceiling holds. Deferred to live: 'a Wabi-Sabi-class prompt yields a 2-3 entry dictionary' (real-model behavior; the gate that forces it is in place and tested).",
       "updated_at": "2026-08-27T00:00:00Z"
     },
     "M4_processing_station": {
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "images-process.test.ts 5/5 on real headless Chromium (canvas 2D only, zero new npm deps): mirror-tile 2x2 sheet byte-asserted on the pixel rows (col 0 == col 2w-1, row 0 == row 2h-1 — seams impossible by construction; patterns ship PNG so the guarantee survives encoding), chroma-key knocks the recorded key hex to alpha 0 while the ornament stays opaque, fields recompress to JPEG with the luminance range measured at birth, and identical input bytes produce identical output bytes across two runs. computeKeyHex is pure and stable (max-min-distance from the site palette, recorded in the manifest).",
       "updated_at": "2026-08-27T00:00:00Z"
     },
     "M5_pixel_oracle": {
-      "status": "pending",
-      "evidence": "",
+      "status": "done",
+      "evidence": "oracle-pixel.test.ts 3/3 on real Chromium over rendered fixtures: the overImage skip (oracle.ts) is DELETED — text over imagery becomes a pending ground, clip-screenshot with the ink hidden, luminance range sampled in-page (data: URL, never tainted), rated worst-case; body text over dark noise reads under 3:1 and is a finding, the same-size text over a light ground produces NO finding (proving the glyphs were not sampled as ground), the page's inline styles are restored after; text over any imagery — content cover heroes included — now takes this path. Presence probe: every computed background-image URL collected and probed (200 ok, 404 = finding). Pipeline side: screenSurfacePresence failures are fatal in S9 (s8-s9-publish.test.mjs 'a 404'd surface asset fails the run'); the 3-4.5:1 advisory band unchanged.",
       "updated_at": "2026-08-27T00:00:00Z"
     },
     "M6_page_canvas": {
-      "status": "pending",
-      "evidence": "",
+      "status": "in_progress",
+      "evidence": "Unit-green + offline PHP green; live publish and the manual Styles-UI undo assertion not yet run. Companion: compile_background offline test 3/3 inside test-validator.php (164/164) — sanitized url + id + knobs, javascript: url itemized in background_rejected never silent, absent section silent; write path feeds write_global_styles alongside compile_css; features gains global_styles_background probed from WP_Theme_JSON::VALID_STYLES contents (house pattern: constants, never version_compare); the DesignTokens schema gained optional styles.background in all THREE byte-identical copies (md5 68b5903114b4c9246f9cc3e479b02ebf). Agent: zod parity 4 new cases green; wp_tokens_apply passes styles through and surfaces background_written/background_rejected. Pipeline: the canvas is born at S3 with the tokens (s3-tokens.test.mjs 3 new tests — metered, hexed, luminance recorded into state.canvas; failed birth degrades loudly and the run lives), S4 canvas bands take ink menus from the measured range with worst-case rating (ink.test.mjs resolveInkMenusFromLuminance), S8 uploads and ships styles.background via the tokens route adopting the new epoch (s8-s9 'S8 canvas' test), and 'canvas bands without a canvas asset' (and vice versa) dies at the brief gate.",
       "updated_at": "2026-08-27T00:00:00Z"
     },
     "M7_end_to_end": {
-      "status": "pending",
-      "evidence": "",
+      "status": "in_progress",
+      "evidence": "The offline halves are green: the full suite stands at pipeline 201/201 (node:test), x-agent mcp 335 passed / 25 live-skipped (vitest, including the Chromium-backed processing and pixel-oracle suites), x-companion offline 164 validator + 216 manifest assertions. Byte-determinism is asserted where it is decidable offline: processed asset bytes (images-process determinism case), manifest merge stability, seeded shuffles. pipeline/tests/accept/surfaces-m7.sh is written and staged for the three live clauses (Victorian-class textured site with predicted == spent; Flat-class U=0 through the same code path; two fake-provider replays byte-identical including processed surfaces, via the new X_AGENT_IMAGE_FIXTURES / _CAPTURE replay lane) — it needs a Playground boot and real provider spend, deliberately not run from this worktree (see decisions).",
       "updated_at": "2026-08-27T00:00:00Z"
     }
   },
@@ -42,7 +42,80 @@
       "when": "2026-08-27",
       "what": "Implementation runs in a linked worktree (.claude/worktrees/surfaces, branch worktree-surfaces) with its own node_modules, per explicit owner directive for this build.",
       "why": "The /goal directive says 'implement in a PR (use a worktree)'. The earlier no-worktree decision (PROGRESS.pipeline.json) was about sharing live Playground state; unit-level work needs only the worktree's own installs, and live acceptance is deferred to the main checkout as before."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "metadata.surfaceIntent is a plain STRING — the dictionary asset id. Mechanism is derived from the block name (core/group -> group_background, core/cover -> cover); application knobs (position, size, intensity) ride the dictionary entry and the manifest, never the marker.",
+      "why": "One asset, many targets: the marker only has to NAME the asset. Anything richer on the node would be per-application state, which the spec rules out (the dictionary is the cardinality)."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "Surface markers are minted DETERMINISTICALLY at S8, per section fragment, from the brief's attach list — the model never writes surfaceIntent. Skin+edge nests ONE wrapper group per extra layer (outermost skin first); a dead/baseline section is never skinned.",
+      "why": "Exactly the placeholder-pixel and nav-link-injection precedent: mechanical attribute writes into model-authored trees, re-gated by validate + compile. Prompt-hoping the model into emitting markers would make the sequencing rule unenforceable."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "The canvas asset is born at S3, immediately after wp_tokens_apply moves the epoch — not in S8 with the rest of the pass.",
+      "why": "The spec requires canvas-band ink menus computed from the asset's MEASURED luminance range, and S4 (where menus constrain the model) runs before S8. Born with the tokens, the range exists before any tree; S8 only uploads and ships styles.background."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "Under --no-images no surface markers are minted at all (not markers-without-assets).",
+      "why": "The published page must be byte-identical to today's flat output — the spec's own acceptance. Inert markers would still change the compiled markup."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "The spec's two spot rules ('a spot attached to a skinned band is a violation' vs 'decor on a skinned band requires the spot class (true alpha)') are reconciled via an explicit ground_baked flag on spot entries: only a ground_baked spot on a skinned band is the violation; a true-alpha spot is legal anywhere.",
+      "why": "coexistence_rules is the more specific text and names the mechanism (true alpha); reading the cross-check as banning ALL spots on skinned bands would contradict it. The flag makes the distinction mechanical."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "Flatness rule quantization: if EITHER chosen style's texture cue starts with 'none', the dictionary must be empty.",
+      "why": "The spec names one example from each roster (Bauhaus artistic, Flat Design ui). When one half of the combo IS flatness, texture would betray that half; the model can argue past it only by choosing a different combo."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "loud_band routing: a field/pattern surface at intensity 'loud' targets a core/cover (veil = author-set overlayColor + dimRatio); with no cover in the section it degrades to a group skin (recorded), and to the flat band when the instance also lacks group background support. Covers need no support probe.",
+      "why": "The inventory gives loud surfaces the cover mechanism but the brief has no cover vocabulary; intensity is the deterministic signal. The degrade chain keeps every failure landing on the reservation."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "Patterns ship PNG, not JPEG, after mirror-tiling; spots ship PNG for alpha; field/frieze/canvas recompress JPEG (0.80/0.85/0.80). Chroma-key is a hard threshold (RGB distance <= 48), no feathering.",
+      "why": "The seam guarantee is byte-exact only in a lossless format — JPEG artifacts across the mirror seam would smear 'seams impossible by construction'. No feathering keeps identical-input -> identical-output trivially true."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "Image replay/capture lane: X_AGENT_IMAGE_FIXTURES replays content-addressed fixtures (sha256(prompt|aspect)) instead of calling Gemini; X_AGENT_IMAGE_FIXTURES_CAPTURE mints them on a real run. Env-only, no config key.",
+      "why": "M7 demands byte-identical fake runs including surfaces, and no image replay existed anywhere (the fake provider only replays LLM text). Env-only keeps the config surface unchanged and the lane impossible to leave on by accident."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "Each surface asset is uploaded ONCE and its media_id/media_url recorded back into the manifest; later applies (other pages, the canvas ship) reuse the attachment. Surface uploads carry NO alt text. Resume replay: generate skips any asset/slot whose manifest entry still has its file on disk, and S8 spends nothing for replayed births.",
+      "why": "A site owns a handful of surface assets applied many times — one attachment per asset is what an admin should find in the media library. Alt on a decorative background is a lie. The replay makes a resumed run re-enter at apply instead of re-buying, which the spec asserts and the old code never had."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "The pixel oracle hides the element's ink (color: transparent, textShadow: none) for the clip capture, samples every 4th pixel of the box, and rates the declared ink against the WORST CASE of the measured luminance range; findings keep the flat-lane shape with background = 'sampled(min..max)' plus sampled/ground_min/ground_max fields.",
+      "why": "Sampling the glyphs as ground would rate ink against itself (~1:1 always-fail); hiding ink first reads the material alone. Worst-case is the only honest rating over a textured range. Keeping the finding shape means screenTextContrast and the 3/4.5 thresholds needed no fork."
+    },
+    {
+      "when": "2026-08-27",
+      "what": "The theme.json preview emitter (x-agent/templates/theme-json/emitter.ts) stays settings-only; styles.background is not mirrored into the local preview or the theme_tokens diff.",
+      "why": "Its own docblock: it emits exactly what it can vouch for. The background lands in global styles (verified by the companion's response and, live, via manifest.global_styles), not in settings; a preview claim would be a claim about server behavior this side cannot honour."
     }
   ],
-  "deviations": []
+  "deviations": [
+    {
+      "when": "2026-08-27",
+      "spec_ref": "determinism.resume ('Unchanged: a resumed run replays generated assets from runs/<ts>/images/ and re-enters at apply')",
+      "what": "That behavior did not exist to preserve — the old pass re-ran S8 whole, re-bought every image, and usually tripped budget_exceeded on resume. It was BUILT here (manifest-based replay + spend-skip) rather than inherited.",
+      "why": "The spec describes the intended contract as already true; field-mapping showed it was not. Recording the gap instead of silently claiming 'unchanged'."
+    },
+    {
+      "when": "2026-08-27",
+      "spec_ref": "milestones M2/M3/M6/M7 live acceptance clauses",
+      "what": "Clauses needing a live Playground plus real provider spend (real save() recompile, real-model dictionary authorship, the manual Styles-UI undo, the Victorian/Flat end-to-end runs) are staged in pipeline/tests/accept/surfaces-m7.sh, not executed from this worktree.",
+      "why": "Repo precedent (PROGRESS.pipeline.json M7 entry) and the standing owner instruction that the persistent dev instance is never repurposed; the accept script boots its own slot and is a one-command run from the main checkout."
+    }
+  ]
 }
