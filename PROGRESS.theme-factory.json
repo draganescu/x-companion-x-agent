@@ -35,6 +35,11 @@
     "decisions": [
         {
             "when": "2026-08-27",
+            "what": "First-live-contact field-fix batch for the theme contract: rootPadding sides and blockGap accept a bare '0' beside united lengths; duotone colors accept 3-hex beside 6-hex; theme.md gains the mechanical spelling rules (units-or-0, hex duotones, identity is EXACTLY {name, slug, description}). All copies + the zod mirror moved together, pinned by the widened tests.",
+            "why": "The first real theme call spelled zero paddings '0' and was refused; its retry then tripped over an identity key and a duotone spelling — two attempts burned on syntax a wider contract reads fine. Same class as the recorded letterspacing-literal fix: when a NATURAL spelling costs a metered retry, the contract was wrong, not the model."
+        },
+        {
+            "when": "2026-08-27",
             "what": "The M5 accept's poison is 're-apply tokens with the fontFace activation stripped', and both wp_verify calls in the driver are preceded by wp_disconnect (fresh session).",
             "why": "Deleting the wp_font_family post does not stop rendering — activation lives as embedded src urls in the user global-styles record (decision 14); and a warm session left over from an epoch-moving apply can be dead-but-cached, the recorded S9 discipline — the driver hung 9 minutes on wp_verify before adopting it."
         },
