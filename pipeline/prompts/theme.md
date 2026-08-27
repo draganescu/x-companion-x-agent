@@ -22,6 +22,8 @@ THE PRESETS — slug-addressable vocabulary the section lane may legally spend l
 
 THE IDENTITY — a real, named, deletable theme the site owner sees in wp-admin: name it after the site (e.g. "Salon Regale Theme"), slug it in lowercase-hyphens, describe it in one honest sentence for a human.
 
+SPELLING RULES the contract enforces mechanically: every length carries its unit ("24px", "1.5rem") or is exactly "0"; duotone colors are hex ("#1a140e"); identity is EXACTLY {name, slug, description} — no other keys, no empty keys, anywhere.
+
 {{contract_note}}
 
 Return ONLY the JSON object. No prose, no fences.

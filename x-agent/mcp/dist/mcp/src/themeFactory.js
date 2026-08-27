@@ -30,10 +30,10 @@ const localRequire = createRequire(import.meta.url);
 /* ========================================================================== */
 const SLUG_RE = /^[a-z][a-z0-9-]{1,48}$/;
 const MEASURE_RE = /^[0-9]+(\.[0-9]+)?(px|ch|rem)$/;
-const GAP_RE = /^[0-9]+(\.[0-9]+)?(px|rem|em)$/;
-const PAD_RE = /^[0-9]+(\.[0-9]+)?(px|rem|em|vw|%)$/;
+const GAP_RE = /^(0|[0-9]+(\.[0-9]+)?(px|rem|em))$/;
+const PAD_RE = /^(0|[0-9]+(\.[0-9]+)?(px|rem|em|vw|%))$/;
 const PRESET_SLUG_RE = /^[a-z][a-z0-9-]*$/;
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const PresetBase = { slug: z.string().regex(PRESET_SLUG_RE), name: z.string().min(1) };
 export const ThemeSpecSchema = z
     .object({

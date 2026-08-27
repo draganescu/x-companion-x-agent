@@ -33,6 +33,15 @@ test('a valid ThemeSpec passes the contract and the cross-checks', () => {
     assert.deepEqual(themeSpecChecks(spec), []);
 });
 
+test('field spellings the first live run used are legal: bare 0 padding, 3-hex duotone', () => {
+    const spec = validSpec();
+    spec.physics.rootPadding = { top: '0', right: '24px', bottom: '0', left: '24px' };
+    spec.physics.blockGap = '0';
+    spec.presets.duotones[0].colors = ['#1a1', '#d4af37'];
+    assert.deepEqual(validateSchema(contract, spec), []);
+    assert.deepEqual(themeSpecChecks(spec), []);
+});
+
 test('an unknown skeleton fails the contract naming the enum', () => {
     const spec = { ...validSpec(), skeleton: 'floating' };
     const issues = validateSchema(contract, spec);
