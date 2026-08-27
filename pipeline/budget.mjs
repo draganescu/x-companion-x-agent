@@ -17,12 +17,17 @@ export function computeBudget(brief) {
     const S = brief.pages.reduce((n, p) => n + p.sections.length, 0);
     const B = brief.custom_blocks.length;
     const P = brief.schema_packages.length;
-    const I = brief.pages.reduce((n, p) => n + p.sections.reduce((m, s) => m + sectionImageIntents(s).length, 0), 0);
+    // I = C + U (x-surfaces): C content intents as always, one call per slot;
+    // U unique surface dictionary assets, one call per asset however many
+    // bands it lands on. Applications are free; only births are metered.
+    const C = brief.pages.reduce((n, p) => n + p.sections.reduce((m, s) => m + sectionImageIntents(s).length, 0), 0);
+    const U = new Set((brief.surfaces ?? []).map((s) => s.id)).size;
+    const I = C + U;
     // F: the site furniture — header and footer template parts, one tree call
     // each through the same lane as the sections. They bookend every page.
     const F = 2;
     const base = 1 + 1 + F + S + B + P;
-    return { S, B, P, I, F, base, ceiling: 2 * base + I };
+    return { S, B, P, C, U, I, F, base, ceiling: 2 * base + I };
 }
 
 const PRE_CEILING_ALLOWANCE = 2; // S1 + its one schema-retry; nothing else may run before the ceiling exists

@@ -1,6 +1,6 @@
 ---
 task_type: brief
-required: [prompt, contract, mode_note, artistic_styles, ui_styles, style_pin_note]
+required: [prompt, contract, mode_note, artistic_styles, ui_styles, style_pin_note, texture_note]
 ---
 You are planning a WordPress site build that a deterministic pipeline will execute.
 You make ALL the creative decisions now — nothing is renegotiated later. Your output
@@ -88,6 +88,8 @@ The artistic styles list:
 The UI design styles list:
 {{ui_styles}}
 
+{{texture_note}}
+
 {{mode_note}}
 
 THE REQUEST, verbatim:
@@ -136,3 +138,15 @@ Rules:
 - navigation and footer items reference pages[].slug entries only.
 - Exactly one page carries front_page: true.
 - Section ids are unique within a page; block and package slugs are unique.
+- THE SURFACE DICTIONARY (`surfaces`): the site's few texture/decoration assets, fixed
+  HERE because ground-baked decor is only legal on bands that carry no skin — the skins
+  must be decided before any decor is. 2-4 entries for a style whose texture cue names a
+  material ("damask, filigree borders"; "cracked glaze, patina"); an EMPTY array for a
+  style whose texture cue says none (Bauhaus, Flat Design) — flatness honored is the
+  correct realization, never a missing feature. One asset, many bands: attach the same
+  id wherever the material repeats; repetition is what reads as a designed material
+  system. Classes: field (even wash skin), pattern (repeating motif skin), frieze
+  (ornamental edge strip; set `edge`), spot (discrete ornament; `ground_baked: true`
+  ONLY on bands no field/pattern touches), canvas (the page ground behind `band:
+  "canvas"` sections — attach [] and declare at least one canvas band, or neither).
+  intensity says how loudly the material may speak (whisper / present / loud).

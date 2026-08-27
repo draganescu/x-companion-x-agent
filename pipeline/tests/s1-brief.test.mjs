@@ -37,7 +37,7 @@ test('S1 with the fake provider: brief.json written, the budget printed and fixe
     // S=3, B=1, P=1, F=2, I=2 -> base 9, ceiling 2*9+2 = 20, fixed before call #2.
     assert.equal(ctx.state.budget.ceiling, 20);
     assert.equal(ctx.budget.ceiling, 20);
-    assert.ok(ctx.logs.some((l) => /costs at most 20 calls \(S=3, B=1, P=1, I=2\)/.test(l)));
+    assert.ok(ctx.logs.some((l) => /costs at most 20 calls \(S=3, B=1, P=1, I=2: C=2 content \+ U=0 surfaces\)/.test(l)));
 });
 
 test('a cross-check violation burns the one schema-retry, then a clean brief passes', async () => {

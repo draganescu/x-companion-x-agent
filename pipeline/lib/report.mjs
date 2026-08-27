@@ -21,7 +21,7 @@ export function writeReport(runDir, { state, budget, ledger }) {
     lines.push('## Budget — predicted vs spent', '');
     if (state.budget) {
         const b = state.budget;
-        lines.push(`Ceiling **${b.ceiling}** (base ${b.base}: 1 brief + 1 tokens + F=${b.F ?? 0} furniture + S=${b.S} + B=${b.B} + P=${b.P}; 2x + I=${b.I}). Spent **${budget.spent}**.`, '');
+        lines.push(`Ceiling **${b.ceiling}** (base ${b.base}: 1 brief + 1 tokens + F=${b.F ?? 0} furniture + S=${b.S} + B=${b.B} + P=${b.P}; 2x + I=${b.I}${b.C !== undefined ? `: C=${b.C} content + U=${b.U} surfaces` : ''}). Spent **${budget.spent}**.`, '');
         lines.push('| task | predicted | actual |', '|---|---|---|');
         const byTask = {};
         for (const e of ledger.entries) byTask[e.task_type] = (byTask[e.task_type] ?? 0) + 1;
