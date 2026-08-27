@@ -64,6 +64,17 @@ export function tokenChecks(tokens, { theme_spacing, theme_layout, briefPalette 
             });
         }
     }
+    // The font lane (theme-factory): a family MAY declare `source` (the agent
+    // downloads and installs it); `fontFace` is PIPELINE-CONSTRUCTED from the
+    // uploaded files and never the model's to write.
+    for (const [i, family] of (tokens.typography?.families ?? []).entries()) {
+        if (family.fontFace !== undefined) {
+            issues.push({ path: `/typography/families/${i}/fontFace`, message: 'fontFace is pipeline-owned — declare source: {provider:"google", family, weights} and the font lane constructs fontFace from the uploaded files' });
+        }
+        if (family.source && !family.fontFamily.toLowerCase().includes(family.source.family.toLowerCase().split(' ')[0])) {
+            issues.push({ path: `/typography/families/${i}/fontFamily`, message: `fontFamily must LEAD with the sourced family — "${family.source.family}" first, then the fallback stack (it is both the rendered promise and the fallback)` });
+        }
+    }
     return issues;
 }
 

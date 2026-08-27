@@ -213,3 +213,33 @@ test('tokens whose contrast cannot be read on base are rejected with the ratio n
     tokens.palette[1].color = '#f3e9da';
     assert.deepEqual(tokenChecks(tokens, { theme_spacing: deriveThemeSpacing(theme), theme_layout: deriveThemeLayout(theme), briefPalette: [] }), []);
 });
+
+// ---- the widened tokens contract (theme-factory font lane) -------------------
+
+test('a sourced family is legal; a model-authored fontFace is not; the face must lead the stack', async () => {
+    const { tokenChecks, deriveThemeSpacing, deriveThemeLayout } = await import('../lib/tokens.mjs');
+    const theme = { spacing: { spacingSizes: [{ slug: '40', size: '1rem' }] }, layout: { contentSize: '640px', wideSize: '1200px' } };
+    const base = () => ({
+        palette: [
+            { slug: 'base', name: 'Cream', color: '#f7f2e9' },
+            { slug: 'contrast', name: 'Ink', color: '#1a140e' },
+        ],
+        spacing: deriveThemeSpacing(theme),
+        typography: {
+            families: [{ slug: 'display', name: 'Display', fontFamily: '"Playfair Display", Georgia, serif', source: { provider: 'google', family: 'Playfair Display', weights: [400, 700] } }],
+            sizes: [{ slug: 'display', size: '4rem' }],
+        },
+        layout: deriveThemeLayout(theme),
+    });
+    const opts = { theme_spacing: deriveThemeSpacing(theme), theme_layout: deriveThemeLayout(theme), briefPalette: [] };
+
+    assert.deepEqual(tokenChecks(base(), opts), []);
+
+    const withFace = base();
+    withFace.typography.families[0].fontFace = [{ fontFamily: 'Playfair Display', fontStyle: 'normal', fontWeight: '400', src: ['http://x/p.woff2'] }];
+    assert.ok(tokenChecks(withFace, opts).some((i) => /pipeline-owned/.test(i.message)));
+
+    const trailing = base();
+    trailing.typography.families[0].fontFamily = 'Georgia, serif';
+    assert.ok(tokenChecks(trailing, opts).some((i) => /LEAD with the sourced family/.test(i.message)));
+});

@@ -38,6 +38,10 @@ theme's own and are not yours to redesign:
 {{contract_note}}
 
 Respond with ONLY the DesignTokens JSON object: {"palette": [...], "spacing": {...},
-"typography": {...}, "layout": {...}}. Typography: font families as system stacks (no
-font files), and a display font-size step with a fluid clamp() if the art direction
-calls for one.
+"typography": {...}, "layout": {...}}. Typography: each family's fontFamily is a full
+fallback stack. When the art direction argues REAL typography (a named face, not a
+generic stack), the family MAY carry source: {"provider": "google", "family": "<Google
+Fonts name>", "weights": [400, 700]} — the pipeline downloads and installs it locally
+(never hotlinked) and the named face must LEAD the fontFamily stack. Never write
+fontFace (pipeline-owned). Also: a display font-size step with a fluid clamp() if the
+art direction calls for one.
