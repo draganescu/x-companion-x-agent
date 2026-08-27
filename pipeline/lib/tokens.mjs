@@ -131,6 +131,29 @@ export function resolveInkMenus(background, appliedPalette) {
     return { safe_inks, display_only_inks };
 }
 
+// The canvas-band twin of resolveInkMenus: the ground is not a flat hex but a
+// MEASURED luminance range (the processed canvas asset's lum_min..lum_max), so
+// every slug is rated at its worst case against both ends of the range. Same
+// 4.5 / 3 thresholds; menus sorted best-contrast-first so [0] is the natural
+// text pick. Empty menus on an empty palette, never a throw.
+export function resolveInkMenusFromLuminance(lumMin, lumMax, appliedPalette) {
+    const safe = [];
+    const display = [];
+    const vs = (slugLum, ground) => {
+        const hi = Math.max(slugLum, ground);
+        const lo = Math.min(slugLum, ground);
+        return (hi + 0.05) / (lo + 0.05);
+    };
+    for (const p of appliedPalette ?? []) {
+        const lum = relativeLuminance(p.color);
+        const worst = Math.min(vs(lum, lumMin), vs(lum, lumMax));
+        if (worst >= 4.5) safe.push({ slug: p.slug, worst });
+        else if (worst >= 3) display.push({ slug: p.slug, worst });
+    }
+    const order = (list) => list.sort((a, b) => b.worst - a.worst).map((e) => e.slug);
+    return { safe_inks: order(safe), display_only_inks: order(display) };
+}
+
 export function resolveBandColors(band, briefPalette, appliedPalette) {
     const slugs = new Set(appliedPalette.map((p) => p.slug));
     const bySlug = new Map(appliedPalette.map((p) => [p.slug, p.color]));

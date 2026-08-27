@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
 import { pLimit, settleAll } from '../lib/limit.mjs';
 import { screenTreeDiagnostics, screenTreeLiterals, localTreeCheck, screenImageGeometry, screenBandRoot, screenTreeInk, screenContentParity } from '../lib/gates.mjs';
-import { resolveBandColors, annotatePalette, resolveInkMenus } from '../lib/tokens.mjs';
+import { resolveBandColors, annotatePalette, resolveInkMenus, resolveInkMenusFromLuminance } from '../lib/tokens.mjs';
 import { renderStyleNote } from '../lib/styles.mjs';
 import { normalizeTreeBorders } from '../lib/normalize.mjs';
 import { sectionImageIntents } from '../budget.mjs';
@@ -44,6 +44,13 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
     // Pre-axis briefs named the axis inside the layout enum; both legacy values
     // meant the single-column composition.
     const composition = (l) => ({ centered: 'stack', 'left-aligned': 'stack' }[l] ?? l ?? 'stack');
+    // The surface dictionary's skin map (x-surfaces sequencing): which bands
+    // carry a field/pattern skin, decided in the brief BEFORE any tree exists.
+    // Every section is told its own state and every sibling's, because
+    // ground-baked decor and dense ornament are only legal on skin-less bands.
+    const skinnedKeys = new Set((brief.surfaces ?? [])
+        .filter((s) => s.class === 'field' || s.class === 'pattern')
+        .flatMap((s) => s.attach ?? []));
     // The shared design language every section call sees: the whole page's plan.
     const pagePlans = Object.fromEntries(brief.pages.map((p) => [p.slug, p.sections.map((sec) => ({
         id: sec.id,
@@ -52,12 +59,27 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
         layout: composition(sec.design?.layout),
         axis: sectionAnchor(sec),
         images: sectionImageIntents(sec).length,
+        skinned: skinnedKeys.has(`${p.slug}/${sec.id}`),
     }))]));
     ctx.state.artifacts = ctx.state.artifacts ?? {};
     ctx.state.artifacts.trees = ctx.state.artifacts.trees ?? {};
     // The band pair plus its measured ink menus: the choice is constrained
     // before it is judged, so the ink screen below almost never fires.
+    // A canvas band has NO backgroundColor — it sits on the page canvas — so
+    // its menus come from the canvas asset's MEASURED luminance range (born at
+    // S3, before any tree). Without one (--no-images, or the birth failed and
+    // the run degraded) it is rated against the flat base ground it will
+    // actually sit on.
     const bandColors = (band) => {
+        if (band === 'canvas') {
+            const canvas = ctx.state.canvas;
+            if (canvas && canvas.lum_min !== undefined) {
+                const menus = resolveInkMenusFromLuminance(canvas.lum_min, canvas.lum_max, tokens.palette);
+                return { background: null, text: menus.safe_inks[0] ?? menus.display_only_inks[0] ?? null, ...menus };
+            }
+            const pair = resolveBandColors('base', brief.palette, tokens.palette);
+            return { background: null, text: pair.text, ...resolveInkMenus(pair.background, tokens.palette) };
+        }
         const pair = resolveBandColors(band, brief.palette, tokens.palette);
         return { ...pair, ...resolveInkMenus(pair.background, tokens.palette) };
     };
@@ -79,6 +101,7 @@ In this section the UI style decides how the composition is EXPRESSED (density, 
             : 'This section must NOT contain an h1. Its top heading is a core/heading with attributes.level 2; items/cards inside it use level 3. Never skip a heading level.';
         const design = { band: 'base', layout: 'stack', ...(section.design ?? {}) };
         design.layout = composition(design.layout);
+        design.skinned = skinnedKeys.has(`${s.page}/${section.id}`);
         const payload = {
             section,
             page: entry.page,

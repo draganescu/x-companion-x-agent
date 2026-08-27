@@ -281,3 +281,62 @@ test('a tool error in one lane is fatal to the run, but no sibling lane is aband
     assert.equal(ctx.state.artifacts.furniture.footer.status, 'pass');
     assert.equal(ctx.state.artifacts.trees['home--hero'], undefined); // the failed lane never recorded a verdict
 });
+
+test('every section is told its band\'s skin state before it writes a word on it', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+    ctx.state.brief.surfaces = [
+        { id: 'linen-wash', class: 'field', prompt_seed: 'Woven linen texture', intensity: 'whisper', attach: ['home/hero'] },
+    ];
+    await s4.run(ctx);
+    const hero = ctx.payloads['home/hero'];
+    assert.equal(hero.design.skinned, true);
+    assert.equal(ctx.payloads['home/what-we-bake'].design.skinned, false);
+    const plan = hero.page_plan;
+    assert.equal(plan.find((p) => p.id === 'hero').skinned, true);
+    assert.equal(plan.find((p) => p.id === 'what-we-bake').skinned, false);
+});
+
+test('canvas bands: menus from the measured canvas luminance, base fallback without one', async () => {
+    const treesByLabel = {
+        'home/hero': treeFor('home/hero'),
+        'home/what-we-bake': treeFor('home/what-we-bake'),
+        'home/signup': treeFor('home/signup'),
+    };
+    const withCanvas = (state) => {
+        const ctx = makeCtx({ treesByLabel, validateByKey: {} });
+        ctx.state.brief.surfaces = [
+            { id: 'plaster-ground', class: 'canvas', prompt_seed: 'Fine plaster texture', intensity: 'whisper', attach: [] },
+        ];
+        ctx.state.brief.pages[0].sections[0].design.band = 'canvas';
+        // The per-section entry file is what the payload reads its design from.
+        const heroFile = join(ctx.runDir, 'sections', 'home--hero.json');
+        const entry = JSON.parse(readFileSync(heroFile, 'utf8'));
+        entry.section.design.band = 'canvas';
+        writeFileSync(heroFile, JSON.stringify(entry));
+        Object.assign(ctx.state, state);
+        return ctx;
+    };
+
+    // Measured canvas (light range): no backgroundColor on the band, and only
+    // the dark slug clears the worst-case bar.
+    const measured = withCanvas({ canvas: { asset_id: 'plaster-ground', lum_min: 0.8, lum_max: 0.9 } });
+    await s4.run(measured);
+    const bc = measured.payloads['home/hero'].band_colors;
+    assert.equal(bc.background, null);
+    assert.ok(bc.safe_inks.includes('contrast'));
+    assert.ok(!bc.safe_inks.includes('ember'));
+    assert.equal(bc.text, 'contrast');
+
+    // No measured canvas (e.g. --no-images): the band still ships bare, rated
+    // against the flat page ground it actually sits on.
+    const fallback = withCanvas({});
+    await s4.run(fallback);
+    const fb = fallback.payloads['home/hero'].band_colors;
+    assert.equal(fb.background, null);
+    assert.ok(fb.safe_inks.length > 0);
+});

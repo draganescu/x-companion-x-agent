@@ -86,6 +86,20 @@ mechanically before the tree ships. An inner group that sets its own backgroundC
 changes the ground — the same floor is enforced against the ground each text node
 ACTUALLY sits on, so re-think the ink when you re-ground: {{band_colors}}
 
+THE SURFACE DISCIPLINE: design.skinned tells you whether this band will wear a
+generated texture skin (applied mechanically at publish — you never reference
+images or backgrounds for it yourself). On a SKINNED band keep the composition
+calm: the material carries the ornament, so no decorative flourishes competing
+with it, and every textColor still comes from the menus above — the flat
+backgroundColor stays your ground and the fallback. If band_colors.background
+is null this is a CANVAS band: the root core/group carries NO backgroundColor
+and NO textColor of its own (it sits directly on the page's canvas ground);
+keep "align": "full" and the layout as mandated, and spend inks ONLY from the
+menus (they are measured against the canvas material itself). A role of
+"divider" is a shallow full-width band whose only job is its skin: one root
+group, its band attributes, generous-but-single padding slugs, and AT MOST a
+spacer inside — no copy, no headings.
+
 THE LAYOUT CASCADE (why the root is shaped this way): WordPress clamps every
 child of a constrained layout to the theme's contentSize via
 `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` — a selector no
