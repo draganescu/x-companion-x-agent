@@ -455,6 +455,15 @@ export function screenTextContrast(findings) {
         .map((f) => ({ code: 'ink_contrast', message: `unreadable text (${f.ratio}:1, ${f.color} on ${f.background}): "${f.sample}" at ${f.selector_path}` }));
 }
 
+// S9: presence for surfaces, as loaded/natural_w is presence for content
+// images (x-surfaces). The flat band under a missing asset keeps the page
+// coherent, so the RUN has to be the thing that screams.
+export function screenSurfacePresence(surfaces) {
+    return (surfaces ?? [])
+        .filter((s) => s.ok !== true)
+        .map((s) => ({ code: 'surface_presence', message: `surface asset failed to load (HTTP ${s.status}): ${s.url} at ${s.selector_path}` }));
+}
+
 // S4/S7: image-intent geometry. The placeholder minted for an intent is a 1×1
 // pixel; sizeSlug does nothing for an attachment with no real sizes, so an
 // image node that brings no geometry of its own renders at literally one

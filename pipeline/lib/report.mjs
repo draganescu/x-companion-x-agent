@@ -44,6 +44,29 @@ export function writeReport(runDir, { state, budget, ledger }) {
         lines.push('');
     }
 
+    // The surface lane's ledger: the page never screams (the flat band under
+    // every failure is coherent), so the REPORT does — every asset with its
+    // class, processing and landing paths; every degrade; every refusal.
+    const sr = state.surface_report;
+    if (sr && (sr.assets.length > 0 || sr.degraded.length > 0 || sr.refusals.length > 0)) {
+        lines.push('## Surfaces', '');
+        if (sr.assets.length > 0) {
+            lines.push('| asset | class | post-processing | landed on | page |', '|---|---|---|---|---|');
+            for (const a of sr.assets) lines.push(`| ${a.asset_id} | ${a.class} | ${a.post_processing ?? '—'} | ${(a.paths ?? []).join(', ') || '—'} | ${a.page} |`);
+            lines.push('');
+        }
+        if (sr.degraded.length > 0) {
+            lines.push('### Degraded to the flat band', '');
+            for (const d of sr.degraded) lines.push(`- ${d.page ? `/${d.page}/: ` : ''}${d.asset_id ? `**${d.asset_id}** — ` : ''}${d.reason}`);
+            lines.push('');
+        }
+        if (sr.refusals.length > 0) {
+            lines.push('### Refused at apply', '');
+            for (const r of sr.refusals) lines.push(`- /${r.page}/: ${r.detail}`);
+            lines.push('');
+        }
+    }
+
     const dead = state.dead ?? [];
     if (dead.length > 0) {
         lines.push('## Dead artifacts', '');

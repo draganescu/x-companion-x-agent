@@ -405,6 +405,53 @@ test('S9: measured unreadable text fails the run; muddy text is advisory only', 
     assert.ok(muddy.logs.some((l) => /advisory: 1 text element/.test(l)));
 });
 
+test('S9: a 404\'d surface asset fails the run; present surfaces pass silently', async () => {
+    const mk = (surfaces) => ({
+        runDir: mkdtempSync(join(tmpdir(), 'x-pipeline-s9-surface-')),
+        state: { instance: { site_url: 'http://x' }, published: { pages: [] } },
+        log: () => {},
+        call: async function (name) {
+            if (name === 'wp_disconnect') return { ok: true, data: { disconnected: true } };
+            if (name === 'wp_verify') return { ok: true, data: { pass: true, box_tree: [], a11y_outline: [{ role: 'heading', name: 'H', level: 1 }], images: [], surfaces } };
+            if (name === 'wp_screenshot') return { ok: true, data: { path_to_png: join(this.runDir, 'screenshot.png') } };
+            throw new Error(`unexpected ${name}`);
+        },
+    });
+    const bad = mk([
+        { selector_path: 'div:nth-child(1)', url: 'http://x/uploads/asset-linen.jpg', status: 200, ok: true },
+        { selector_path: 'div:nth-child(2)', url: 'http://x/uploads/asset-frieze.png', status: 404, ok: false },
+    ]);
+    await assert.rejects(s9.run(bad), (e) => e.code === 'gate_failed' && /surface asset failed to load/.test(JSON.stringify(e.detail ?? e.message)));
+
+    const good = mk([{ selector_path: 'div:nth-child(1)', url: 'http://x/uploads/asset-linen.jpg', status: 200, ok: true }]);
+    await s9.run(good);
+});
+
+test('report.md carries a Surfaces section: every asset, every path, every refusal and degrade', async () => {
+    const { writeReport } = await import('../lib/report.mjs');
+    const runDir = mkdtempSync(join(tmpdir(), 'x-pipeline-report-'));
+    writeReport(runDir, {
+        state: {
+            completed: ['S8_publish'],
+            budget: { S: 3, B: 1, P: 1, C: 2, U: 1, I: 3, F: 2, base: 9, ceiling: 21 },
+            surface_report: {
+                assets: [{ asset_id: 'linen-wash', class: 'field', post_processing: 'recompress', paths: ['/blocks/0', '/blocks/1'], page: 'home' }],
+                degraded: [{ page: 'home', asset_id: 'gilt-corner', reason: 'core/group has no background support on this instance — the flat band ships' }],
+                refusals: [{ page: 'home', detail: "/blocks/2: surface target no longer empty — an admin's background is never overwritten" }],
+            },
+        },
+        budget: { spent: 10 },
+        ledger: { entries: [] },
+    });
+    const md = readFileSync(join(runDir, 'report.md'), 'utf8');
+    assert.match(md, /## Surfaces/);
+    assert.match(md, /linen-wash/);
+    assert.match(md, /\/blocks\/0/);
+    assert.match(md, /gilt-corner/);
+    assert.match(md, /never overwritten/);
+    assert.match(md, /C=2 content \+ U=1 surfaces/);
+});
+
 test('the footer part is chosen by canonical slug, not by whichever has area=footer', () => {
     // Twenty Twenty-Five's real listing order: the variants come back first.
     const parts = [

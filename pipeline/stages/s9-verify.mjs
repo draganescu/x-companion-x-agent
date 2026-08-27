@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PipelineError } from '../lib/errors.mjs';
-import { screenOutline, screenBandWidths, screenBandSeams, screenTextContrast } from '../lib/gates.mjs';
+import { screenOutline, screenBandWidths, screenBandSeams, screenTextContrast, screenSurfacePresence } from '../lib/gates.mjs';
 
 export const id = 'S9_verify';
 export const kind = 'deterministic';
@@ -63,6 +63,9 @@ export async function run(ctx) {
             failures.push({ code: 'image', message: `image not loaded: ${img.selector_path} (loaded=${img.loaded}, natural ${img.natural_w}x${img.natural_h})` });
         }
     }
+    // The surface presence probe: every applied background image resolved —
+    // presence for surfaces, as loaded/natural_w is presence for content.
+    failures.push(...screenSurfacePresence(verify.surfaces));
     if (failures.length > 0) {
         throw new PipelineError('gate_failed', `front page verification failed: ${failures.map((f) => f.message).join(' | ')}`, '', { failures, url });
     }
