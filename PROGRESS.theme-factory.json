@@ -27,12 +27,17 @@
             "updated_at": "2026-08-27T00:00:00Z"
         },
         "M6_end_to_end": {
-            "status": "pending",
-            "evidence": "",
+            "status": "done",
+            "evidence": "tf-m6.sh ACCEPTED (real provider anthropic/claude-opus-5, dedicated slots 9494/9495, --no-images): ONE prompt + --new-site --bespoke produced 'Salon Regale Theme' (stacked, 1040px/1440px — the luxury measure the brief argued), REAL typography (Cormorant Garamond v21 headings + Archivo v25 body, both ofl-recorded cache-miss downloads, both LOADED in document.fonts and rendered — zero font ledger entries), S1_brief -> S1T_theme -> ... -> S9_verify all complete, wp_manifest serving the bespoke name and measure, wp_snapshot carrying theme/<slug>. The SAME prompt without --bespoke: stock ground, no state.theme, ZERO theme calls in the ledger, and the build still verifies. Three earlier attempts were field evidence, each converted to a fix: bare-0/3-hex contract widening; the typography SLOTS (a sourced font nobody wires stays unloaded); the face-by-face loaded screen (an unused 300 weight failed a healthy page). One attempt died on an Anthropic 'Overloaded' (infrastructure).",
             "updated_at": "2026-08-27T00:00:00Z"
         }
     },
     "decisions": [
+        {
+            "when": "2026-08-27",
+            "what": "The bespoke theme wires TYPOGRAPHY SLOTS: styles.typography.fontFamily -> var(--wp--preset--font-family--body) and elements.heading -> --heading; on bespoke runs tokenChecks requires families with slugs 'body' and 'heading' (the base/contrast convention, typographic); tokens.md teaches the slugs. The theme still declares ZERO fonts — only where the token vocabulary lands. And the S9 font screen judges a family loaded when ANY of its faces loaded.",
+            "why": "Measured across three real M6 attempts: (1) sourced fonts installed + activated but document.fonts 'unloaded' — nothing RENDERED them, because the ground wired no base typography to the token families; (2) after the slots landed, a healthy page still failed because the screen judged the FIRST matching face and the model had requested a 300 weight no element spends. Both are the exact class the rendered-promise audit exists for — pointed at the pipeline itself."
+        },
         {
             "when": "2026-08-27",
             "what": "First-live-contact field-fix batch for the theme contract: rootPadding sides and blockGap accept a bare '0' beside united lengths; duotone colors accept 3-hex beside 6-hex; theme.md gains the mechanical spelling rules (units-or-0, hex duotones, identity is EXACTLY {name, slug, description}). All copies + the zod mirror moved together, pinned by the widened tests.",

@@ -495,15 +495,15 @@ Failure discipline: a font-lane failure is a RUN failure (`PipelineError('font_f
 - Modify: `PROGRESS.theme-factory.json` — evidence per milestone as scripts go green
 
 - [x] **Step 1: Write scripts (each `set -euo pipefail`, repo-root cd, dedicated slots, cleanup traps).**
-- [ ] **Step 2: Run tf-m1, tf-m3, tf-m4 (no live spend); run tf-m2, tf-m5 against a fresh Playground; tf-m6 needs a real provider key — run if keys are present in `.x-agent.json`, else record as pending-live in PROGRESS with everything else green.**
-- [ ] **Step 3: Commit; update PROGRESS milestones.**
+- [x] **Step 2: Run tf-m1, tf-m3, tf-m4 (no live spend); run tf-m2, tf-m5 against a fresh Playground; tf-m6 needs a real provider key — run if keys are present in `.x-agent.json`, else record as pending-live in PROGRESS with everything else green.**
+- [x] **Step 3: Commit; update PROGRESS milestones.**
 
 ### Task 16: Ship — docs, self-review, PR
 
 - [x] Update `pipeline/README.md` (the `--bespoke` mode, the font lane, one paragraph each) + `FLOW.md` (theme install route in the posture-wall list) + `x-companion` README route table if present.
 - [x] Full-suite gate: `cd x-agent/mcp && npm run build && npx vitest run` · `node --test pipeline/tests/*.test.mjs` · companion offline PHP tests · `git status` clean of strays.
-- [ ] superpowers:verification-before-completion — evidence before claims.
-- [ ] `ghe`-based PR: push `theme-factory`, open PR against `main` titled after the spec's commit voice ("the ground becomes an artifact — …"), body: what landed per milestone, the recorded decisions/deviations (1-14), test evidence, the one pledge-breaking companion surface called out.
+- [x] superpowers:verification-before-completion — evidence before claims.
+- [x] `ghe`-based PR: push `theme-factory`, open PR against `main` titled after the spec's commit voice ("the ground becomes an artifact — …"), body: what landed per milestone, the recorded decisions/deviations (1-14), test evidence, the one pledge-breaking companion surface called out.
 
 ## Self-review (spec coverage)
 
