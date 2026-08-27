@@ -12,7 +12,9 @@ import { createToolchain } from './lib/toolchain.mjs';
 import { BudgetMeter, Ledger } from './budget.mjs';
 import { writeReport } from './lib/report.mjs';
 import { fmtClock, fmtDur } from './lib/clock.mjs';
+import { PipelineError } from './lib/errors.mjs';
 import * as s1 from './stages/s1-brief.mjs';
+import * as s1t from './stages/s1t-theme.mjs';
 import * as s2 from './stages/s2-read-instance.mjs';
 import * as s3 from './stages/s3-tokens.mjs';
 import * as s4 from './stages/s4-sections.mjs';
@@ -22,12 +24,13 @@ import * as s7 from './stages/s7-repair.mjs';
 import * as s8 from './stages/s8-publish.mjs';
 import * as s9 from './stages/s9-verify.mjs';
 
-const DEFAULT_STAGES = [s1, s2, s3, s4, s5, s6, s7, s8, s9];
+const DEFAULT_STAGES = [s1, s1t, s2, s3, s4, s5, s6, s7, s8, s9];
 
 // What each stage means in the user's terms. Stage ids (S1_brief…) stay the
 // vocabulary of state.json, --until and the spec; the log speaks plainly.
 const STAGE_INFO = {
     S1_brief: { title: 'Planning the site', doing: 'one model call turns your prompt into the full plan — style combo, pages, sections, custom blocks, data model' },
+    S1T_theme: { title: 'Authoring the ground', doing: 'bespoke runs only: one model call fixes the ThemeSpec, a deterministic scaffolder compiles the theme, a throwaway WordPress measures its physics, and it installs before the site is ever read' },
     S2_read_instance: { title: 'Reading the site', doing: 'listing the blocks, patterns and theme settings the connected WordPress actually has' },
     S3_tokens: { title: 'Designing the look', doing: 'palette, typography and spacing derived from the plan and applied to the theme' },
     S4_sections: { title: 'Writing the sections', doing: 'one model call per section, in parallel, assembling from the saved arrangements; every result is validated against the site before it may ship' },
@@ -44,13 +47,17 @@ function timestamp() {
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
-export async function runPipeline({ prompt, configPath, resumeDir, until, brochure = false, noImages = false, cwd = process.cwd(), stages = DEFAULT_STAGES, skipToolchain = false }) {
+export async function runPipeline({ prompt, configPath, resumeDir, until, brochure = false, noImages = false, bespoke = false, cwd = process.cwd(), stages = DEFAULT_STAGES, skipToolchain = false }) {
     const config = loadPipelineConfig(configPath ?? join(cwd, 'pipeline.config.json'));
+    if (bespoke && !config.tasks.theme) {
+        throw new PipelineError('preflight_failed', 'pipeline config is missing the "theme" task entry, and --bespoke summons it',
+            'Add tasks.theme {provider, model, effort} to pipeline.config.json — one call fixes the ground everything stands on, so route it to the strongest model at high effort.');
+    }
     const keys = readProviderKeys(cwd);
     const providers = await createProviders({ config, keys });
 
     const runDir = resumeDir ?? join(cwd, 'runs', timestamp());
-    for (const d of ['', 'trees', 'blocks', 'packages', 'images', 'sections', 'pages']) {
+    for (const d of ['', 'trees', 'blocks', 'packages', 'images', 'sections', 'pages', 'theme']) {
         mkdirSync(join(runDir, d), { recursive: true });
     }
     const statePath = join(runDir, 'state.json');
@@ -64,6 +71,7 @@ export async function runPipeline({ prompt, configPath, resumeDir, until, brochu
     // keeps the mode the run started with.
     if (brochure) state.brochure = true;
     if (noImages) state.no_images = true;
+    if (bespoke) state.bespoke = true;
 
     const startedRun = Date.now();
     const log = (m) => console.error(`[x-pipeline +${fmtClock(Date.now() - startedRun)}] ${m}`);

@@ -9,7 +9,22 @@ const fixture = JSON.parse(readFileSync(new URL('../fixtures/brief.m1.json', imp
 
 test('M1 acceptance: S=3,B=1,P=1,I=2 => base 9 with F=2 furniture, ceiling 20', () => {
     const b = computeBudget(fixture);
-    assert.deepEqual(b, { S: 3, B: 1, P: 1, I: 2, F: 2, base: 9, ceiling: 20 });
+    assert.deepEqual(b, { S: 3, B: 1, P: 1, I: 2, T: 0, F: 2, base: 9, ceiling: 20 });
+});
+
+test('theme-factory M3: T enters base only when bespoke; a rail skeleton makes F=3', () => {
+    // Non-bespoke stays numerically byte-identical to the pre-spec formula.
+    assert.deepEqual(computeBudget(fixture), computeBudget(fixture, { bespoke: false }));
+
+    const bespoke = computeBudget(fixture, { bespoke: true });
+    assert.equal(bespoke.T, 1);
+    assert.equal(bespoke.base, 10);
+    assert.equal(bespoke.ceiling, 22); // 2*(9+1) + 2
+
+    const rail = computeBudget(fixture, { bespoke: true, rail: true });
+    assert.equal(rail.F, 3);
+    assert.equal(rail.base, 11);
+    assert.equal(rail.ceiling, 24);
 });
 
 test('M1 acceptance: the 21st generative call throws {code:"budget_exceeded"}', () => {

@@ -88,6 +88,15 @@ export function defaultBuildConfig({ provider, model }) {
         model,
         ...(NO_TEMPERATURE.has(provider) ? {} : { temperature: PROVEN_TEMPS[t] }),
     }]));
+    // The theme task rides along so --new-site --bespoke works out of the box.
+    // Optional at load time; only the --bespoke preflight demands it. One call
+    // fixes the ground everything stands on, so it gets high effort.
+    tasks.theme = {
+        provider,
+        model,
+        effort: 'high',
+        ...(NO_TEMPERATURE.has(provider) ? {} : { temperature: 0 }),
+    };
     return { tasks, concurrency: 3, budget_hard_cap: 80 };
 }
 

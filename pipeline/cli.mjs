@@ -62,11 +62,16 @@ usage:
   x-pipeline config init    [--provider cerebras|gemini|anthropic|openai] [--model ID] [--key API_KEY] [--force]
   x-pipeline build "<prompt>" [--until STAGE] [--resume RUN_DIR] [--config PATH]
                               [--new-site] [--port N] [--slot NAME] [--brochure] [--no-images]
+                              [--bespoke]
                               --brochure: composition only — no custom blocks, no data
                               packages; the brief must express every section with the
                               blocks the site already has
                               --no-images: skip image generation; the solid-colour
                               placeholder pixels stay in place (no Gemini key needed)
+                              --bespoke: author a bespoke block theme as the ground
+                              (one metered call -> ThemeSpec -> scaffold, build-test,
+                              install BEFORE the instance is read). Valid ONLY with
+                              --new-site: a connected site's theme is the law there
 
 typical first run:
   x-pipeline config init                # picks a provider from your keys, or asks for one
@@ -399,6 +404,15 @@ async function build(flags, positionals) {
         log(`no pipeline.config.json — wrote one routing every task to ${provider}/${PROVIDER_DEFAULT_MODELS[provider]}`);
     }
 
+    // The bespoke ground is summoned, never inferred — and never on a
+    // connected site, where whatever x-companion returns remains the law.
+    // A --resume carries the mode in state.bespoke, so the flag is not
+    // re-judged there.
+    if (flags.bespoke && !flags['new-site'] && !flags.resume) {
+        throw new PipelineError('preflight_failed', '--bespoke is valid only alongside --new-site',
+            'A bespoke theme is a greenfield ground. On a connected site the instance\'s own theme remains the law; drop --bespoke, or add --new-site to build a fresh world.');
+    }
+
     // Connection: --new-site boots one; otherwise one must already be wired.
     const agentCfg = readAgentConfig(cwd);
     const hasConnection = Boolean((agentCfg.url ?? process.env.X_WP_URL) && (agentCfg.app_password ?? process.env.X_WP_APP_PASSWORD));
@@ -422,6 +436,7 @@ async function build(flags, positionals) {
         until: flags.until,
         brochure: !!flags.brochure,
         noImages: !!flags['no-images'],
+        bespoke: !!flags.bespoke,
         cwd,
     });
     const front = state.published?.pages?.find((p) => p.front_page);
@@ -465,7 +480,7 @@ export async function main(argv) {
             const { flags } = parseArgs(rest, { booleans: ['force'] });
             await configInit(flags);
         } else if (cmd === 'build') {
-            const { flags, positionals } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['new-site', 'brochure', 'no-images'] });
+            const { flags, positionals } = parseArgs(sub === undefined ? [] : [sub, ...rest], { booleans: ['new-site', 'brochure', 'no-images', 'bespoke'] });
             await build(flags, positionals);
         } else {
             console.error(HELP);

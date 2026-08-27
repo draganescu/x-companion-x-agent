@@ -13,16 +13,23 @@ export function sectionImageIntents(section) {
     return v ? [v] : [];
 }
 
-export function computeBudget(brief) {
+export function computeBudget(brief, { bespoke = false, rail = false } = {}) {
     const S = brief.pages.reduce((n, p) => n + p.sections.length, 0);
     const B = brief.custom_blocks.length;
     const P = brief.schema_packages.length;
     const I = brief.pages.reduce((n, p) => n + p.sections.reduce((m, s) => m + sectionImageIntents(s).length, 0), 0);
+    // T: the bespoke theme — one metered ThemeSpec call, only when --bespoke
+    // summoned it. Its 2x headroom is the one spec-repair the gate allows.
+    const T = bespoke ? 1 : 0;
     // F: the site furniture — header and footer template parts, one tree call
     // each through the same lane as the sections. They bookend every page.
-    const F = 2;
-    const base = 1 + 1 + F + S + B + P;
-    return { S, B, P, I, F, base, ceiling: 2 * base + I };
+    // A rail skeleton declares a third part; the skeleton is only known after
+    // S1T authors the ThemeSpec, so S1 fixes the ceiling with F=2 and S1T
+    // re-issues it with rail=true (the --no-images post-hoc precedent, bounded
+    // to exactly +1).
+    const F = 2 + (rail ? 1 : 0);
+    const base = 1 + T + 1 + F + S + B + P;
+    return { S, B, P, I, T, F, base, ceiling: 2 * base + I };
 }
 
 const PRE_CEILING_ALLOWANCE = 2; // S1 + its one schema-retry; nothing else may run before the ceiling exists

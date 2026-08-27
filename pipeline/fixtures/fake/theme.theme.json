@@ -1,0 +1,7 @@
+{
+    "text": "{\n  \"version\": 1,\n  \"identity\": {\n    \"name\": \"Salon Regale Theme\",\n    \"slug\": \"salon-regale\",\n    \"description\": \"A bespoke ground for the Salon Regale - gilt editorial calm.\"\n  },\n  \"skeleton\": \"stacked\",\n  \"measure\": {\n    \"contentSize\": \"680px\",\n    \"wideSize\": \"1080px\"\n  },\n  \"physics\": {\n    \"blockGap\": \"1.5rem\",\n    \"rootPadding\": {\n      \"top\": \"0px\",\n      \"right\": \"24px\",\n      \"bottom\": \"0px\",\n      \"left\": \"24px\"\n    }\n  },\n  \"presets\": {\n    \"shadows\": [\n      {\n        \"slug\": \"lift\",\n        \"name\": \"Lift\",\n        \"shadow\": \"0 8px 24px rgba(0,0,0,0.12)\"\n      }\n    ],\n    \"gradients\": [],\n    \"duotones\": [],\n    \"custom\": {}\n  }\n}",
+    "usage": {
+        "input_tokens": 900,
+        "output_tokens": 260
+    }
+}

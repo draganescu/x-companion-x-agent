@@ -8,6 +8,11 @@ import { PipelineError } from './errors.mjs';
 //
 export const TASK_TYPES = ['brief', 'tokens', 'tree', 'block', 'schema', 'repair'];
 
+// Task types a RUN MODE summons rather than every run: shape-validated when
+// present, never required here. The mode's own preflight (cli.mjs: --bespoke)
+// demands the entry, so a plain run never pays for machinery it does not use.
+export const OPTIONAL_TASK_TYPES = ['theme'];
+
 // Reasoning depth, for providers that expose it. Optional everywhere: a task that
 // omits it takes the provider's own default.
 export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
@@ -35,9 +40,10 @@ export function loadPipelineConfig(configPath) {
     if (!cfg.tasks || typeof cfg.tasks !== 'object') {
         throw new PipelineError('preflight_failed', `pipeline config at ${configPath} has no "tasks" object`);
     }
-    for (const task of TASK_TYPES) {
+    for (const task of [...TASK_TYPES, ...OPTIONAL_TASK_TYPES]) {
         const entry = cfg.tasks[task];
         if (!entry) {
+            if (OPTIONAL_TASK_TYPES.includes(task)) continue; // required only by the mode that summons it
             throw new PipelineError('preflight_failed', `pipeline config is missing the "${task}" task entry`,
                 'Every task type needs {provider, model} before the run starts, not mid-run.');
         }
