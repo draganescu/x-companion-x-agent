@@ -1,0 +1,48 @@
+{
+  "spec": "specs/surfaces.spec.json",
+  "milestones": {
+    "M1_typed_scan_and_manifest": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    },
+    "M2_group_skin_apply": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    },
+    "M3_brief_dictionary_and_sequencing": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    },
+    "M4_processing_station": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    },
+    "M5_pixel_oracle": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    },
+    "M6_page_canvas": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    },
+    "M7_end_to_end": {
+      "status": "pending",
+      "evidence": "",
+      "updated_at": "2026-08-27T00:00:00Z"
+    }
+  },
+  "decisions": [
+    {
+      "when": "2026-08-27",
+      "what": "Implementation runs in a linked worktree (.claude/worktrees/surfaces, branch worktree-surfaces) with its own node_modules, per explicit owner directive for this build.",
+      "why": "The /goal directive says 'implement in a PR (use a worktree)'. The earlier no-worktree decision (PROGRESS.pipeline.json) was about sharing live Playground state; unit-level work needs only the worktree's own installs, and live acceptance is deferred to the main checkout as before."
+    }
+  ],
+  "deviations": []
+}

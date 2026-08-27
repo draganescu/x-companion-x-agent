@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockNode } from '../mcp/src/schemas.js';
 import { buildImagePrompt } from '../mcp/src/images/gemini.js';
-import { applyImage, findPlaceholders, nodeAt, toApiAspect } from '../mcp/src/images/scan.js';
+import { applyImage, findPlaceholders, nodeAt, scanRefs, toApiAspect } from '../mcp/src/images/scan.js';
 
 const PIXEL = 'http://127.0.0.1:9400/wp-content/uploads/2026/08/x-pixel-d9a441.gif';
 
@@ -60,6 +60,101 @@ describe('findPlaceholders', () => {
     const paths = findPlaceholders(tree()).map((r) => r.path);
     expect(paths).not.toContain('/blocks/0/innerBlocks/1');
     expect(paths).not.toContain('/blocks/0/innerBlocks/2');
+  });
+});
+
+describe('scanRefs', () => {
+  function surfaceTree(): BlockNode[] {
+    return [
+      {
+        name: 'core/group',
+        attributes: {
+          backgroundColor: 'base',
+          metadata: { surfaceIntent: 'linen-wash' },
+        },
+        innerBlocks: [
+          {
+            name: 'core/image',
+            attributes: {
+              id: 6,
+              url: PIXEL,
+              metadata: { imageIntent: 'The red windmill at dusk.' },
+            },
+          },
+          { name: 'core/paragraph', attributes: {} },
+        ],
+      },
+      {
+        name: 'core/cover',
+        attributes: {
+          overlayColor: 'contrast',
+          dimRatio: 80,
+          metadata: { surfaceIntent: 'damask-field' },
+        },
+      },
+    ];
+  }
+
+  it('returns typed refs from one parse — surface and content, image inside surface group included', () => {
+    const { content, surfaces, errors } = scanRefs(surfaceTree());
+    expect(errors).toHaveLength(0);
+    expect(content).toHaveLength(1);
+    expect(content[0]).toMatchObject({
+      kind: 'content',
+      path: '/blocks/0/innerBlocks/0',
+      block_name: 'core/image',
+    });
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces[0]).toMatchObject({
+      kind: 'surface',
+      path: '/blocks/0',
+      block_name: 'core/group',
+      asset_id: 'linen-wash',
+      mechanism: 'group_background',
+      reservation: 'base',
+    });
+    expect(surfaces[1]).toMatchObject({
+      kind: 'surface',
+      path: '/blocks/1',
+      block_name: 'core/cover',
+      asset_id: 'damask-field',
+      mechanism: 'cover',
+      reservation: null,
+    });
+  });
+
+  it('matches findPlaceholders on the content lane of a surface-free tree', () => {
+    const { content, surfaces } = scanRefs(tree());
+    expect(surfaces).toHaveLength(0);
+    expect(content.map((r) => r.path)).toEqual(findPlaceholders(tree()).map((r) => r.path));
+  });
+
+  it('rejects a cover carrying both intent kinds — one intent per cover', () => {
+    const blocks: BlockNode[] = [
+      {
+        name: 'core/cover',
+        attributes: {
+          url: PIXEL,
+          metadata: { imageIntent: 'A hero photo.', surfaceIntent: 'damask-field' },
+        },
+      },
+    ];
+    const { content, surfaces, errors } = scanRefs(blocks);
+    expect(content).toHaveLength(0);
+    expect(surfaces).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('/blocks/0');
+    expect(errors[0]).toContain('one intent kind');
+  });
+
+  it('ignores surfaceIntent on blocks that are not group or cover', () => {
+    const blocks: BlockNode[] = [
+      { name: 'core/paragraph', attributes: { metadata: { surfaceIntent: 'linen-wash' } } },
+    ];
+    const { surfaces, errors } = scanRefs(blocks);
+    expect(surfaces).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('core/paragraph');
   });
 });
 

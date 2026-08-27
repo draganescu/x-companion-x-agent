@@ -1,12 +1,19 @@
 /**
- * Pure tree work for the image pass: find every placeholder image that carries
- * an imageIntent brief, and later swap a generated asset into its node.
+ * Pure tree work for the asset pass: find every placeholder image that carries
+ * an imageIntent brief (the content lane), find every group or cover that
+ * carries a surfaceIntent (the surface lane), and later swap generated assets
+ * into their nodes — url/id for content, style.background for surfaces.
  *
  * A "placeholder" is what wp_placeholder minted: an attachment whose filename
  * is x-pixel-<hex>.<gif|png>, stretched by block attributes. The brief lives on
  * the same node at attributes.metadata.imageIntent (wp-blocks R5). Both must be
  * present — a placeholder without a brief has nothing to generate from, and a
  * brief on a real photo is provenance, not a work order.
+ *
+ * A surface marker is metadata.surfaceIntent: a STRING naming the run's
+ * dictionary asset id. Legal only on core/group (mechanism group_background)
+ * and core/cover (mechanism cover). The scan never gets clever: an image node
+ * inside a surface-carrying group is still a content slot.
  */
 import type { BlockNode } from '../schemas.js';
 import { ASPECT_RATIOS } from './gemini.js';
@@ -22,6 +29,29 @@ export interface PlaceholderRef {
   id?: number;
   /** API-ready aspect ratio derived from the block's own aspectRatio. */
   aspect_ratio: string;
+}
+
+export type SurfaceMechanism = 'group_background' | 'cover';
+
+export interface SurfaceRef {
+  kind: 'surface';
+  path: string;
+  block_name: string;
+  /** The dictionary asset id this node references (metadata.surfaceIntent). */
+  asset_id: string;
+  mechanism: SurfaceMechanism;
+  /** The flat band underneath: the group's backgroundColor slug, or null. */
+  reservation: string | null;
+}
+
+export interface ContentRef extends PlaceholderRef {
+  kind: 'content';
+}
+
+export interface ScanResult {
+  content: ContentRef[];
+  surfaces: SurfaceRef[];
+  errors: string[];
 }
 
 const PLACEHOLDER_URL = /\/x-pixel-[0-9a-f]{6,8}\.(gif|png)$/i;
@@ -42,18 +72,45 @@ export function toApiAspect(attr: unknown): string {
   return '16:9';
 }
 
-export function findPlaceholders(blocks: BlockNode[]): PlaceholderRef[] {
-  const out: PlaceholderRef[] = [];
+/** Blocks whose background a surface may become, per mechanism. */
+const SURFACE_BLOCKS: Record<string, SurfaceMechanism> = {
+  'core/group': 'group_background',
+  'core/cover': 'cover',
+};
+
+/**
+ * ONE walk returning typed refs for both lanes. Content refs are exactly what
+ * findPlaceholders always returned; surface refs are surfaceIntent markers on
+ * groups and covers. A cover carrying both intent kinds is a schema error, not
+ * a runtime surprise — it lands in errors and joins neither lane.
+ */
+export function scanRefs(blocks: BlockNode[]): ScanResult {
+  const content: ContentRef[] = [];
+  const surfaces: SurfaceRef[] = [];
+  const errors: string[] = [];
   const walk = (nodes: BlockNode[], prefix: string): void => {
     nodes.forEach((node, i) => {
       const path = `${prefix}/${i}`;
       const attrs = (node.attributes ?? {}) as Record<string, unknown>;
       const meta = attrs.metadata as Record<string, unknown> | undefined;
       const intent = typeof meta?.imageIntent === 'string' ? meta.imageIntent.trim() : '';
+      const surfaceIntent = typeof meta?.surfaceIntent === 'string' ? meta.surfaceIntent.trim() : '';
       const names = attrNames(node.name);
       const url = typeof attrs[names.url] === 'string' ? (attrs[names.url] as string) : '';
-      if (intent !== '' && PLACEHOLDER_URL.test(url)) {
-        out.push({
+      const contentMatch = intent !== '' && PLACEHOLDER_URL.test(url);
+      if (surfaceIntent !== '' && intent !== '') {
+        errors.push(`${path}: carries both imageIntent and surfaceIntent — one intent kind per node`);
+      } else if (surfaceIntent !== '') {
+        const mechanism = SURFACE_BLOCKS[node.name];
+        if (!mechanism) {
+          errors.push(`${path}: surfaceIntent on ${node.name} — a surface lands only on core/group or core/cover`);
+        } else {
+          const reservation = typeof attrs.backgroundColor === 'string' ? attrs.backgroundColor : null;
+          surfaces.push({ kind: 'surface', path, block_name: node.name, asset_id: surfaceIntent, mechanism, reservation });
+        }
+      } else if (contentMatch) {
+        content.push({
+          kind: 'content',
           path,
           block_name: node.name,
           intent,
@@ -68,7 +125,11 @@ export function findPlaceholders(blocks: BlockNode[]): PlaceholderRef[] {
     });
   };
   walk(blocks, '/blocks');
-  return out;
+  return { content, surfaces, errors };
+}
+
+export function findPlaceholders(blocks: BlockNode[]): PlaceholderRef[] {
+  return scanRefs(blocks).content.map(({ kind: _kind, ...ref }) => ref);
 }
 
 /** Resolve a /blocks/... pointer back to its node, or undefined. */

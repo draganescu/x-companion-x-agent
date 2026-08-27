@@ -16,18 +16,47 @@ export function toApiAspect(attr) {
     }
     return '16:9';
 }
-export function findPlaceholders(blocks) {
-    const out = [];
+/** Blocks whose background a surface may become, per mechanism. */
+const SURFACE_BLOCKS = {
+    'core/group': 'group_background',
+    'core/cover': 'cover',
+};
+/**
+ * ONE walk returning typed refs for both lanes. Content refs are exactly what
+ * findPlaceholders always returned; surface refs are surfaceIntent markers on
+ * groups and covers. A cover carrying both intent kinds is a schema error, not
+ * a runtime surprise — it lands in errors and joins neither lane.
+ */
+export function scanRefs(blocks) {
+    const content = [];
+    const surfaces = [];
+    const errors = [];
     const walk = (nodes, prefix) => {
         nodes.forEach((node, i) => {
             const path = `${prefix}/${i}`;
             const attrs = (node.attributes ?? {});
             const meta = attrs.metadata;
             const intent = typeof meta?.imageIntent === 'string' ? meta.imageIntent.trim() : '';
+            const surfaceIntent = typeof meta?.surfaceIntent === 'string' ? meta.surfaceIntent.trim() : '';
             const names = attrNames(node.name);
             const url = typeof attrs[names.url] === 'string' ? attrs[names.url] : '';
-            if (intent !== '' && PLACEHOLDER_URL.test(url)) {
-                out.push({
+            const contentMatch = intent !== '' && PLACEHOLDER_URL.test(url);
+            if (surfaceIntent !== '' && intent !== '') {
+                errors.push(`${path}: carries both imageIntent and surfaceIntent — one intent kind per node`);
+            }
+            else if (surfaceIntent !== '') {
+                const mechanism = SURFACE_BLOCKS[node.name];
+                if (!mechanism) {
+                    errors.push(`${path}: surfaceIntent on ${node.name} — a surface lands only on core/group or core/cover`);
+                }
+                else {
+                    const reservation = typeof attrs.backgroundColor === 'string' ? attrs.backgroundColor : null;
+                    surfaces.push({ kind: 'surface', path, block_name: node.name, asset_id: surfaceIntent, mechanism, reservation });
+                }
+            }
+            else if (contentMatch) {
+                content.push({
+                    kind: 'content',
                     path,
                     block_name: node.name,
                     intent,
@@ -43,7 +72,10 @@ export function findPlaceholders(blocks) {
         });
     };
     walk(blocks, '/blocks');
-    return out;
+    return { content, surfaces, errors };
+}
+export function findPlaceholders(blocks) {
+    return scanRefs(blocks).content.map(({ kind: _kind, ...ref }) => ref);
 }
 /** Resolve a /blocks/... pointer back to its node, or undefined. */
 export function nodeAt(blocks, path) {
